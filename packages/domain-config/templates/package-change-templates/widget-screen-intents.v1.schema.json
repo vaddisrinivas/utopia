@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wonder.local/schemas/widget-screen-intents.v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "intents"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wonder.package-change-template-registry.v1"
+    },
+    "intents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "form",
+        "board",
+        "feed",
+        "poll",
+        "checklist",
+        "calendar",
+        "timeline",
+        "gallery",
+        "media",
+        "link",
+        "map",
+        "chart",
+        "screen"
+      ],
+      "properties": {
+        "form": {
+          "$ref": "#/$defs/entry"
+        },
+        "board": {
+          "$ref": "#/$defs/entry"
+        },
+        "feed": {
+          "$ref": "#/$defs/entry"
+        },
+        "poll": {
+          "$ref": "#/$defs/entry"
+        },
+        "checklist": {
+          "$ref": "#/$defs/entry"
+        },
+        "calendar": {
+          "$ref": "#/$defs/entry"
+        },
+        "timeline": {
+          "$ref": "#/$defs/entry"
+        },
+        "gallery": {
+          "$ref": "#/$defs/entry"
+        },
+        "media": {
+          "$ref": "#/$defs/entry"
+        },
+        "link": {
+          "$ref": "#/$defs/entry"
+        },
+        "map": {
+          "$ref": "#/$defs/entry"
+        },
+        "chart": {
+          "$ref": "#/$defs/entry"
+        },
+        "screen": {
+          "$ref": "#/$defs/entry"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "widget",
+        "viewMode",
+        "tone",
+        "subtitle",
+        "props"
+      ],
+      "properties": {
+        "widget": {
+          "enum": [
+            "assistantChat",
+            "healthConnect",
+            "schemaEditor",
+            "widgetCatalog",
+            "postCard",
+            "pollCard",
+            "linkPreview",
+            "feedList",
+            "kanbanBoard",
+            "smartCapture",
+            "chartBlock",
+            "mediaBlock",
+            "mapBlock",
+            "formCard",
+            "checklistCard",
+            "calendarBlock",
+            "timelineBlock",
+            "galleryGrid",
+            "dataTable",
+            "permissionCard",
+            "providerStatus",
+            "themePreview",
+            "themeDensitySelector",
+            "aiProviderSettings",
+            "foodHero",
+            "useFirstCarousel",
+            "mealTimeline",
+            "recipeCard",
+            "receiptReviewCard",
+            "pantryShelf",
+            "askFoodBar"
+          ]
+        },
+        "viewMode": {
+          "enum": [
+            "list",
+            "board",
+            "table",
+            "calendar",
+            "timeline",
+            "chart"
+          ]
+        },
+        "tone": {
+          "enum": [
+            "neutral",
+            "moss",
+            "amber",
+            "plum",
+            "blue"
+          ]
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "text",
+                  "number",
+                  "boolean",
+                  "timestamp",
+                  "json"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "indexed": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "props": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

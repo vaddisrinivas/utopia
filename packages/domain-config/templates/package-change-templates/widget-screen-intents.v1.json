@@ -1,0 +1,175 @@
+{
+  "schema_version": "wonder.package-change-template-registry.v1",
+  "intents": {
+    "form": {
+      "widget": "formCard",
+      "viewMode": "table",
+      "tone": "moss",
+      "subtitle": "Collect structured data without hand-built screens.",
+      "fields": {
+        "answers": { "type": "json" }
+      },
+      "props": {
+        "fields": [
+          { "label": "Title", "subtitle": "Short text" },
+          { "label": "Status", "subtitle": "Choice" },
+          { "label": "Notes", "subtitle": "Long text" }
+        ]
+      }
+    },
+    "board": {
+      "widget": "kanbanBoard",
+      "viewMode": "board",
+      "tone": "blue",
+      "subtitle": "Kanban-quality grouped records from config.",
+      "props": {
+        "columns": [
+          { "title": "Ideas", "items": [{ "title": "Plan {{label}}" }] },
+          { "title": "Doing", "items": [] },
+          { "title": "Done", "items": [] }
+        ]
+      }
+    },
+    "feed": {
+      "widget": "feedList",
+      "viewMode": "list",
+      "tone": "moss",
+      "subtitle": "Posts, updates, links, comments, and activity.",
+      "props": {
+        "items": [{ "title": "{{label}} update", "subtitle": "Feed item from package config" }]
+      }
+    },
+    "poll": {
+      "widget": "pollCard",
+      "viewMode": "list",
+      "tone": "amber",
+      "subtitle": "Voting and choice UI as a safe package primitive.",
+      "fields": {
+        "options": { "type": "json" },
+        "votes": { "type": "json" }
+      },
+      "props": {
+        "options": [{ "label": "Yes" }, { "label": "No" }, { "label": "Maybe" }]
+      }
+    },
+    "checklist": {
+      "widget": "checklistCard",
+      "viewMode": "list",
+      "tone": "amber",
+      "subtitle": "Tasks, inspections, packing, routines, and step-by-step work.",
+      "fields": {
+        "items": { "type": "json" },
+        "completed_count": { "type": "number" },
+        "due_at": { "type": "timestamp" }
+      },
+      "props": {
+        "items": [{ "title": "Capture" }, { "title": "Review" }, { "title": "Done" }]
+      }
+    },
+    "calendar": {
+      "widget": "calendarBlock",
+      "viewMode": "calendar",
+      "tone": "blue",
+      "subtitle": "Schedules and events as package data.",
+      "fields": {
+        "starts_at": { "type": "timestamp", "indexed": true },
+        "ends_at": { "type": "timestamp" }
+      },
+      "props": {
+        "events": [{ "title": "{{label}}", "subtitle": "First scheduled item", "when": "Soon" }]
+      }
+    },
+    "timeline": {
+      "widget": "timelineBlock",
+      "viewMode": "timeline",
+      "tone": "amber",
+      "subtitle": "History, provenance, and milestones.",
+      "fields": {
+        "happened_at": { "type": "timestamp", "indexed": true }
+      },
+      "props": {
+        "items": [
+          { "title": "Created", "subtitle": "Added by package diff" },
+          { "title": "Next", "subtitle": "Add real events" }
+        ]
+      }
+    },
+    "gallery": {
+      "widget": "galleryGrid",
+      "viewMode": "list",
+      "tone": "plum",
+      "subtitle": "Visual collections for images and assets.",
+      "fields": {
+        "media": { "type": "json" },
+        "url": { "type": "text" }
+      },
+      "props": {
+        "items": [
+          { "title": "Photo", "emoji": "◼︎" },
+          { "title": "Clip", "emoji": "▶︎" },
+          { "title": "Doc", "emoji": "◇" }
+        ]
+      }
+    },
+    "media": {
+      "widget": "mediaBlock",
+      "viewMode": "list",
+      "tone": "plum",
+      "subtitle": "Video, audio, image, and link surfaces.",
+      "fields": {
+        "media": { "type": "json" },
+        "url": { "type": "text" }
+      },
+      "props": {
+        "body": "Drop video, audio, image, or link records into this package collection."
+      }
+    },
+    "link": {
+      "widget": "linkPreview",
+      "viewMode": "list",
+      "tone": "blue",
+      "subtitle": "Bookmarks, YouTube, recipes, docs, and source previews.",
+      "fields": {
+        "url": { "type": "text", "indexed": true },
+        "preview": { "type": "json" }
+      },
+      "props": {
+        "url": "https://example.com",
+        "subtitle": "Safe URL preview surface."
+      }
+    },
+    "map": {
+      "widget": "mapBlock",
+      "viewMode": "list",
+      "tone": "blue",
+      "subtitle": "Places, stores, routes, homes, and field work.",
+      "fields": {
+        "location": { "type": "json" },
+        "address": { "type": "text" }
+      },
+      "props": {
+        "body": "Render places, stores, routes, homes, or field work from package data."
+      }
+    },
+    "chart": {
+      "widget": "chartBlock",
+      "viewMode": "chart",
+      "tone": "blue",
+      "subtitle": "Numbers, trends, budgets, signals, and reports.",
+      "fields": {
+        "value": { "type": "number", "indexed": true },
+        "series": { "type": "json" }
+      },
+      "props": {
+        "points": [{ "label": "A", "value": 4 }, { "label": "B", "value": 8 }, { "label": "C", "value": 5 }]
+      }
+    },
+    "screen": {
+      "widget": "dataTable",
+      "viewMode": "table",
+      "tone": "moss",
+      "subtitle": "A generated JSON-render screen.",
+      "props": {}
+    }
+  }
+}

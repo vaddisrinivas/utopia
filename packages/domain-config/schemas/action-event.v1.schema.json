@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.app/schemas/action-event.v1.schema.json",
+  "title": "Utopia action-event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "domain",
+    "actor",
+    "tool",
+    "status",
+    "record_ids",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "utopia.action-event.v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1
+    },
+    "record_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["low", "standard", "sensitive", "irreversible", "restricted"]
+    },
+    "before_json": {
+      "type": ["object", "null"]
+    },
+    "after_json": {
+      "type": ["object", "null"]
+    },
+    "undo_payload_json": {
+      "type": ["object", "null"]
+    },
+    "idempotency_key": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "running", "completed", "failed", "cancelled"]
+    },
+    "undo_deadline_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "conversation_id": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

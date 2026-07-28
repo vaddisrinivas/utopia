@@ -1,0 +1,7 @@
+id,collection,title,state,quantity,unit,location,best_by,product_id,lot_id,movement_type,reason,food_detail_json
+food_item-example,food_item,Food Item,Template,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+product-example,product,Product,Template,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+inventory-example,inventory,Inventory,Template,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+inventory_lot-example,inventory_lot,Inventory Lot,Template,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+inventory_movement-example,inventory_movement,Inventory Movement,Template,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+ingredient-example,ingredient,Ingredient,Template,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"

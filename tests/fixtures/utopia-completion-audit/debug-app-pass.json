@@ -1,0 +1,39 @@
+{
+  "schema_version": "utopia.v1.acceptance-registry",
+  "generated_at": "2026-07-26",
+  "source": "tests/fixtures/utopia-completion-audit/debug-app-pass.json",
+  "acceptance_modes": [
+    {
+      "id": "debug_app",
+      "label": "Debug app acceptance",
+      "status": "accepted",
+      "summary": "Debug app gates are green."
+    },
+    {
+      "id": "signed_release",
+      "label": "Signed release acceptance",
+      "status": "blocked",
+      "summary": "Release signing stays separate."
+    }
+  ],
+  "issues": [
+    {
+      "id": "P0-01",
+      "priority": "P0",
+      "status": "RESOLVED",
+      "summary": "P0 is closed."
+    },
+    {
+      "id": "P1-03",
+      "priority": "P1",
+      "status": "RESOLVED",
+      "summary": "P1 is closed."
+    },
+    {
+      "id": "P2-10",
+      "priority": "P2",
+      "status": "OPEN",
+      "summary": "P2 remains open but does not block debug app acceptance."
+    }
+  ]
+}

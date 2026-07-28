@@ -1,0 +1,7 @@
+Utopia is a local-first Android food workspace for kitchen inventory, shopping, recipes, meal plans, meal logs, receipts, and optional Health Connect integration.
+
+It keeps food data practical and reviewable. Manual forms, CSV import/export, deterministic receipt parsing, Android shares, and command links work without an in-app LLM. When AI or another app proposes a change, Utopia stages it as an editable draft before anything is saved.
+
+Track fridge, freezer, pantry, lots, expiry, prices, notes, images, nutrition, meal plans, shopping lists, receipts, and recipe matches in one workspace. Unknown nutrition remains unknown instead of being silently treated as zero.
+
+Optional integrations include encrypted Google Drive app-data backup, Health Connect permissions, and user-selected AI providers. Android automatic backup is disabled; explicit backup archives are encrypted before upload.

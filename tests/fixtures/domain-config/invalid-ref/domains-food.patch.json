@@ -1,0 +1,7 @@
+[
+  {
+    "op": "add",
+    "path": "/workflows/-",
+    "value": "missing_workflow_ref"
+  }
+]

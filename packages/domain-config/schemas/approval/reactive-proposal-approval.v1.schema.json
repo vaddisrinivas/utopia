@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.local/schemas/approval/reactive-proposal-approval.v1.schema.json",
+  "title": "Utopia reactive proposal approval receipt v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "workspace_id",
+    "actor",
+    "local_actor",
+    "authority",
+    "proposal_id",
+    "action_id",
+    "idempotency_key",
+    "proposal_hash",
+    "operation_hash",
+    "operation_template_hash",
+    "targets",
+    "scope",
+    "created_at",
+    "expires_at",
+    "decision",
+    "source"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wonder.reactive-proposal-approval.v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^approval:[A-Za-z0-9._:-]+$"
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "local_actor": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^proposal-[A-Za-z0-9._:-]+$"
+    },
+    "action_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^reactive-proposal:[A-Za-z0-9._:-]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "proposal_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "operation_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "operation_template_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "revoked": {
+      "type": "boolean",
+      "default": false
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "before_revision",
+          "after_revision",
+          "before_version_vector",
+          "after_version_vector"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "before_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "after_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "before_version_vector": {
+            "type": "string",
+            "minLength": 1
+          },
+          "after_version_vector": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "workspace_id",
+        "package_id",
+        "package_version",
+        "domain",
+        "collection",
+        "operation"
+      ],
+      "properties": {
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "package_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "collection": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["custom", "create_record", "update_record", "archive_record", "restore_record"]
+        },
+        "version_vector": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "actor",
+        "outcome",
+        "method",
+        "approved_at"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "outcome": {
+          "enum": ["approved", "rejected"]
+        },
+        "method": {
+          "enum": ["manual", "automated"]
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "kind",
+        "issued_by",
+        "actor",
+        "workspace_id",
+        "capability"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["runtime", "local_tool", "agent"]
+        },
+        "issued_by": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "capability": {
+          "type": "string",
+          "enum": [
+            "reactive:propose:create_record",
+            "reactive:propose:update_record",
+            "reactive:propose:archive_record",
+            "reactive:propose:restore_record",
+            "reactive:propose:custom"
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,423 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.app/schemas/food-detail.v1.schema.json",
+  "title": "Utopia Food rich detail",
+  "type": "object",
+  "required": ["nutrition", "ingredients", "instructions", "logs", "variations"],
+  "properties": {
+    "nutrition": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pair" }
+    },
+    "ingredients": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ingredient" }
+    },
+    "instructions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "logs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pair" }
+    },
+    "variations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "products": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/product" }
+    },
+    "lots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/inventory_lot" }
+    },
+    "movements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/inventory_movement" }
+    },
+    "recipe": {
+      "$ref": "#/$defs/recipe_detail"
+    },
+    "meal": {
+      "$ref": "#/$defs/meal_detail"
+    },
+    "shopping": {
+      "$ref": "#/$defs/shopping_detail"
+    },
+    "purchase": {
+      "$ref": "#/$defs/purchase_detail"
+    },
+    "nutrition_profile": {
+      "$ref": "#/$defs/nutrition_profile"
+    },
+    "provenance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provenance" }
+    },
+    "audit": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/audit_event" }
+    }
+  },
+  "$defs": {
+    "pair": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "string", "minLength": 1 },
+        { "type": "string", "minLength": 1 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "ingredient": {
+      "type": "object",
+      "required": ["name", "amount", "state"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "amount": { "type": "string" },
+        "state": { "enum": ["available", "needed", "shopping", "previous"] },
+        "food_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "section": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 },
+        "preparation": { "type": "string" },
+        "optional": { "type": "boolean" },
+        "substitution_group": { "type": "string" },
+        "scaling": { "enum": ["linear", "fixed", "to_taste"] },
+        "confidence": { "enum": ["confirmed", "estimated", "inferred"] }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "food_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "household_id": { "type": "string" },
+        "aliases": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "form": { "type": "string" },
+        "default_unit": { "type": "string" },
+        "dietary_tags": { "type": "array", "items": { "type": "string" } },
+        "allergen_tags": { "type": "array", "items": { "type": "string" } },
+        "external_refs": {
+          "type": "object",
+          "properties": {
+            "usda_fdc_id": { "type": "string" },
+            "open_food_facts_id": { "type": "string" },
+            "gtin": { "type": "string" },
+            "gs1_digital_link": { "type": "string" },
+            "foodon_uri": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "quantity": {
+      "type": "object",
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "unit_code": { "type": "string" },
+        "display_text": { "type": "string" },
+        "base_value": { "type": ["number", "null"] },
+        "base_unit_code": { "type": "string" },
+        "conversion_source": { "type": "string" },
+        "confidence": { "enum": ["confirmed", "estimated", "inferred"] }
+      },
+      "additionalProperties": false
+    },
+    "money": {
+      "type": "object",
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "minLength": 3, "maxLength": 3 }
+      },
+      "additionalProperties": false
+    },
+    "product": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "minLength": 1 },
+        "brand": { "type": "string" },
+        "gtin": { "type": "string" },
+        "package_quantity": { "$ref": "#/$defs/quantity" },
+        "ingredients_label": { "type": "string" },
+        "image_url": { "type": "string" },
+        "market": { "type": "string" },
+        "nutrition_profile_id": { "type": "string" },
+        "source": { "$ref": "#/$defs/provenance" }
+      },
+      "additionalProperties": false
+    },
+    "inventory_lot": {
+      "type": "object",
+      "required": ["id", "state"],
+      "properties": {
+        "id": { "type": "string" },
+        "food_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "location": { "type": "string" },
+        "quantity": { "$ref": "#/$defs/quantity" },
+        "acquired_at": { "type": "string" },
+        "opened_at": { "type": "string" },
+        "frozen_at": { "type": "string" },
+        "best_before": { "type": "string" },
+        "use_by": { "type": "string" },
+        "lot_code": { "type": "string" },
+        "purchase_line_id": { "type": "string" },
+        "unit_cost": { "$ref": "#/$defs/money" },
+        "state": { "enum": ["sealed", "open", "frozen", "depleted", "wasted", "archived"] }
+      },
+      "additionalProperties": false
+    },
+    "inventory_movement": {
+      "type": "object",
+      "required": ["type", "quantity"],
+      "properties": {
+        "id": { "type": "string" },
+        "lot_id": { "type": "string" },
+        "food_id": { "type": "string" },
+        "type": { "enum": ["acquisition", "consumption", "adjustment", "transfer", "waste", "return", "archive"] },
+        "quantity": { "$ref": "#/$defs/quantity" },
+        "occurred_at": { "type": "string" },
+        "from_location": { "type": "string" },
+        "to_location": { "type": "string" },
+        "cause_id": { "type": "string" },
+        "actor": { "type": "string" },
+        "idempotency_key": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "recipe_detail": {
+      "type": "object",
+      "properties": {
+        "state": { "enum": ["inbox", "want_to_try", "favorite", "regular", "archived"] },
+        "servings": { "type": "number" },
+        "prep_minutes": { "type": "number" },
+        "cook_minutes": { "type": "number" },
+        "total_minutes": { "type": "number" },
+        "difficulty": { "type": "string" },
+        "estimated_cost": { "$ref": "#/$defs/money" },
+        "rating": { "type": "number" },
+        "current_revision_id": { "type": "string" },
+        "source_url": { "type": "string" },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/recipe_step" } },
+        "tools": { "type": "array", "items": { "$ref": "#/$defs/recipe_tool" } },
+        "revisions": { "type": "array", "items": { "$ref": "#/$defs/recipe_revision" } }
+      },
+      "additionalProperties": false
+    },
+    "recipe_step": {
+      "type": "object",
+      "required": ["instruction"],
+      "properties": {
+        "id": { "type": "string" },
+        "section": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "instruction": { "type": "string", "minLength": 1 },
+        "duration_seconds": { "type": "number" },
+        "timer_seconds": { "type": "number" },
+        "temperature": { "type": "string" },
+        "referenced_ingredient_ids": { "type": "array", "items": { "type": "string" } },
+        "media_url": { "type": "string" },
+        "safety_note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "recipe_tool": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "required": { "type": "boolean" },
+        "quantity": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "recipe_revision": {
+      "type": "object",
+      "required": ["id", "revision"],
+      "properties": {
+        "id": { "type": "string" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "derived_from_revision_id": { "type": "string" },
+        "reason": { "type": "string" },
+        "creator": { "type": "string" },
+        "servings": { "type": "number" },
+        "content_hash": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "meal_detail": {
+      "type": "object",
+      "properties": {
+        "plan_id": { "type": "string" },
+        "scheduled_for": { "type": "string" },
+        "timezone": { "type": "string" },
+        "slot": { "type": "string" },
+        "recipe_id": { "type": "string" },
+        "pinned_recipe_revision_id": { "type": "string" },
+        "servings": { "type": "number" },
+        "people_count": { "type": "number" },
+        "state": { "enum": ["idea", "planned", "prepping", "cooking", "served", "eaten", "skipped"] },
+        "leftover_source_id": { "type": "string" },
+        "consumption": { "type": "array", "items": { "$ref": "#/$defs/meal_consumption" } }
+      },
+      "additionalProperties": false
+    },
+    "meal_consumption": {
+      "type": "object",
+      "properties": {
+        "member_id": { "type": "string" },
+        "consumed_at": { "type": "string" },
+        "servings": { "type": "number" },
+        "nutrition_profile_id": { "type": "string" },
+        "health_connect_external_id": { "type": "string" },
+        "sync_state": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "shopping_detail": {
+      "type": "object",
+      "properties": {
+        "list_id": { "type": "string" },
+        "store": { "type": "string" },
+        "aisle": { "type": "string" },
+        "priority": { "type": "string" },
+        "state": { "enum": ["need", "in_cart", "bought", "skipped"] },
+        "requested_quantity": { "$ref": "#/$defs/quantity" },
+        "purchased_quantity": { "$ref": "#/$defs/quantity" },
+        "demands": { "type": "array", "items": { "$ref": "#/$defs/shopping_demand" } }
+      },
+      "additionalProperties": false
+    },
+    "shopping_demand": {
+      "type": "object",
+      "required": ["source_type", "reason"],
+      "properties": {
+        "source_type": { "enum": ["recipe_ingredient", "meal_plan", "low_stock", "manual", "automation"] },
+        "source_id": { "type": "string" },
+        "food_id": { "type": "string" },
+        "quantity": { "$ref": "#/$defs/quantity" },
+        "after_pantry_subtraction": { "$ref": "#/$defs/quantity" },
+        "reason": { "type": "string" },
+        "generation_run_id": { "type": "string" },
+        "state": { "enum": ["open", "satisfied", "cancelled"] }
+      },
+      "additionalProperties": false
+    },
+    "purchase_detail": {
+      "type": "object",
+      "properties": {
+        "merchant": { "type": "string" },
+        "store_location": { "type": "string" },
+        "purchased_at": { "type": "string" },
+        "currency": { "type": "string" },
+        "subtotal": { "$ref": "#/$defs/money" },
+        "tax": { "$ref": "#/$defs/money" },
+        "discount": { "$ref": "#/$defs/money" },
+        "tip": { "$ref": "#/$defs/money" },
+        "fees": { "$ref": "#/$defs/money" },
+        "total": { "$ref": "#/$defs/money" },
+        "state": { "enum": ["draft", "needs_review", "confirmed", "returned"] },
+        "lines": { "type": "array", "items": { "$ref": "#/$defs/purchase_line" } }
+      },
+      "additionalProperties": false
+    },
+    "purchase_line": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "id": { "type": "string" },
+        "shopping_item_id": { "type": "string" },
+        "food_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "label": { "type": "string" },
+        "quantity": { "$ref": "#/$defs/quantity" },
+        "package_quantity": { "$ref": "#/$defs/quantity" },
+        "unit_price": { "$ref": "#/$defs/money" },
+        "list_price": { "$ref": "#/$defs/money" },
+        "discount": { "$ref": "#/$defs/money" },
+        "tax_allocation": { "$ref": "#/$defs/money" },
+        "line_total": { "$ref": "#/$defs/money" },
+        "category": { "type": "string" },
+        "return_state": { "type": "string" },
+        "created_inventory_lot_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "nutrition_profile": {
+      "type": "object",
+      "properties": {
+        "basis": { "enum": ["per_serving", "per_100g", "per_package", "per_recipe", "per_meal", "observed"] },
+        "serving": { "$ref": "#/$defs/quantity" },
+        "energy_kcal": { "type": "number" },
+        "protein_g": { "type": "number" },
+        "carbs_g": { "type": "number" },
+        "fat_g": { "type": "number" },
+        "fiber_g": { "type": "number" },
+        "sodium_mg": { "type": "number" },
+        "confidence": { "enum": ["confirmed", "estimated", "inferred"] },
+        "source": { "$ref": "#/$defs/provenance" },
+        "nutrients": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "value", "unit"],
+            "properties": {
+              "code": { "type": "string" },
+              "label": { "type": "string" },
+              "value": { "type": "number" },
+              "unit": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "external_id": { "type": "string" },
+        "url": { "type": "string" },
+        "author": { "type": "string" },
+        "license_url": { "type": "string" },
+        "observed_at": { "type": "string" },
+        "content_hash": { "type": "string" },
+        "confidence": { "enum": ["confirmed", "estimated", "inferred"] },
+        "human_confirmed": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "audit_event": {
+      "type": "object",
+      "required": ["event", "observed_at"],
+      "properties": {
+        "event": { "type": "string" },
+        "actor": { "type": "string" },
+        "before_version": { "type": "integer" },
+        "after_version": { "type": "integer" },
+        "source_ids": { "type": "array", "items": { "type": "string" } },
+        "idempotency_key": { "type": "string" },
+        "observed_at": { "type": "string" },
+        "undo_until": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

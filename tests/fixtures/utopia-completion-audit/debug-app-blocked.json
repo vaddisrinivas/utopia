@@ -1,0 +1,33 @@
+{
+  "schema_version": "utopia.v1.acceptance-registry",
+  "generated_at": "2026-07-26",
+  "source": "tests/fixtures/utopia-completion-audit/debug-app-blocked.json",
+  "acceptance_modes": [
+    {
+      "id": "debug_app",
+      "label": "Debug app acceptance",
+      "status": "not_accepted",
+      "summary": "P1 blockers remain."
+    },
+    {
+      "id": "signed_release",
+      "label": "Signed release acceptance",
+      "status": "blocked",
+      "summary": "Release signing stays separate."
+    }
+  ],
+  "issues": [
+    {
+      "id": "P0-01",
+      "priority": "P0",
+      "status": "RESOLVED",
+      "summary": "P0 is closed."
+    },
+    {
+      "id": "P1-03",
+      "priority": "P1",
+      "status": "OPEN",
+      "summary": "P1 is still open."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.app/schemas/chat-send-request.v1.schema.json",
+  "title": "Utopia chat send request",
+  "type": "object",
+  "anyOf": [
+    { "required": ["thread_id"] },
+    { "required": ["conversation_id"] }
+  ],
+  "required": ["message"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "utopia.chat-send-request.v1"
+    },
+    "thread_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "conversation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "required": ["text"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "plan_hint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["send", "stream", "preview"]
+    },
+    "preview": {
+      "type": "boolean"
+    },
+    "domain_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "previous_response_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retry_of": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,6 @@
+id,collection,title,servings,prep_minutes,cook_minutes,step_order,ingredient_state,nutrition_profile_id,food_detail_json
+recipe-example,recipe,Recipe,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+recipe_revision-example,recipe_revision,Recipe Revision,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+recipe_step-example,recipe_step,Recipe Step,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+recipe_tool-example,recipe_tool,Recipe Tool,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+nutrition_profile-example,nutrition_profile,Nutrition Profile,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"

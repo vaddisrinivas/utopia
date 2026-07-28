@@ -1,0 +1,371 @@
+{
+  "$schema": "../schemas/domain.v1.schema.json",
+  "schema_version": "utopia.domain.v1",
+  "id": "health",
+  "label": "Health",
+  "home_surface": "health.overview",
+  "surfaces": [
+    {
+      "id": "health.overview",
+      "label": "Overview",
+      "views": [
+        "today",
+        "trends",
+        "exceptions"
+      ],
+      "collections": [
+        "health_observation",
+        "health_goal"
+      ]
+    },
+    {
+      "id": "health.journal",
+      "label": "Journal",
+      "views": [
+        "timeline",
+        "notes"
+      ],
+      "collections": [
+        "health_observation",
+        "health_note"
+      ]
+    },
+    {
+      "id": "health.plans",
+      "label": "Plans",
+      "views": [
+        "active",
+        "review"
+      ],
+      "collections": [
+        "health_goal",
+        "health_plan"
+      ]
+    }
+  ],
+  "collections": [
+    "health_observation",
+    "health_measurement",
+    "health_goal",
+    "health_plan",
+    "health_note",
+    "source_record"
+  ],
+  "visual_identity": {
+    "domain": {
+      "emoji": "♡",
+      "accent": "plum"
+    },
+    "surfaces": {
+      "health.overview": {
+        "emoji": "🫀",
+        "accent": "plum"
+      },
+      "health.journal": {
+        "emoji": "📓",
+        "accent": "blue"
+      },
+      "health.plans": {
+        "emoji": "🎯",
+        "accent": "moss"
+      }
+    },
+    "collections": {
+      "health_observation": {
+        "emoji": "🩺",
+        "accent": "plum"
+      },
+      "health_measurement": {
+        "emoji": "📈",
+        "accent": "blue"
+      },
+      "health_goal": {
+        "emoji": "🎯",
+        "accent": "moss"
+      },
+      "health_plan": {
+        "emoji": "🗺️",
+        "accent": "moss"
+      },
+      "health_note": {
+        "emoji": "📝",
+        "accent": "amber"
+      },
+      "source_record": {
+        "emoji": "🔗",
+        "accent": "neutral"
+      }
+    },
+    "statuses": {
+      "active": {
+        "emoji": "✅",
+        "accent": "moss"
+      },
+      "review": {
+        "emoji": "👀",
+        "accent": "amber"
+      },
+      "attention": {
+        "emoji": "❗",
+        "accent": "plum"
+      },
+      "synced": {
+        "emoji": "🔄",
+        "accent": "blue"
+      }
+    },
+    "actions": {
+      "home": {
+        "emoji": "⌂",
+        "accent": "moss"
+      },
+      "add_record": {
+        "emoji": "＋",
+        "accent": "moss"
+      },
+      "capture": {
+        "emoji": "＋",
+        "accent": "moss"
+      },
+      "ask_with_collection": {
+        "emoji": "✦",
+        "accent": "plum"
+      },
+      "chat": {
+        "emoji": "✦",
+        "accent": "plum"
+      },
+      "search": {
+        "emoji": "⌕",
+        "accent": "blue"
+      },
+      "open_sources": {
+        "emoji": "🔗",
+        "accent": "neutral"
+      },
+      "settings": {
+        "emoji": "⚙",
+        "accent": "neutral"
+      },
+      "add_domain": {
+        "emoji": "＋",
+        "accent": "plum"
+      },
+      "review": {
+        "emoji": "👀",
+        "accent": "amber"
+      },
+      "refresh": {
+        "emoji": "↻",
+        "accent": "blue"
+      },
+      "capture_note": {
+        "emoji": "📝",
+        "accent": "neutral"
+      },
+      "capture_food": {
+        "emoji": "♡",
+        "accent": "plum"
+      },
+      "capture_photo": {
+        "emoji": "▧",
+        "accent": "blue"
+      },
+      "capture_receipt": {
+        "emoji": "🧾",
+        "accent": "plum"
+      },
+      "capture_voice": {
+        "emoji": "◖",
+        "accent": "amber"
+      },
+      "capture_link": {
+        "emoji": "⌁",
+        "accent": "blue"
+      }
+    },
+    "sources": {
+      "notion": {
+        "emoji": "◨",
+        "accent": "neutral"
+      },
+      "google_sheets": {
+        "emoji": "▦",
+        "accent": "moss"
+      },
+      "sqlite": {
+        "emoji": "▣",
+        "accent": "blue"
+      },
+      "postgres": {
+        "emoji": "⬢",
+        "accent": "plum"
+      },
+      "web": {
+        "emoji": "🌐",
+        "accent": "blue"
+      },
+      "health_connect": {
+        "emoji": "🩺",
+        "accent": "plum"
+      },
+      "user": {
+        "emoji": "🙂",
+        "accent": "moss"
+      }
+    },
+    "skills": {
+      "health": {
+        "emoji": "♡",
+        "accent": "plum"
+      },
+      "source_verifier": {
+        "emoji": "🔎",
+        "accent": "blue"
+      }
+    },
+    "agents": {
+      "health_brain": {
+        "emoji": "✦",
+        "accent": "plum"
+      },
+      "source_steward": {
+        "emoji": "🔗",
+        "accent": "blue"
+      }
+    }
+  },
+  "relations": [
+    {
+      "from": "health_measurement",
+      "to": "health_observation",
+      "name": "measures"
+    },
+    {
+      "from": "health_observation",
+      "to": "health_goal",
+      "name": "supports"
+    },
+    {
+      "from": "health_plan",
+      "to": "health_goal",
+      "name": "advances"
+    },
+    {
+      "from": "source_record",
+      "to": "*",
+      "name": "supports"
+    }
+  ],
+  "skills": [
+    "health"
+  ],
+  "workflows": [],
+  "data_homes": [
+    "notion",
+    "google_sheets",
+    "sqlite",
+    "postgres"
+  ],
+  "render": {
+    "answer_label": "Health",
+    "empty_intro": "No matching local Health records were loaded. Connect Health Connect, Notion, Sheets, or add records, then ask again.",
+    "default_title": "Local Health answer",
+    "default_intro": "I found {count} local Health record{plural} tied to this question.",
+    "default_columns": [
+      "Record",
+      "Signal",
+      "Context"
+    ],
+    "default_fields": [
+      "title",
+      "status",
+      "body"
+    ],
+    "card_bullets": [
+      "status",
+      "body",
+      "meta"
+    ],
+    "source_quote_fields": [
+      "body",
+      "meta",
+      "status"
+    ],
+    "source_exclude_fields": [
+      "tone",
+      "food_detail"
+    ],
+    "intents": {
+      "today": {
+        "terms": [
+          "today",
+          "sleep",
+          "steps",
+          "heart",
+          "symptom",
+          "hydration",
+          "weight"
+        ],
+        "title": "Local Health signal",
+        "intro": "I found {count} local Health record{plural} with relevant signals and context.",
+        "columns": [
+          "Record",
+          "Signal",
+          "Context"
+        ],
+        "fields": [
+          "title",
+          "status",
+          "body"
+        ],
+        "boost_collections": [
+          "health_observation",
+          "health_measurement",
+          "health_note"
+        ]
+      },
+      "goals": {
+        "terms": [
+          "goal",
+          "plan",
+          "trend",
+          "progress",
+          "review"
+        ],
+        "title": "Local Health goals answer",
+        "intro": "I found {count} local Health goal/planning record{plural}.",
+        "columns": [
+          "Record",
+          "Status",
+          "Plan"
+        ],
+        "fields": [
+          "title",
+          "status",
+          "body"
+        ],
+        "boost_collections": [
+          "health_goal",
+          "health_plan"
+        ]
+      }
+    }
+  },
+  "mcp": {
+    "resources": [
+      "domain_manifest",
+      "schema",
+      "record",
+      "source_snapshot",
+      "conversation"
+    ],
+    "tools": [
+      "search",
+      "read_record",
+      "create_record",
+      "update_record",
+      "archive_record"
+    ]
+  }
+}

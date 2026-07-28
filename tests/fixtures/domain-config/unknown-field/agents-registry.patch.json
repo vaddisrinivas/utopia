@@ -1,0 +1,7 @@
+[
+  {
+    "op": "add",
+    "path": "/agents/0/experimental",
+    "value": true
+  }
+]

@@ -1,0 +1,57 @@
+{
+  "manifest": {
+    "schemaVersion": "utopia.plugin.v1",
+    "id": "utopia.link-preview",
+    "version": "1.0.0",
+    "pluginClass": "runtime",
+    "runtimeTargets": ["expo"],
+    "provides": {
+      "widgets": ["linkPreview"],
+      "tools": [],
+      "dataSources": [],
+      "backgroundTasks": []
+    },
+    "permissions": [],
+    "packageDependencies": [],
+    "fallback": {
+      "kind": "render",
+      "text": "Open the shared route link instead.",
+      "widget": "linkPreview"
+    }
+  },
+  "request": {
+    "runtimeTarget": "web",
+    "requiredCapabilities": ["widget:linkPreview"],
+    "optionalCapabilities": [],
+    "allowFallback": true
+  },
+  "expectedLock": {
+    "checksum": "sha256:8dcf9771de7dc014fe330f19d5f7cc3fcb28982739f7a55ad52ba6254dfaaddb",
+    "capabilities": ["widget:linkPreview"]
+  },
+  "renderProof": {
+    "title": "Plugin fallback",
+    "screen": "fallback",
+    "expectedText": "Open the shared route link instead.",
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "fallback",
+      "screens": {
+        "fallback": {
+          "title": "Fallback",
+          "components": [
+            {
+              "kind": "widget",
+              "id": "fallback-widget",
+              "widget": "unknown_widget",
+              "title": "Link preview",
+              "props": {
+                "fallbackText": "Open the shared route link instead."
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

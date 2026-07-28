@@ -1,0 +1,63 @@
+name: Expo quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expo-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Web and Android quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install server dependencies
+        run: npm ci --prefix server --no-audit --no-fund
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Validate domain package
+        run: npm run config:validate
+
+      - name: Day 1 acceptance gate
+        continue-on-error: true
+        run: npm run check:platform-day1
+
+      - name: Validate Expo dependencies
+        run: npm run doctor
+
+      - name: Export static web app
+        run: npm run export:web
+
+      - name: Export Android bundle
+        run: npm run export:android
+
+      - name: Upload export evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-exports
+          path: |
+            dist/web
+            dist/android
+          if-no-files-found: error

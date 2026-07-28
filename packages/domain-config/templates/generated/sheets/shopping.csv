@@ -1,0 +1,5 @@
+id,collection,title,state,store,aisle,requested_qty,purchased_qty,demand_reason,from_plan_id,food_detail_json
+shopping_list-example,shopping_list,Shopping List,Template,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+shopping_item-example,shopping_item,Shopping Item,Template,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+shopping_demand-example,shopping_demand,Shopping Demand,Template,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+store-example,store,Store,Template,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"

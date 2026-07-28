@@ -1,0 +1,4 @@
+section,status,next_action,link
+Today,Ready,"Open Food and review dinner, pantry risk and shopping gap",app://home
+Food,Ready,"Use Kitchen, Meals, Recipes, Shopping and Purchases",app://food
+Sources,Optional,Connect Notion or Sheets when wanted,app://sources

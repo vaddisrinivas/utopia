@@ -1,0 +1,28 @@
+{
+  "label": "Today",
+  "subtitle": "Current assignments and due items.",
+  "collections": ["assignment"],
+  "query": "today_assignments",
+  "mode": "list",
+  "fields": ["title", "assignee_name", "due_label"],
+  "components": [
+    {
+      "kind": "metric",
+      "title": "Open assignments",
+      "subtitle": "Current work queue",
+      "query": { "collections": ["assignment"], "limit": 8 },
+      "tone": "amber"
+    },
+    {
+      "kind": "recordList",
+      "title": "Due items",
+      "subtitle": "Current assignments",
+      "query": { "collections": ["assignment"], "limit": 6 },
+      "props": {
+        "emptyText": "No assignments due right now.",
+        "subtitleFields": ["assignee_name", "due_label"],
+        "iconField": "emoji"
+      }
+    }
+  ]
+}

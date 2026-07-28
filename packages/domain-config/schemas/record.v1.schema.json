@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.app/schemas/record.v1.schema.json",
+  "title": "Utopia canonical record",
+  "type": "object",
+  "required": ["id", "domain", "collection", "title", "properties", "relations", "source", "archived_at", "created_at", "updated_at", "revision", "schema_version", "deleted", "privacy", "provenance"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "domain": { "type": "string", "minLength": 1 },
+    "collection": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "properties": { "type": "object" },
+    "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
+    "source": { "$ref": "#/$defs/source" },
+    "archived_at": { "type": ["string", "null"], "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "revision": { "type": "integer", "minimum": 0 },
+    "schema_version": { "type": "string", "minLength": 1 },
+    "deleted": { "type": "boolean" },
+    "privacy": { "enum": ["private", "personal", "shared"] },
+    "provenance": { "anyOf": [{ "$ref": "#/$defs/provenance" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "relation": {
+      "type": "object",
+      "required": ["name", "target_id"],
+      "properties": { "name": { "type": "string" }, "target_id": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["provider", "external_id", "url", "observed_at", "content_hash"],
+      "properties": {
+        "provider": { "enum": ["notion", "google_sheets", "sqlite", "postgres", "web", "user"] },
+        "external_id": { "type": "string" },
+        "url": { "type": ["string", "null"], "format": "uri" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "content_hash": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["actor", "confidence", "evidence", "reason"],
+      "properties": {
+        "actor": { "enum": ["user", "ai", "import", "sync", "agent", "api", "workflow"] },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "reason": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

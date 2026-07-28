@@ -1,0 +1,33 @@
+name: Feature or improvement
+description: Propose a user outcome, not an implementation wish list
+title: "[Feature]: "
+labels: ["feature", "needs-triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Today, Kitchen, Plan, Recipes, Shop, AI, Receipt, Integration, Data, Release]
+    validations:
+      required: true
+  - type: textarea
+    id: job
+    attributes:
+      label: User job
+      description: What is the user trying to finish, and why is the current flow insufficient?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Proposed product contract
+      description: Include offline/no-LLM behavior, review/undo, and failure behavior where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: Observable behavior, tests, and physical-device checks required for Done.
+    validations:
+      required: true

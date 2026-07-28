@@ -1,0 +1,6 @@
+id,collection,title,date,meal_slot,status,recipe_id,member_id,portion,health_ref,food_detail_json
+meal_template-example,meal_template,Meal Template,,,Template,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+meal_plan-example,meal_plan,Meal Plan,,,Template,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+meal_log-example,meal_log,Meal Log,,,Template,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+meal_consumption-example,meal_consumption,Meal Consumption,,,Template,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+nutrition_observation-example,nutrition_observation,Nutrition Observation,,,Template,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"

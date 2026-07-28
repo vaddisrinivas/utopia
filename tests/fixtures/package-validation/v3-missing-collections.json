@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "wonder.app-package.v3",
+  "id": "reference-app",
+  "version": "1.1.0",
+  "queries": {
+    "tasks": {
+      "from": "tasks",
+      "limit": 10
+    }
+  },
+  "views": {
+    "tasks": {
+      "id": "tasks",
+      "query": "tasks",
+      "mode": "list",
+      "fields": [
+        "title"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [
+    "records.read"
+  ],
+  "acceptanceTests": [
+    "package-validation"
+  ],
+  "dependencyPins": [
+    {
+      "package": "@reference/core",
+      "version": "1.0.0",
+      "source": "npm"
+    }
+  ],
+  "nativeCapabilities": {
+    "schemaVersion": "wonder.app-package-native-capabilities.v1",
+    "platform": "expo",
+    "packages": [
+      "@reference/core"
+    ],
+    "permissions": [
+      "expo-sharing"
+    ],
+    "intents": [
+      {
+        "id": "share-link",
+        "platform": "expo",
+        "kind": "share",
+        "reason": "Share records from the package.",
+        "required": false,
+        "payload": {
+          "accepts": [
+            "url"
+          ]
+        }
+      }
+    ]
+  },
+  "contractLock": {
+    "schemaVersion": "wonder.package-contract-lock.v1",
+    "algorithm": "sha256",
+    "checksum": "sha256:283507d117933bd44fedc4ead6fa2512302ed9a6c5520449f9736606bce18de1",
+    "pinnedAt": "2026-07-27T00:00:00.000Z",
+    "dependencyPins": [
+      {
+        "package": "@reference/core",
+        "version": "1.0.0",
+        "source": "npm"
+      }
+    ],
+    "nativeCapabilities": {
+      "schemaVersion": "wonder.app-package-native-capabilities.v1",
+      "platform": "expo",
+      "packages": [
+        "@reference/core"
+      ],
+      "permissions": [
+        "expo-sharing"
+      ],
+      "intents": [
+        {
+          "id": "share-link",
+          "platform": "expo",
+          "kind": "share",
+          "reason": "Share records from the package.",
+          "required": false,
+          "payload": {
+            "accepts": [
+              "url"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+id,collection,merchant,purchased_at,line_title,qty,unit_price,subtotal,tax,discount,total,created_inventory_lot_id,attachment_url,food_detail_json
+purchase-example,purchase,,,,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+purchase_line-example,purchase_line,,,,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+attachment-example,attachment,,,,,,,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"

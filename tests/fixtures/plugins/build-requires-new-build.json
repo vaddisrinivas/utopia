@@ -1,0 +1,27 @@
+{
+  "manifest": {
+    "schemaVersion": "utopia.plugin.v1",
+    "id": "utopia.camera-capture",
+    "version": "2.0.0",
+    "pluginClass": "build",
+    "runtimeTargets": ["android", "ios"],
+    "provides": {
+      "widgets": ["camera"],
+      "tools": ["camera.capture"],
+      "dataSources": [],
+      "backgroundTasks": []
+    },
+    "permissions": ["camera"],
+    "packageDependencies": ["react-native-image-picker"]
+  },
+  "request": {
+    "runtimeTarget": "web",
+    "requiredCapabilities": ["widget:camera"],
+    "optionalCapabilities": [],
+    "allowFallback": true
+  },
+  "expectedLock": {
+    "checksum": "sha256:fbd1c8115cbfe4c77159a2c76467fe40445526b4bf5323bd2e2807ad6c602a01",
+    "capabilities": ["permission:camera", "tool:camera.capture", "widget:camera"]
+  }
+}

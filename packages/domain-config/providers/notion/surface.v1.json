@@ -1,0 +1,28 @@
+{
+  "provider": "notion",
+  "schema_version": "utopia.provider.surface.v1",
+  "name": "Notion Adapter Slice",
+  "supports": {
+    "typed_commands": [
+      "utopia.create_record",
+      "utopia.update_record",
+      "utopia.archive_record"
+    ],
+    "resolved_data_home": "notion"
+  },
+  "output_contract": {
+    "fields": [
+      "success",
+      "source_snapshot",
+      "provider_record_id",
+      "action_receipt"
+    ],
+    "required_source_snapshot": [
+      "provider",
+      "data_source_id",
+      "page_id",
+      "block_id",
+      "range"
+    ]
+  }
+}

@@ -1,0 +1,209 @@
+[
+  {
+    "id": "assignment-kitchen-reset",
+    "domain": "reference-app",
+    "collection": "assignment",
+    "title": "Kitchen reset",
+    "properties": {
+      "body": "Wipe counters and clear the sink.",
+      "meta": "Alex · Today",
+      "status": "Due",
+      "assignee_name": "Alex",
+      "due_label": "Today",
+      "emoji": "🧽"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "assignment-kitchen-reset",
+      "url": null,
+      "observed_at": "2026-07-27T12:00:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-26T12:00:00.000Z",
+    "updated_at": "2026-07-27T12:00:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "personal",
+    "provenance": null
+  },
+  {
+    "id": "assignment-laundry-fold",
+    "domain": "reference-app",
+    "collection": "assignment",
+    "title": "Fold laundry",
+    "properties": {
+      "body": "Bedroom basket is ready.",
+      "meta": "Jamie · Tomorrow",
+      "status": "Soon",
+      "assignee_name": "Jamie",
+      "due_label": "Tomorrow",
+      "emoji": "🧺"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "assignment-laundry-fold",
+      "url": null,
+      "observed_at": "2026-07-27T11:30:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-26T11:30:00.000Z",
+    "updated_at": "2026-07-27T11:30:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "personal",
+    "provenance": null
+  },
+  {
+    "id": "chore-kitchen-reset",
+    "domain": "reference-app",
+    "collection": "chore",
+    "title": "Kitchen reset",
+    "properties": {
+      "body": "Counters, sink, and table.",
+      "meta": "Daily",
+      "status": "Ready",
+      "frequency_label": "Daily",
+      "estimated_minutes": 15,
+      "emoji": "🧽"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "chore-kitchen-reset",
+      "url": null,
+      "observed_at": "2026-07-27T10:00:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-20T10:00:00.000Z",
+    "updated_at": "2026-07-27T10:00:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "personal",
+    "provenance": null
+  },
+  {
+    "id": "chore-laundry-fold",
+    "domain": "reference-app",
+    "collection": "chore",
+    "title": "Fold laundry",
+    "properties": {
+      "body": "Dry, fold, and put away one basket.",
+      "meta": "Weekly",
+      "status": "Ready",
+      "frequency_label": "Weekly",
+      "estimated_minutes": 30,
+      "emoji": "🧺"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "chore-laundry-fold",
+      "url": null,
+      "observed_at": "2026-07-27T09:45:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-19T09:45:00.000Z",
+    "updated_at": "2026-07-27T09:45:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "personal",
+    "provenance": null
+  },
+  {
+    "id": "member-alex",
+    "domain": "reference-app",
+    "collection": "household_member",
+    "title": "Alex",
+    "properties": {
+      "meta": "Coordinator",
+      "status": "Active",
+      "role": "Coordinator",
+      "active_assignments": 1,
+      "emoji": "🙂"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "member-alex",
+      "url": null,
+      "observed_at": "2026-07-27T08:30:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-10T08:30:00.000Z",
+    "updated_at": "2026-07-27T08:30:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "shared",
+    "provenance": null
+  },
+  {
+    "id": "member-jamie",
+    "domain": "reference-app",
+    "collection": "household_member",
+    "title": "Jamie",
+    "properties": {
+      "meta": "Support",
+      "status": "Active",
+      "role": "Support",
+      "active_assignments": 1,
+      "emoji": "🌤️"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "member-jamie",
+      "url": null,
+      "observed_at": "2026-07-27T08:00:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-10T08:00:00.000Z",
+    "updated_at": "2026-07-27T08:00:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "shared",
+    "provenance": null
+  },
+  {
+    "id": "completion-kitchen-reset",
+    "domain": "reference-app",
+    "collection": "completion",
+    "title": "Kitchen reset finished",
+    "properties": {
+      "meta": "Alex",
+      "status": "Done",
+      "completed_at": "2026-07-26",
+      "completed_by": "Alex",
+      "emoji": "✅"
+    },
+    "relations": [],
+    "source": {
+      "provider": "sqlite",
+      "external_id": "completion-kitchen-reset",
+      "url": null,
+      "observed_at": "2026-07-26T20:00:00.000Z",
+      "content_hash": null
+    },
+    "archived_at": null,
+    "created_at": "2026-07-26T20:00:00.000Z",
+    "updated_at": "2026-07-26T20:00:00.000Z",
+    "revision": 1,
+    "schema_version": "1.0.0",
+    "deleted": false,
+    "privacy": "shared",
+    "provenance": null
+  }
+]

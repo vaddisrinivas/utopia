@@ -1,0 +1,20 @@
+{
+  "label": "Review",
+  "subtitle": "Recent completions and theme preview.",
+  "collections": ["completion"],
+  "query": "completion_log",
+  "mode": "list",
+  "fields": ["title", "completed_at", "completed_by"],
+  "components": [
+    {
+      "kind": "widget",
+      "id": "review_theme",
+      "title": "Theme preview",
+      "subtitle": "Stable widget check for the compiler.",
+      "widget": "themePreview",
+      "props": {
+        "density": "compact"
+      }
+    }
+  ]
+}

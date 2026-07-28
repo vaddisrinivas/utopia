@@ -1,0 +1,31 @@
+{
+  "cli": {
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview-android": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production-android": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production-ios": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production-android": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    },
+    "production-ios": {}
+  }
+}

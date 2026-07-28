@@ -1,0 +1,27 @@
+{
+  "manifest": {
+    "schemaVersion": "utopia.plugin.v1",
+    "id": "utopia.quest-viewer",
+    "version": "3.1.0",
+    "pluginClass": "specialized",
+    "runtimeTargets": ["visionos", "quest"],
+    "provides": {
+      "widgets": ["scene3d"],
+      "tools": [],
+      "dataSources": [],
+      "backgroundTasks": []
+    },
+    "permissions": [],
+    "packageDependencies": ["@unity/core"]
+  },
+  "request": {
+    "runtimeTarget": "web",
+    "requiredCapabilities": ["widget:scene3d"],
+    "optionalCapabilities": [],
+    "allowFallback": false
+  },
+  "expectedLock": {
+    "checksum": "sha256:451791217f8d1f2733b2566581c0cc359130f03100434b0fda735ff4995c3e6d",
+    "capabilities": ["widget:scene3d"]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.app/schemas/workflow.v1.schema.json",
+  "title": "Utopia workflow",
+  "type": "object",
+  "required": ["schema_version", "id", "domain", "label", "steps", "write_policy"],
+  "properties": {
+    "schema_version": { "const": "utopia.workflow.v1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "domain": { "type": "string" },
+    "label": { "type": "string" },
+    "trigger": { "type": "object" },
+    "steps": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["id"] } },
+    "write_policy": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

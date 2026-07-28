@@ -1,0 +1,2867 @@
+{
+  "$schema": "../schemas/domain.v1.schema.json",
+  "schema_version": "utopia.domain.v1",
+  "id": "food",
+  "label": "Food",
+  "home_surface": "food.overview",
+  "surfaces": [
+    {
+      "id": "food.overview",
+      "label": "Overview",
+      "icon": "🏡",
+      "views": [
+        "next_meal",
+        "use_soon",
+        "shopping_summary",
+        "food_graph"
+      ],
+      "collections": []
+    },
+    {
+      "id": "food.meals",
+      "label": "Meals",
+      "icon": "🍽️",
+      "views": [
+        "planner",
+        "week_view",
+        "meal_history",
+        "nutrition_summary",
+        "recipe_revisions"
+      ],
+      "collections": [
+        "meal_plan",
+        "meal_log",
+        "meal_consumption",
+        "recipe",
+        "recipe_revision",
+        "recipe_step"
+      ]
+    },
+    {
+      "id": "food.kitchen",
+      "label": "Kitchen",
+      "icon": "🥬",
+      "views": [
+        "pantry",
+        "lots",
+        "movements",
+        "products",
+        "pantry_stats",
+        "inventory_trends"
+      ],
+      "collections": [
+        "food_item",
+        "product",
+        "inventory",
+        "inventory_lot",
+        "inventory_movement",
+        "ingredient",
+        "purchase_line"
+      ]
+    },
+    {
+      "id": "food.shopping",
+      "label": "Shopping",
+      "icon": "🛒",
+      "views": [
+        "list",
+        "demand",
+        "stores",
+        "budget",
+        "status_board",
+        "receipt_review"
+      ],
+      "collections": [
+        "shopping_list",
+        "shopping_item",
+        "shopping_demand",
+        "purchase",
+        "purchase_line",
+        "store"
+      ]
+    }
+  ],
+  "collections": [
+    "household",
+    "member",
+    "food_item",
+    "product",
+    "inventory",
+    "inventory_lot",
+    "inventory_movement",
+    "ingredient",
+    "recipe",
+    "recipe_revision",
+    "recipe_step",
+    "recipe_tool",
+    "meal_template",
+    "meal_plan",
+    "meal_log",
+    "meal_consumption",
+    "shopping_list",
+    "shopping_item",
+    "shopping_demand",
+    "purchase",
+    "purchase_line",
+    "store",
+    "preference",
+    "nutrition_goal",
+    "nutrition_profile",
+    "nutrition_observation",
+    "attachment",
+    "audit_event",
+    "source_record"
+  ],
+  "rich_detail_schema": "schemas/food-detail.v1.schema.json",
+  "provider_template_fields": {
+    "required": [
+      "id",
+      "title",
+      "collection",
+      "status",
+      "meta",
+      "body"
+    ],
+    "rich_detail_json": [
+      "Food detail",
+      "food_detail",
+      "Food Detail",
+      "Detail JSON",
+      "detail_json"
+    ],
+    "relations_json": [
+      "Relations",
+      "relations",
+      "Related records",
+      "related_records"
+    ]
+  },
+  "visual_identity": {
+    "domain": {
+      "emoji": "🍲",
+      "accent": "moss"
+    },
+    "surfaces": {
+      "food.overview": {
+        "emoji": "🏡",
+        "accent": "moss"
+      },
+      "food.meals": {
+        "emoji": "🍽️",
+        "accent": "amber"
+      },
+      "food.kitchen": {
+        "emoji": "🥬",
+        "accent": "moss"
+      },
+      "food.shopping": {
+        "emoji": "🛒",
+        "accent": "blue"
+      }
+    },
+    "collections": {
+      "household": {
+        "emoji": "🏠",
+        "accent": "moss"
+      },
+      "member": {
+        "emoji": "🙂",
+        "accent": "plum"
+      },
+      "food_item": {
+        "emoji": "🍎",
+        "accent": "moss"
+      },
+      "product": {
+        "emoji": "🏷️",
+        "accent": "blue"
+      },
+      "inventory": {
+        "emoji": "🧺",
+        "accent": "moss"
+      },
+      "inventory_lot": {
+        "emoji": "📦",
+        "accent": "amber"
+      },
+      "inventory_movement": {
+        "emoji": "↻",
+        "accent": "blue"
+      },
+      "ingredient": {
+        "emoji": "🧄",
+        "accent": "moss"
+      },
+      "recipe": {
+        "emoji": "📖",
+        "accent": "amber"
+      },
+      "recipe_revision": {
+        "emoji": "✍️",
+        "accent": "plum"
+      },
+      "recipe_step": {
+        "emoji": "🔥",
+        "accent": "amber"
+      },
+      "recipe_tool": {
+        "emoji": "🍳",
+        "accent": "blue"
+      },
+      "meal_template": {
+        "emoji": "🧩",
+        "accent": "plum"
+      },
+      "meal_plan": {
+        "emoji": "📅",
+        "accent": "moss"
+      },
+      "meal_log": {
+        "emoji": "✅",
+        "accent": "moss"
+      },
+      "meal_consumption": {
+        "emoji": "🥣",
+        "accent": "amber"
+      },
+      "shopping_list": {
+        "emoji": "📝",
+        "accent": "blue"
+      },
+      "shopping_item": {
+        "emoji": "🛒",
+        "accent": "blue"
+      },
+      "shopping_demand": {
+        "emoji": "❗",
+        "accent": "amber"
+      },
+      "purchase": {
+        "emoji": "🧾",
+        "accent": "plum"
+      },
+      "purchase_line": {
+        "emoji": "💳",
+        "accent": "plum"
+      },
+      "store": {
+        "emoji": "🏪",
+        "accent": "blue"
+      },
+      "preference": {
+        "emoji": "♡",
+        "accent": "plum"
+      },
+      "nutrition_goal": {
+        "emoji": "🎯",
+        "accent": "moss"
+      },
+      "nutrition_profile": {
+        "emoji": "⚖️",
+        "accent": "moss"
+      },
+      "nutrition_observation": {
+        "emoji": "📈",
+        "accent": "blue"
+      },
+      "attachment": {
+        "emoji": "📎",
+        "accent": "neutral"
+      },
+      "audit_event": {
+        "emoji": "🧭",
+        "accent": "neutral"
+      },
+      "source_record": {
+        "emoji": "🔗",
+        "accent": "neutral"
+      }
+    },
+    "statuses": {
+      "planned": {
+        "emoji": "📅",
+        "accent": "plum"
+      },
+      "tonight": {
+        "emoji": "🌙",
+        "accent": "moss"
+      },
+      "to buy": {
+        "emoji": "🛒",
+        "accent": "blue"
+      },
+      "use soon": {
+        "emoji": "⏳",
+        "accent": "amber"
+      },
+      "available": {
+        "emoji": "✅",
+        "accent": "moss"
+      },
+      "review": {
+        "emoji": "👀",
+        "accent": "amber"
+      }
+    },
+    "actions": {
+      "home": {
+        "emoji": "⌂",
+        "accent": "moss"
+      },
+      "add_record": {
+        "emoji": "＋",
+        "accent": "moss"
+      },
+      "capture": {
+        "emoji": "＋",
+        "accent": "moss"
+      },
+      "ask_with_collection": {
+        "emoji": "✦",
+        "accent": "plum"
+      },
+      "chat": {
+        "emoji": "✦",
+        "accent": "plum"
+      },
+      "search": {
+        "emoji": "⌕",
+        "accent": "blue"
+      },
+      "open_sources": {
+        "emoji": "🔗",
+        "accent": "neutral"
+      },
+      "settings": {
+        "emoji": "⚙",
+        "accent": "neutral"
+      },
+      "add_domain": {
+        "emoji": "＋",
+        "accent": "plum"
+      },
+      "review": {
+        "emoji": "👀",
+        "accent": "amber"
+      },
+      "refresh": {
+        "emoji": "↻",
+        "accent": "blue"
+      },
+      "capture_note": {
+        "emoji": "✎",
+        "accent": "neutral"
+      },
+      "capture_food": {
+        "emoji": "🍲",
+        "accent": "moss"
+      },
+      "capture_photo": {
+        "emoji": "▧",
+        "accent": "blue"
+      },
+      "capture_receipt": {
+        "emoji": "🧾",
+        "accent": "plum"
+      },
+      "capture_voice": {
+        "emoji": "◖",
+        "accent": "amber"
+      },
+      "capture_link": {
+        "emoji": "⌁",
+        "accent": "blue"
+      }
+    },
+    "sources": {
+      "notion": {
+        "emoji": "◨",
+        "accent": "neutral"
+      },
+      "google_sheets": {
+        "emoji": "▦",
+        "accent": "moss"
+      },
+      "sqlite": {
+        "emoji": "▣",
+        "accent": "blue"
+      },
+      "postgres": {
+        "emoji": "⬢",
+        "accent": "plum"
+      },
+      "web": {
+        "emoji": "🌐",
+        "accent": "blue"
+      },
+      "user": {
+        "emoji": "🙂",
+        "accent": "moss"
+      }
+    },
+    "skills": {
+      "food": {
+        "emoji": "🍲",
+        "accent": "moss"
+      },
+      "weekly_food_reset": {
+        "emoji": "↻",
+        "accent": "amber"
+      },
+      "source_verifier": {
+        "emoji": "🔎",
+        "accent": "blue"
+      }
+    },
+    "agents": {
+      "food_brain": {
+        "emoji": "✦",
+        "accent": "plum"
+      },
+      "source_steward": {
+        "emoji": "🔗",
+        "accent": "blue"
+      },
+      "weekly_reset": {
+        "emoji": "↻",
+        "accent": "amber"
+      }
+    }
+  },
+  "ui": {
+    "schemaVersion": "a2ui.v0_9",
+    "defaultScreen": "home",
+    "navigation": {
+      "items": [
+        {
+          "screen": "home",
+          "label": "Today",
+          "icon": "home"
+        },
+        {
+          "screen": "overview",
+          "label": "Kitchen",
+          "icon": "food"
+        },
+        {
+          "screen": "chat",
+          "label": "Ask",
+          "icon": "sparkles"
+        },
+        {
+          "screen": "settings",
+          "label": "Settings",
+          "icon": "settings"
+        }
+      ]
+    },
+    "screens": {
+      "overview": {
+        "title": "Kitchen",
+        "subtitle": "Open a shelf. See the food. Cook what should be used first.",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "pantryShelf",
+            "id": "kitchen_map",
+            "title": "Kitchen map",
+            "subtitle": "Six shelves. Tap one to see everything inside.",
+            "tone": "moss",
+            "props": {
+              "items": [
+                {
+                  "title": "Fridge",
+                  "subtitle": "Chilled food, opened items, freshness dates.",
+                  "emoji": "❄️",
+                  "route": "/collection/inventory,inventory_lot?title=Fridge&match=fridge"
+                },
+                {
+                  "title": "Pantry",
+                  "subtitle": "Staples, sauces, snacks, backups.",
+                  "emoji": "🥫",
+                  "route": "/collection/inventory,inventory_lot?title=Pantry&match=pantry"
+                },
+                {
+                  "title": "Freezer",
+                  "subtitle": "Frozen proteins, batch meals, rescue food.",
+                  "emoji": "🧊",
+                  "route": "/collection/inventory,inventory_lot?title=Freezer&match=freezer"
+                },
+                {
+                  "title": "Recipes",
+                  "subtitle": "Saved recipes, steps, notes, family favorites.",
+                  "emoji": "📖",
+                  "route": "/collection/recipe,recipe_step,recipe_revision?title=Recipes"
+                },
+                {
+                  "title": "Shopping",
+                  "subtitle": "Only what is missing, grouped by why.",
+                  "emoji": "🛒",
+                  "route": "/collection/shopping_list,shopping_item,shopping_demand?title=Shopping"
+                },
+                {
+                  "title": "Receipts",
+                  "subtitle": "Grocery imports waiting for review.",
+                  "emoji": "🧾",
+                  "route": "/collection/purchase,purchase_line?title=Receipts"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "useFirstCarousel",
+            "id": "kitchen_use_first",
+            "title": "Use-first shelf",
+            "subtitle": "Food to rescue before it becomes waste.",
+            "tone": "amber",
+            "query": {
+              "collections": [
+                "inventory",
+                "inventory_lot"
+              ],
+              "match": "use|today|tonight|open|thaw|expir",
+              "limit": 20
+            },
+            "props": {
+              "items": [
+                {
+                  "title": "Spinach",
+                  "subtitle": "2 days left · best in eggs, dal, wraps.",
+                  "badge": "2d",
+                  "emoji": "🥬",
+                  "route": "/collection/inventory,inventory_lot?title=Use%20first&match=spinach"
+                },
+                {
+                  "title": "Greek yogurt",
+                  "subtitle": "Opened · breakfast bowls or marinade.",
+                  "badge": "open",
+                  "emoji": "🥣",
+                  "route": "/record/pantry-yogurt"
+                },
+                {
+                  "title": "Blueberries",
+                  "subtitle": "Use tonight or freeze.",
+                  "badge": "today",
+                  "emoji": "🫐",
+                  "route": "/collection/inventory,inventory_lot?title=Use%20first&match=blueberries"
+                },
+                {
+                  "title": "Salmon",
+                  "subtitle": "Thawed · easiest dinner anchor.",
+                  "badge": "cook",
+                  "emoji": "🐟",
+                  "route": "/chat?prompt=Plan%20dinner%20around%20the%20thawed%20salmon%20and%20any%20use-first%20food.%20Show%20what%20it%20uses%2C%20what%20is%20missing%2C%20and%20the%20first%20cooking%20step.&run=1"
+                }
+              ],
+              "cta": "Plan with these",
+              "ctaRoute": "/chat?prompt=Make%20tonight%E2%80%99s%20best%20meal%20from%20my%20use-first%20shelf.%20Prefer%20food%20that%20expires%20soon%2C%20show%20missing%20ingredients%2C%20and%20keep%20the%20answer%20practical.&run=1"
+            }
+          }
+        ]
+      },
+      "kitchen": {
+        "title": "Kitchen",
+        "subtitle": "Use first 5 · Pantry 18 · Freezer 6",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "feedList",
+            "id": "use_first_deck",
+            "title": "Use first",
+            "subtitle": "The app should tell you what to rescue, not make you inspect inventory.",
+            "tone": "amber",
+            "props": {
+              "density": "compact",
+              "items": [
+                {
+                  "title": "Baby spinach",
+                  "subtitle": "Fridge lot A3 · 2 days · wraps, eggs, dal garnish.",
+                  "badge": "2 days",
+                  "route": "/collection/inventory,inventory_lot?title=Use%20first&match=spinach"
+                },
+                {
+                  "title": "Greek yogurt",
+                  "subtitle": "Opened yesterday · breakfast bowls or salmon marinade.",
+                  "badge": "open",
+                  "route": "/record/pantry-yogurt"
+                },
+                {
+                  "title": "Blueberries",
+                  "subtitle": "Use with yogurt or freeze tonight.",
+                  "badge": "1d",
+                  "route": "/collection/inventory,inventory_lot?title=Use%20first&match=blueberries"
+                },
+                {
+                  "title": "Salmon fillets",
+                  "subtitle": "Thawed · best dinner anchor tonight.",
+                  "badge": "cook",
+                  "route": "/record/inventory-salmon"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "pantryShelf",
+            "id": "kitchen_shelves_v2",
+            "title": "Open a shelf",
+            "subtitle": "No more dead cards. Every shelf opens real records.",
+            "tone": "moss",
+            "props": {
+              "items": [
+                {
+                  "title": "Fridge",
+                  "subtitle": "All chilled items, opened lots, expiry notes.",
+                  "emoji": "❄️",
+                  "route": "/collection/inventory,inventory_lot?title=Fridge&match=fridge"
+                },
+                {
+                  "title": "Pantry",
+                  "subtitle": "Dry goods, staples, sauces, backups.",
+                  "emoji": "🥫",
+                  "route": "/collection/inventory,inventory_lot?title=Pantry&match=pantry"
+                },
+                {
+                  "title": "Freezer",
+                  "subtitle": "Frozen proteins, batch meals, rescue food.",
+                  "emoji": "🧊",
+                  "route": "/collection/inventory,inventory_lot?title=Freezer&match=freezer"
+                },
+                {
+                  "title": "Receipts",
+                  "subtitle": "Draft imports and purchase proof.",
+                  "emoji": "🧾",
+                  "route": "/collection/purchase,purchase_line?title=Receipts"
+                },
+                {
+                  "title": "Recipes",
+                  "subtitle": "Saved recipes and cooking notes.",
+                  "emoji": "📖",
+                  "route": "/collection/recipe,recipe_step,recipe_revision?title=Recipe%20box"
+                },
+                {
+                  "title": "Shopping",
+                  "subtitle": "Missing items grouped by reason.",
+                  "emoji": "🛒",
+                  "route": "/collection/shopping_list,shopping_item,shopping_demand?title=Shopping%20gaps"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "recordList",
+            "id": "pantry_records",
+            "title": "Your kitchen graph",
+            "subtitle": "Live rows below the pretty layer.",
+            "tone": "neutral",
+            "query": {
+              "collections": [
+                "inventory",
+                "inventory_lot",
+                "product",
+                "ingredient"
+              ],
+              "limit": 6
+            },
+            "action": {
+              "kind": "propose",
+              "label": "Add food",
+              "command": "add_food_item",
+              "payload": {
+                "route": "/capture"
+              }
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "galleryGrid",
+            "id": "kitchen_recipe_box",
+            "title": "Recipe box",
+            "subtitle": "Samsung Food-style saved recipe discovery, but pantry-aware.",
+            "tone": "amber",
+            "props": {
+              "items": [
+                {
+                  "title": "Pantry match",
+                  "emoji": "🎯",
+                  "route": "/chat?prompt=Find%20saved%20recipes%20that%20match%20my%20current%20inventory.%20Sort%20by%20fewest%20missing%20ingredients%20and%20show%20coverage.&run=1"
+                },
+                {
+                  "title": "Use-first recipes",
+                  "emoji": "⏳",
+                  "route": "/chat?prompt=Find%20recipes%20that%20use%20my%20expiring%20or%20opened%20items%20first.%20Show%20why%20each%20one%20helps%20reduce%20waste.&run=1"
+                },
+                {
+                  "title": "Healthy swaps",
+                  "emoji": "🥗",
+                  "route": "/chat?prompt=Customize%20tonight%27s%20recipe%20for%20my%20health%20preferences%20and%20available%20ingredients.%20Show%20substitutions.&run=1"
+                },
+                {
+                  "title": "YouTube recipe",
+                  "emoji": "▶️",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Cook mode",
+                  "emoji": "👩‍🍳",
+                  "route": "/chat?prompt=Start%20guided%20cook%20mode%20for%20a%20pantry-first%20meal.%20Show%20one%20step%20at%20a%20time%20with%20timers%20and%20substitutions.&run=1"
+                },
+                {
+                  "title": "Leftovers",
+                  "emoji": "🍱",
+                  "route": "/chat?prompt=Turn%20leftovers%20and%20use-first%20items%20into%20tomorrow%27s%20lunch.%20Show%20safe%20storage%20and%20shopping%20gaps.&run=1"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "galleryGrid",
+            "id": "recipe_discovery",
+            "title": "Recipes to try",
+            "subtitle": "Like Yummly/Supper, but grounded in your actual kitchen.",
+            "tone": "amber",
+            "props": {
+              "items": [
+                {
+                  "title": "Miso salmon bowl",
+                  "emoji": "🍣",
+                  "route": "/chat?prompt=Create%20a%20miso%20salmon%20bowl%20from%20my%20current%20inventory.%20Show%20coverage%2C%20missing%20items%2C%20and%20steps.&run=1"
+                },
+                {
+                  "title": "Chickpea wraps",
+                  "emoji": "🌯",
+                  "route": "/chat?prompt=Create%20chickpea%20wraps%20from%20my%20current%20inventory.%20Prioritize%20use-first%20produce%20and%20show%20shopping%20gaps.&run=1"
+                },
+                {
+                  "title": "Lentil soup",
+                  "emoji": "🥣",
+                  "route": "/chat?prompt=Create%20lentil%20soup%20from%20my%20current%20inventory.%20Use%20pantry%20items%20first%20and%20show%20prep%20steps.&run=1"
+                },
+                {
+                  "title": "Yogurt marinade",
+                  "emoji": "🍗",
+                  "route": "/chat?prompt=Create%20a%20yogurt%20marinade%20recipe%20from%20my%20current%20inventory.%20Show%20what%20to%20use%20first%20and%20what%20to%20buy.&run=1"
+                },
+                {
+                  "title": "Blueberry oats",
+                  "emoji": "🫐",
+                  "route": "/chat?prompt=Create%20blueberry%20oats%20from%20my%20current%20inventory.%20Use%20opened%20yogurt%20or%20fruit%20first%20if%20available.&run=1"
+                },
+                {
+                  "title": "Freezer tacos",
+                  "emoji": "🌮",
+                  "route": "/chat?prompt=Create%20freezer%20tacos%20from%20my%20current%20inventory.%20Show%20freezer%20items%2C%20pantry%20coverage%2C%20and%20grocery%20gaps.&run=1"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "chartBlock",
+            "id": "waste_rescue",
+            "title": "Waste rescue score",
+            "subtitle": "Make the win visible.",
+            "tone": "moss",
+            "props": {
+              "points": [
+                {
+                  "label": "Used first",
+                  "value": 5
+                },
+                {
+                  "label": "Drafts reviewed",
+                  "value": 3
+                },
+                {
+                  "label": "Shopping gaps",
+                  "value": 4
+                },
+                {
+                  "label": "Meals planned",
+                  "value": 4
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "postCard",
+            "id": "inventory_context",
+            "title": "Inventory context",
+            "subtitle": "Lots, expiry, prices, notes, nutrition confidence",
+            "tone": "amber",
+            "props": {
+              "body": "Lots, expiry, prices, notes, receipt links, and nutrition confidence stay local until you export or connect a home.",
+              "density": "compact",
+              "summaryFirst": true,
+              "badge": "CSV export ready"
+            }
+          }
+        ]
+      },
+      "plan": {
+        "title": "Plan",
+        "subtitle": "Meals, family choices, grocery gaps",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "foodHero",
+            "id": "plan_hero",
+            "title": "This week can be calmer",
+            "subtitle": "4 meals planned · 7 groceries · 2 family votes",
+            "tone": "blue",
+            "props": {
+              "badge": "Weekly plan",
+              "emoji": "📅",
+              "stats": [
+                {
+                  "label": "planned",
+                  "value": "4"
+                },
+                {
+                  "label": "gaps",
+                  "value": "7"
+                },
+                {
+                  "label": "votes",
+                  "value": "2"
+                }
+              ],
+              "body": "Wonder turns pantry, preferences, and receipts into a week plan you edit instead of starting from blank.",
+              "actions": [
+                {
+                  "title": "Plan week",
+                  "route": "/chat?prompt=Plan%20this%20week%27s%20meals%20from%20my%20current%20inventory%2C%20preferences%2C%20and%20use-first%20items.%20Return%20a%20day-by-day%20plan%20and%20shopping%20gaps.&run=1"
+                },
+                {
+                  "title": "Vote dinner",
+                  "route": "/chat?prompt=Create%20a%20quick%20family%20dinner%20vote%20from%20three%20realistic%20options%20based%20on%20my%20current%20inventory.&run=1"
+                },
+                {
+                  "title": "Shop list",
+                  "route": "/search"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "checklistCard",
+            "id": "plan_week_builder",
+            "title": "Build the week",
+            "subtitle": "Fast enough for one person, useful enough for family.",
+            "tone": "moss",
+            "props": {
+              "items": [
+                {
+                  "title": "Use expiring food first",
+                  "subtitle": "Rank ingredients by freshness and waste risk.",
+                  "done": true
+                },
+                {
+                  "title": "Respect preferences",
+                  "subtitle": "Diet, time, spice, protein, family likes.",
+                  "done": true
+                },
+                {
+                  "title": "Create shopping gaps",
+                  "subtitle": "Only missing items, grouped by reason.",
+                  "done": false
+                },
+                {
+                  "title": "Save plan after review",
+                  "subtitle": "Nothing mutates without approval.",
+                  "done": false
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "mealTimeline",
+            "id": "plan_meals",
+            "title": "Next meals",
+            "subtitle": "Tap any meal to ask Wonder to change it.",
+            "tone": "neutral",
+            "props": {
+              "items": [
+                {
+                  "title": "Greek yogurt bowl",
+                  "subtitle": "Blueberries, walnuts, honey · protein estimate needs one tap",
+                  "time": "AM",
+                  "route": "/chat?prompt=Estimate%20protein%20and%20nutrition%20for%20the%20Greek%20yogurt%20bowl%20using%20my%20food%20records%20where%20possible.&run=1"
+                },
+                {
+                  "title": "Chickpea spinach wraps",
+                  "subtitle": "Uses spinach before Sunday · tomatoes are shopping gap",
+                  "time": "Lunch",
+                  "route": "/food"
+                },
+                {
+                  "title": "Salmon rice bowls",
+                  "subtitle": "Receipt matched cucumber, rice vinegar, jasmine rice",
+                  "time": "Dinner",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Lentil soup prep",
+                  "subtitle": "Carrots, celery, stock, pantry lentils · tomorrow solved",
+                  "time": "Prep",
+                  "route": "/chat?prompt=Plan%20tomorrow%27s%20lentil%20soup%20prep%20from%20my%20current%20inventory.%20Use%20carrots%2C%20celery%2C%20stock%2C%20and%20pantry%20lentils%20if%20present.&run=1"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "pollCard",
+            "id": "plan_dinner_vote",
+            "title": "Tonight?",
+            "subtitle": "Small family decision, no chat chaos.",
+            "tone": "plum",
+            "props": {
+              "options": [
+                {
+                  "label": "Salmon bowls",
+                  "votes": 3
+                },
+                {
+                  "label": "Chickpea wraps",
+                  "votes": 1
+                },
+                {
+                  "label": "Lentil soup",
+                  "votes": 1
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "recipeCard",
+            "id": "plan_recipe",
+            "title": "Pantry-first dinner",
+            "subtitle": "One meal, one shop gap, zero waste theater.",
+            "tone": "neutral",
+            "props": {
+              "emoji": "🍣",
+              "badge": "92% pantry match",
+              "chips": [
+                {
+                  "label": "24 min"
+                },
+                {
+                  "label": "high protein"
+                },
+                {
+                  "label": "uses salmon"
+                },
+                {
+                  "label": "1 shop gap"
+                }
+              ],
+              "route": "/chat?prompt=Create%20a%20pantry-first%20dinner%20from%20my%20current%20inventory.%20Prioritize%20salmon%2C%20show%20the%20single%20shopping%20gap%2C%20and%20return%20clear%20steps.&run=1"
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "postCard",
+            "id": "plan_cook_mode",
+            "title": "Cook mode",
+            "subtitle": "The end state should feel like ChatGPT + Notion in the kitchen.",
+            "tone": "plum",
+            "props": {
+              "badge": "Guided",
+              "body": "Ask for a recipe and Wonder should return coverage, substitutions, shopping gaps, nutrition notes, and one-step-at-a-time cooking. Tables render in chat now.",
+              "actions": [
+                {
+                  "title": "Start cook mode",
+                  "route": "/chat?prompt=Start%20cook%20mode%20for%20the%20best%20pantry-first%20dinner.%20Give%20ingredient%20coverage%2C%20shopping%20gaps%2C%20substitutions%2C%20nutrition%20notes%2C%20and%20then%20step%201.&run=1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "shop": {
+        "title": "Shop",
+        "subtitle": "Buy only what completes the plan",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "receiptReviewCard",
+            "id": "shop_receipt",
+            "title": "Put groceries away",
+            "subtitle": "Receipt scan became reviewable kitchen changes.",
+            "tone": "amber",
+            "props": {
+              "badge": "ready",
+              "items": [
+                {
+                  "title": "Salmon",
+                  "subtitle": "freezer · dinner tonight",
+                  "status": "+1"
+                },
+                {
+                  "title": "Blueberries",
+                  "subtitle": "fridge · pair with yogurt",
+                  "status": "+1"
+                },
+                {
+                  "title": "Rice vinegar",
+                  "subtitle": "pantry duplicate?",
+                  "status": "review"
+                }
+              ],
+              "actions": [
+                {
+                  "title": "Accept",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Edit",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Ignore",
+                  "route": "/capture"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "feedList",
+            "id": "shop_sections",
+            "title": "A tiny smart list",
+            "subtitle": "Like Mealime: recipes become groceries automatically.",
+            "tone": "blue",
+            "props": {
+              "density": "compact",
+              "items": [
+                {
+                  "title": "Produce",
+                  "subtitle": "Cucumber, tomatoes, lemons · needed for salmon bowls + wraps",
+                  "badge": "3",
+                  "route": "/collection/shopping_item,shopping_demand?title=Produce&match=cucumber|tomato|lemon"
+                },
+                {
+                  "title": "Protein backup",
+                  "subtitle": "Eggs · breakfast fallback if yogurt runs out",
+                  "badge": "1",
+                  "route": "/collection/shopping_item?title=Protein&match=eggs"
+                },
+                {
+                  "title": "Pantry check",
+                  "subtitle": "Rice vinegar may be duplicate — review before buying",
+                  "badge": "review",
+                  "route": "/collection/shopping_item,purchase_line?title=Pantry%20review"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "pantryShelf",
+            "id": "shop_gaps",
+            "title": "Shopping gaps",
+            "subtitle": "Tiny list, clear reason.",
+            "tone": "neutral",
+            "props": {
+              "items": [
+                {
+                  "title": "Cucumber",
+                  "subtitle": "salmon bowls · tonight",
+                  "emoji": "🥒",
+                  "route": "/search"
+                },
+                {
+                  "title": "Tomatoes",
+                  "subtitle": "chickpea wraps · lunch",
+                  "emoji": "🍅",
+                  "route": "/search"
+                },
+                {
+                  "title": "Eggs",
+                  "subtitle": "backup breakfast",
+                  "emoji": "🥚",
+                  "route": "/search"
+                },
+                {
+                  "title": "Lemons",
+                  "subtitle": "dressings + fish",
+                  "emoji": "🍋",
+                  "route": "/search"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "recordList",
+            "id": "shop_records",
+            "title": "Shopping records",
+            "subtitle": "Rows for audit live below the beautiful actions.",
+            "query": {
+              "collections": [
+                "shopping_item",
+                "purchase"
+              ],
+              "limit": 5
+            }
+          }
+        ]
+      },
+      "home": {
+        "title": "Today",
+        "subtitle": "Today’s food plan, the week ahead, and quick capture.",
+        "components": [
+          {
+            "kind": "recordList",
+            "id": "today_plan",
+            "title": "Today’s plan",
+            "subtitle": "Meals, prep, and shopping gaps for the next thing you need to do.",
+            "tone": "moss",
+            "query": {
+        "collections": [
+          "meal_plan",
+          "recipe",
+          "shopping_item"
+        ],
+              "match": "today|tonight|planned|needed",
+              "limit": 5
+            },
+            "action": {
+              "kind": "propose",
+              "label": "Plan dinner",
+              "command": "plan_dinner",
+              "payload": {
+                "route": "/chat?prompt=Plan%20today%E2%80%99s%20meals%20from%20my%20current%20kitchen.%20Use%20expiring%20items%20first%2C%20keep%20grocery%20gaps%20tiny%2C%20and%20give%20me%20one%20clear%20next%20action.&run=1"
+              }
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "calendarBlock",
+            "id": "seven_day_food_calendar",
+            "title": "7-day calendar",
+            "subtitle": "Only the coming week. Older plans stay searchable through Ask.",
+            "tone": "blue",
+            "props": {
+              "events": [
+                {
+                  "title": "Tonight",
+                  "subtitle": "Cook from use-first shelf",
+                  "route": "/chat?prompt=Plan%20tonight%20from%20my%20use-first%20shelf.&run=1"
+                },
+                {
+                  "title": "Tomorrow",
+                  "subtitle": "Pack leftovers or quick lunch",
+                  "route": "/chat?prompt=Turn%20leftovers%20and%20use-first%20food%20into%20tomorrow%20lunch.&run=1"
+                },
+                {
+                  "title": "Day 3",
+                  "subtitle": "Use pantry staples",
+                  "route": "/chat?prompt=Plan%20a%20pantry-staple%20meal%20for%20day%203.&run=1"
+                },
+                {
+                  "title": "Day 4",
+                  "subtitle": "Light grocery top-up",
+                  "route": "/chat?prompt=Create%20a%20tiny%20grocery%20top-up%20for%20the%20next%20four%20days.&run=1"
+                },
+                {
+                  "title": "Day 5",
+                  "subtitle": "Family favorite",
+                  "route": "/chat?prompt=Pick%20a%20family%20favorite%20that%20matches%20my%20kitchen.&run=1"
+                },
+                {
+                  "title": "Day 6",
+                  "subtitle": "Freezer rescue",
+                  "route": "/chat?prompt=Plan%20a%20freezer-rescue%20meal.&run=1"
+                },
+                {
+                  "title": "Day 7",
+                  "subtitle": "Reset and prep",
+                  "route": "/chat?prompt=Make%20a%2030-minute%20food%20reset%20plan%20for%20the%20week.&run=1"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "pantryShelf",
+            "id": "quick_add",
+            "title": "Quick add",
+            "subtitle": "Add food without organizing first.",
+            "tone": "amber",
+            "props": {
+              "items": [
+                {
+                  "title": "Photo",
+                  "subtitle": "Ingredient, meal, shelf, or label.",
+                  "emoji": "📷",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Receipt",
+                  "subtitle": "Turn groceries into reviewable rows.",
+                  "emoji": "🧾",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Recipe link",
+                  "subtitle": "Save YouTube or web recipes.",
+                  "emoji": "🔗",
+                  "route": "/capture"
+                },
+                {
+                  "title": "Manual item",
+                  "subtitle": "Type one thing fast.",
+                  "emoji": "✍️",
+                  "route": "/capture"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "settings": {
+        "title": "Settings",
+        "subtitle": "Choose what Wonder can use. Keep the rest quiet.",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "dataHomeSettings",
+            "id": "settings_data_homes",
+            "title": "Food homes",
+            "subtitle": "Local always works. Connect Notion or Sheets only when you want shared food data.",
+            "tone": "moss"
+          },
+          {
+            "kind": "widget",
+            "widget": "aiProviderSettings",
+            "id": "settings_ai_provider",
+            "title": "Assistant model",
+            "subtitle": "Choose the AI provider, model, and key used for Ask.",
+            "tone": "blue"
+          },
+          {
+            "kind": "widget",
+            "widget": "themeDensitySelector",
+            "id": "settings_appearance",
+            "title": "Look and feel",
+            "subtitle": "Theme and density for this phone.",
+            "tone": "amber"
+          },
+          {
+            "kind": "widget",
+            "widget": "permissionCard",
+            "id": "settings_permissions",
+            "title": "Device access",
+            "subtitle": "Camera, photos, sharing, and health permissions are requested only when needed.",
+            "tone": "plum"
+          },
+          {
+            "kind": "widget",
+            "widget": "schemaEditor",
+            "id": "settings_package_editor",
+            "title": "Change this food app",
+            "subtitle": "Ask for a new table, screen, field, or workflow. Review before anything changes.",
+            "tone": "neutral",
+            "props": {
+              "placeholder": "Example: add a freezer batch-cook table",
+              "examples": [
+                {
+                  "title": "Add a table",
+                  "subtitle": "Track a new kind of food data.",
+                  "prompt": "add a freezer batch-cook table"
+                },
+                {
+                  "title": "Change a screen",
+                  "subtitle": "Move or remove sections.",
+                  "prompt": "make Kitchen show recipes before receipts"
+                },
+                {
+                  "title": "Create a workflow",
+                  "subtitle": "Turn a routine into steps.",
+                  "prompt": "when food expires soon, suggest dinner and update shopping gaps"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "chat": {
+        "title": "Ask",
+        "subtitle": "Ask about food, recipes, shopping, or changes to this app.",
+        "components": [
+          {
+      "kind": "widget",
+      "widget": "assistantChat",
+      "id": "ask_chat",
+      "title": "Ask Wonder",
+      "subtitle": "Dinner ideas, shopping gaps, recipes, calories, and app changes.",
+            "tone": "neutral",
+            "props": {
+              "showHeader": false,
+              "fullPage": true,
+              "emptyTitle": "What should we cook?",
+              "emptyCopy": "Ask about tonight, what to use first, grocery gaps, calories, recipes, or app changes.",
+              "prompt": "Ask about your food…",
+              "saveOutcome": {
+                "when": "plan|dinner|recipe|cook|meal",
+                "collection": "meal_plan",
+                "status": "planned",
+                "title": "Tonight’s plan",
+                "label": "Save as tonight’s plan",
+                "successMessage": "Saved to tonight’s plan.",
+                "followUpLabel": "Find grocery gaps",
+                "followUpPrompt": "Find the exact grocery gaps for this plan. Use my inventory and return only missing ingredients with quantities and reasons."
+              },
+              "suggestions": [
+                "Plan dinner from what we have",
+                "What should we use first?",
+                "Make a shopping list from tonight’s plan",
+                "Start cook mode",
+                "Turn this YouTube recipe into my style",
+                "What can I make from leftovers?"
+              ]
+            }
+          }
+        ]
+      },
+      "sources": {
+        "title": "Connected homes",
+        "subtitle": "Connect once. Share the underlying home. Wonder keeps sync quiet.",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "providerStatus",
+            "id": "sources_magic_homes",
+            "title": "Food homes",
+            "subtitle": "The simplest collaboration model: invite people to the Notion page or Sheet, then share this app package.",
+            "tone": "moss",
+            "props": {
+              "provider": "summary",
+              "status": "Ready to connect",
+              "body": "Use the phone by itself, or bind Notion/Sheets when those are already where the family or team works.",
+              "cta": "Connect or invite from here",
+              "homes": [
+                {
+                  "icon": "◌",
+                  "title": "On-device",
+                  "subtitle": "Private fast local graph. No setup.",
+                  "status": "Always on"
+                },
+                {
+                  "icon": "N",
+                  "title": "Notion home",
+                  "subtitle": "Use an existing Utopia page as the shared source.",
+                  "status": "OAuth"
+                },
+                {
+                  "icon": "S",
+                  "title": "Sheets home",
+                  "subtitle": "Family-friendly rows, receipts, lists, and simple sharing.",
+                  "status": "OAuth"
+                },
+                {
+                  "icon": "↗",
+                  "title": "Invite link",
+                  "subtitle": "Share the provider resource plus the app package.",
+                  "status": "Planned"
+                }
+              ],
+              "steps": [
+                {
+                  "title": "Pick home",
+                  "subtitle": "Local, Notion page, or Google Sheet."
+                },
+                {
+                  "title": "Authorize once",
+                  "subtitle": "Sign in once, then keep cooking."
+                },
+                {
+                  "title": "Invite people",
+                  "subtitle": "Share the same Notion/Sheet/Drive resource with family or team."
+                },
+                {
+                  "title": "Wonder verifies",
+                  "subtitle": "Every external write is reread before it is trusted."
+                }
+              ],
+              "actions": [
+                {
+                  "title": "Use phone only",
+                  "subtitle": "Skip setup and keep everything local.",
+                  "route": "/food"
+                },
+                {
+                  "title": "Connect home",
+                  "subtitle": "Bind Notion or Sheets when ready.",
+                  "route": "/settings"
+                },
+                {
+                  "title": "Invite later",
+                  "subtitle": "Share the source home with family first.",
+                  "route": "/sources"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "providerStatus",
+            "id": "sources_notion",
+            "title": "Notion",
+            "subtitle": "A beautiful external home when Notion is where planning already happens.",
+            "tone": "blue",
+            "props": {
+              "provider": "notion",
+              "cta": "Connect Notion",
+              "homes": [
+                {
+                  "icon": "N",
+                  "title": "Utopia page",
+                  "subtitle": "Meals, pantry, receipts, and recipe notes.",
+                  "status": "Bindable"
+                },
+                {
+                  "icon": "✓",
+                  "title": "Verified writeback",
+                  "subtitle": "Wonder rereads changed pages before calling them synced.",
+                  "status": "Safe"
+                }
+              ],
+              "actions": [
+                {
+                  "title": "Paste page",
+                  "subtitle": "Use an existing food page.",
+                  "route": "/settings"
+                },
+                {
+                  "title": "Share page",
+                  "subtitle": "Invite family in Notion.",
+                  "url": "https://www.notion.so/help/sharing-and-permissions"
+                },
+                {
+                  "title": "Reread",
+                  "subtitle": "Confirm the latest source state.",
+                  "route": "/system"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "providerStatus",
+            "id": "sources_sheets",
+            "title": "Sheets",
+            "subtitle": "The easiest shared database for a family or tiny team.",
+            "tone": "amber",
+            "props": {
+              "provider": "google_sheets",
+              "cta": "Connect Sheet",
+              "homes": [
+                {
+                  "icon": "S",
+                  "title": "Food workbook",
+                  "subtitle": "Rows for pantry, shopping, receipts, and reviews.",
+                  "status": "Shareable"
+                },
+                {
+                  "icon": "↺",
+                  "title": "Invisible sync",
+                  "subtitle": "Pending and failed writes surface only when action is needed.",
+                  "status": "Quiet"
+                }
+              ],
+              "actions": [
+                {
+                  "title": "Paste Sheet",
+                  "subtitle": "Bind an existing workbook.",
+                  "route": "/settings"
+                },
+                {
+                  "title": "Share Sheet",
+                  "subtitle": "Let collaborators edit rows.",
+                  "url": "https://support.google.com/docs/answer/2494822"
+                },
+                {
+                  "title": "Reread",
+                  "subtitle": "Verify synced rows.",
+                  "route": "/system"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "postCard",
+            "id": "sources_verify",
+            "title": "Verify sources",
+            "subtitle": "Trust without control-room noise",
+            "tone": "moss",
+            "props": {
+              "badge": "Automatic after writes",
+              "body": "Wonder should feel like magic because verification happens behind the curtain: write, reread, confirm, then show only the useful result.",
+              "actions": [
+                {
+                  "title": "Run safe reread",
+                  "route": "/system"
+                },
+                {
+                  "title": "View last sync",
+                  "route": "/system"
+                },
+                {
+                  "title": "Invite collaborator",
+                  "url": "https://support.google.com/docs/answer/2494822"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "capture": {
+        "title": "Add to Food",
+        "subtitle": "Photo, receipt, note, or link. AI extracts; you approve.",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "smartCapture",
+            "id": "capture_food",
+            "title": "Capture food",
+            "subtitle": "Camera-first, review-first. Photos can become recipes, meal logs, calories, or pantry items.",
+            "tone": "neutral",
+            "props": {
+              "items": [
+                {
+                  "id": "ingredient_photo",
+                  "title": "Ingredient photo",
+                  "emoji": "📷",
+                  "input": "image",
+                  "collection": "inventory_lot",
+                  "placeholder": "What did you buy or find?",
+                  "notesPlaceholder": "Location, quantity, expiry, brand, or anything the photo may miss"
+                },
+                {
+                  "id": "meal_photo",
+                  "title": "Meal photo",
+                  "emoji": "🍽️",
+                  "input": "image",
+                  "collection": "meal_log",
+                  "placeholder": "What did you eat?",
+                  "notesPlaceholder": "Portion, ingredients, restaurant, calories guess, or who ate it"
+                },
+                {
+                  "id": "receipt",
+                  "title": "Receipt",
+                  "emoji": "🧾",
+                  "input": "receipt",
+                  "collection": "attachment",
+                  "placeholder": "Store or receipt name",
+                  "notesPlaceholder": "Wonder extracts rows; you approve before inventory changes"
+                },
+                {
+                  "id": "recipe_link",
+                  "title": "Recipe / YouTube link",
+                  "emoji": "▶️",
+                  "input": "url",
+                  "collection": "recipe",
+                  "placeholder": "Paste recipe or YouTube URL",
+                  "notesPlaceholder": "What you want changed: healthier, Indian style, kid friendly, high protein…"
+                },
+                {
+                  "id": "quick_note",
+                  "title": "Quick note",
+                  "emoji": "✍️",
+                  "input": "note",
+                  "collection": "source_record",
+                  "placeholder": "What should Food remember?",
+                  "notesPlaceholder": "Example: spinach opened today; salmon thawed; low on eggs"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "search": {
+        "title": "Search",
+        "subtitle": "Find records first; ask Wonder when search is not enough.",
+        "components": [
+          {
+            "kind": "recordList",
+            "id": "search_records",
+            "title": "Search every food record",
+            "tone": "blue",
+            "query": {
+              "collections": [
+                "inventory",
+                "inventory_lot",
+                "recipe",
+                "meal_plan",
+                "shopping_item",
+                "purchase"
+              ],
+              "limit": 200
+            },
+            "props": {
+              "searchable": true,
+              "placeholder": "Search food, shelves, recipes, notes…",
+              "emptyTitle": "Nothing matches your kitchen"
+            }
+          },
+          {
+            "kind": "action",
+            "id": "search_ask",
+            "title": "Ask instead",
+            "tone": "plum",
+            "action": {
+              "kind": "propose",
+              "label": "Ask Wonder",
+              "command": "ask_search",
+              "payload": {
+                "route": "/chat?prompt=Search%20my%20food%20records%20and%20answer%20with%20only%20source-backed%20items%2C%20recipes%2C%20shelves%2C%20or%20shopping%20rows.&run=1"
+              }
+            }
+          }
+        ]
+      },
+      "config": {
+        "title": "Food control room",
+        "subtitle": "AI, appearance, data, and app structure",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "aiProviderSettings",
+            "id": "config_widgets",
+            "title": "AI provider and model",
+            "subtitle": "Keys are masked and stored securely on this device.",
+            "tone": "plum",
+            "props": {
+              "items": [
+                {
+                  "title": "Assistant chat"
+                },
+                {
+                  "title": "Health connect"
+                },
+                {
+                  "title": "Schema editor"
+                },
+                {
+                  "title": "Widget catalog"
+                },
+                {
+                  "title": "Post card"
+                },
+                {
+                  "title": "Poll card"
+                },
+                {
+                  "title": "Link preview"
+                },
+                {
+                  "title": "Feed list"
+                },
+                {
+                  "title": "Kanban board"
+                },
+                {
+                  "title": "Smart capture"
+                },
+                {
+                  "title": "Chart block"
+                },
+                {
+                  "title": "Media block"
+                },
+                {
+                  "title": "Map block"
+                },
+                {
+                  "title": "Form card"
+                },
+                {
+                  "title": "Checklist card"
+                },
+                {
+                  "title": "Calendar block"
+                },
+                {
+                  "title": "Timeline block"
+                },
+                {
+                  "title": "Gallery grid"
+                },
+                {
+                  "title": "Data table"
+                },
+                {
+                  "title": "Permission card"
+                },
+                {
+                  "title": "Provider status"
+                },
+                {
+                  "title": "Theme preview"
+                },
+                {
+                  "title": "Theme density selector"
+                },
+                {
+                  "title": "AI provider settings"
+                },
+                {
+                  "title": "Data home settings"
+                },
+                {
+                  "title": "Record list"
+                },
+                {
+                  "title": "Metric"
+                },
+                {
+                  "title": "Action"
+                },
+                {
+                  "title": "Text card"
+                },
+                {
+                  "title": "Package editor"
+                },
+                {
+                  "title": "Food hero"
+                },
+                {
+                  "title": "Use first carousel"
+                },
+                {
+                  "title": "Meal timeline"
+                },
+                {
+                  "title": "Recipe card"
+                },
+                {
+                  "title": "Receipt review card"
+                },
+                {
+                  "title": "Pantry shelf"
+                },
+                {
+                  "title": "Ask food bar"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "themeDensitySelector",
+            "id": "config_form_demo",
+            "title": "Appearance",
+            "subtitle": "Theme and density saved on this device.",
+            "tone": "moss",
+            "props": {
+              "cta": "Review AI settings",
+              "fields": [
+                {
+                  "id": "provider",
+                  "label": "Provider",
+                  "type": "choice",
+                  "placeholder": "OpenAI, Azure OpenAI, compatible API…",
+                  "required": true
+                },
+                {
+                  "id": "model",
+                  "label": "Model",
+                  "type": "short text",
+                  "placeholder": "Your preferred model"
+                },
+                {
+                  "id": "base_url",
+                  "label": "API address",
+                  "type": "short text",
+                  "placeholder": "Default or compatible endpoint"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "postCard",
+            "id": "config_link_preview_demo",
+            "title": "Food workspace",
+            "subtitle": "Notion-like structure, Wonder-powered actions",
+            "tone": "blue",
+            "props": {
+              "badge": "Active package",
+              "body": "Food owns its tables, pages, views, and workflows. Wonder can propose changes; you review before anything applies.",
+              "options": [
+                {
+                  "label": "System",
+                  "subtitle": "Match this device"
+                },
+                {
+                  "label": "Light",
+                  "subtitle": "Bright kitchen"
+                },
+                {
+                  "label": "Dark",
+                  "subtitle": "Low-light cooking"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "schemaEditor",
+            "id": "config_poll_demo",
+            "title": "Change Food",
+            "subtitle": "Preview every package change before it applies",
+            "tone": "amber",
+            "props": {
+              "placeholder": "Try: add a family recipes table",
+              "examples": [
+                {
+                  "title": "Add a table",
+                  "subtitle": "Create structured food data",
+                  "prompt": "add a family recipes table"
+                },
+                {
+                  "title": "Reorder Home",
+                  "subtitle": "Move useful sections first",
+                  "prompt": "put use first before quick moves on home"
+                },
+                {
+                  "title": "Compact cards",
+                  "subtitle": "Reduce visual density",
+                  "prompt": "make food cards compact"
+                },
+                {
+                  "title": "Family poll",
+                  "subtitle": "Vote on dinner",
+                  "prompt": "add a family dinner poll"
+                }
+              ],
+              "options": [
+                {
+                  "label": "Build food app",
+                  "subtitle": "Great polished vertical.",
+                  "votes": 8
+                },
+                {
+                  "label": "Build CRM",
+                  "subtitle": "Small-company ops.",
+                  "votes": 5
+                },
+                {
+                  "label": "Build trip planner",
+                  "subtitle": "Maps, checklists, calendar.",
+                  "votes": 3
+                }
+              ],
+              "actions": [
+                {
+                  "title": "Open config",
+                  "route": "/config"
+                },
+                {
+                  "title": "Ask Wonder",
+                  "route": "/chat?prompt=Help%20me%20change%20the%20Food%20app%20package.%20Ask%20for%20the%20specific%20screen%2C%20widget%2C%20schema%20field%2C%20or%20workflow%20I%20want%20to%20edit%20before%20proposing%20changes.&run=1"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "providerStatus",
+            "id": "config_table_demo",
+            "title": "Context and data",
+            "subtitle": "What Wonder may read",
+            "tone": "neutral",
+            "props": {
+              "provider": "summary",
+              "homes": [
+                {
+                  "title": "On-device Food",
+                  "subtitle": "Meals, pantry, recipes, lists",
+                  "status": "Active",
+                  "icon": "●"
+                },
+                {
+                  "title": "Notion",
+                  "subtitle": "Selected food pages only",
+                  "status": "Optional",
+                  "icon": "N"
+                },
+                {
+                  "title": "Sheets",
+                  "subtitle": "Selected workbook only",
+                  "status": "Optional",
+                  "icon": "S"
+                }
+              ],
+              "actions": [
+                {
+                  "title": "Manage data homes",
+                  "route": "/sources"
+                }
+              ],
+              "columns": [
+                {
+                  "key": "name",
+                  "label": "Name"
+                },
+                {
+                  "key": "kind",
+                  "label": "Kind"
+                },
+                {
+                  "key": "signals",
+                  "label": "Signals"
+                },
+                {
+                  "key": "score",
+                  "label": "Score"
+                }
+              ],
+              "items": [
+                {
+                  "name": "Dinner poll",
+                  "kind": "Poll",
+                  "signals": [
+                    "family",
+                    "tonight"
+                  ],
+                  "score": 92,
+                  "route": "/config"
+                },
+                {
+                  "name": "Recipe link",
+                  "kind": "Link",
+                  "signals": [
+                    "youtube",
+                    "recipe"
+                  ],
+                  "score": 86,
+                  "url": "https://www.youtube.com"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "postCard",
+            "id": "config_board_demo",
+            "title": "Active package",
+            "subtitle": "Food · food.v1",
+            "tone": "plum",
+            "props": {
+              "badge": "Installed",
+              "body": "Home, Food, Ask, Sources, and Settings are generated from the active package. Package edits require preview and approval.",
+              "actions": [
+                {
+                  "title": "Open Food",
+                  "route": "/food"
+                }
+              ],
+              "columns": [
+                {
+                  "title": "Ideas",
+                  "items": [
+                    {
+                      "title": "Family dinner poll",
+                      "subtitle": "Collect votes",
+                      "route": "/config"
+                    },
+                    {
+                      "title": "Recipe video",
+                      "subtitle": "Open source link",
+                      "url": "https://www.youtube.com"
+                    }
+                  ]
+                },
+                {
+                  "title": "Ready",
+                  "items": [
+                    {
+                      "title": "Shopping rows",
+                      "subtitle": "Open capture",
+                      "route": "/capture"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "checklistCard",
+            "id": "config_checklist_demo",
+            "title": "AI context",
+            "subtitle": "Select sources; Ask stays uncluttered",
+            "tone": "amber",
+            "props": {
+              "items": [
+                {
+                  "title": "On-device Food",
+                  "subtitle": "Meals, pantry, shopping, recipes"
+                },
+                {
+                  "title": "Notion food home",
+                  "subtitle": "Selected pages and databases"
+                },
+                {
+                  "title": "Sheets food workbook",
+                  "subtitle": "Selected workbook and tabs"
+                },
+                {
+                  "title": "Health Connect",
+                  "subtitle": "Only after Android permission"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "permissionCard",
+            "id": "config_permissions",
+            "title": "Device access",
+            "subtitle": "Photos, camera, voice, sharing, and health",
+            "tone": "amber"
+          },
+          {
+            "kind": "widget",
+            "widget": "themePreview",
+            "id": "config_theme",
+            "title": "Food theme",
+            "subtitle": "One visual system across generated screens",
+            "tone": "moss",
+            "props": {
+              "colors": {
+                "food": "#2F7448",
+                "warmth": "#F3B15E",
+                "calm": "#B9DCE8",
+                "ink": "#241C16"
+              },
+              "mood": "Food-forward, calm, useful.",
+              "density": "Comfortable"
+            }
+          },
+          {
+            "kind": "widget",
+            "widget": "widgetCatalog",
+            "id": "config_advanced_catalog",
+            "title": "Available building blocks",
+            "subtitle": "Advanced package edits can use any of these.",
+            "tone": "neutral",
+            "props": {
+              "items": [
+                {
+                  "title": "Assistant chat"
+                },
+                {
+                  "title": "Health connect"
+                },
+                {
+                  "title": "Schema editor"
+                },
+                {
+                  "title": "Widget catalog"
+                },
+                {
+                  "title": "Post card"
+                },
+                {
+                  "title": "Poll card"
+                },
+                {
+                  "title": "Link preview"
+                },
+                {
+                  "title": "Feed list"
+                },
+                {
+                  "title": "Kanban board"
+                },
+                {
+                  "title": "Smart capture"
+                },
+                {
+                  "title": "Chart block"
+                },
+                {
+                  "title": "Media block"
+                },
+                {
+                  "title": "Map block"
+                },
+                {
+                  "title": "Form card"
+                },
+                {
+                  "title": "Checklist card"
+                },
+                {
+                  "title": "Calendar block"
+                },
+                {
+                  "title": "Timeline block"
+                },
+                {
+                  "title": "Gallery grid"
+                },
+                {
+                  "title": "Data table"
+                },
+                {
+                  "title": "Permission card"
+                },
+                {
+                  "title": "Provider status"
+                },
+                {
+                  "title": "Theme preview"
+                },
+                {
+                  "title": "Theme density selector"
+                },
+                {
+                  "title": "AI provider settings"
+                },
+                {
+                  "title": "Data home settings"
+                },
+                {
+                  "title": "Record list"
+                },
+                {
+                  "title": "Metric"
+                },
+                {
+                  "title": "Action"
+                },
+                {
+                  "title": "Text card"
+                },
+                {
+                  "title": "Package editor"
+                },
+                {
+                  "title": "Food hero"
+                },
+                {
+                  "title": "Use first carousel"
+                },
+                {
+                  "title": "Meal timeline"
+                },
+                {
+                  "title": "Recipe card"
+                },
+                {
+                  "title": "Receipt review card"
+                },
+                {
+                  "title": "Pantry shelf"
+                },
+                {
+                  "title": "Ask food bar"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "health": {
+        "title": "Health Connect",
+        "subtitle": "Optional Android context for nutrition, hydration, activity, and weight. Nothing is used until you grant it.",
+        "components": [
+          {
+            "kind": "widget",
+            "widget": "healthConnect",
+            "id": "health_status",
+            "title": "Connect health context",
+            "subtitle": "Check access, ask Android for permission, or open system settings.",
+            "tone": "blue"
+          },
+          {
+            "kind": "widget",
+            "widget": "permissionCard",
+            "id": "health_declared_permissions",
+            "title": "What Wonder may ask for",
+            "subtitle": "These permissions come from the app package, not hardcoded screen copy.",
+            "tone": "amber"
+          },
+          {
+            "kind": "action",
+            "id": "health_settings",
+            "title": "Back to settings",
+            "tone": "plum",
+            "action": {
+              "kind": "propose",
+              "label": "Settings",
+              "command": "open_settings",
+              "payload": {
+                "route": "/settings"
+              }
+            }
+          }
+        ]
+      },
+      "record": {
+        "title": "Food item",
+        "subtitle": "One source-backed record from the active package.",
+        "components": [
+          {
+            "kind": "recordList",
+            "id": "record_current",
+            "title": "Selected item",
+            "subtitle": "Details from the local food graph.",
+            "tone": "moss",
+            "query": {
+              "limit": 1
+            },
+            "props": {
+              "detail": true
+            }
+          },
+          {
+            "kind": "action",
+            "id": "record_ask",
+            "placement": "top",
+            "title": "Ask about this",
+            "subtitle": "Turn this item into dinner, shopping, prep, or a package change.",
+            "tone": "plum",
+            "action": {
+              "kind": "propose",
+              "label": "Ask Wonder",
+              "command": "ask_record",
+              "payload": {
+                "route": "/chat?prompt=Help%20me%20use%20{{record.title}}.%20Show%20the%20best%20recipe%20or%20next%20action%20using%20my%20inventory%2C%20expiry%2C%20and%20preferences.&run=1"
+              }
+            }
+          }
+        ]
+      },
+      "collection": {
+        "title": "Items",
+        "subtitle": "Tap any item for its full details.",
+        "components": [
+          {
+            "kind": "recordList",
+            "id": "collection_records",
+            "title": "Everything here",
+            "subtitle": "Live items from your active food sources.",
+            "tone": "moss",
+            "query": {
+              "limit": 100
+            }
+          },
+          {
+            "kind": "action",
+            "id": "collection_add",
+            "placement": "fab",
+            "title": "Add something",
+            "subtitle": "Photo, receipt, link, or quick note.",
+            "tone": "amber",
+            "action": {
+              "kind": "propose",
+              "label": "Add",
+              "command": "open_capture",
+              "payload": {
+                "route": "/capture"
+              }
+            }
+          }
+        ]
+      },
+      "system": {
+        "title": "Settings",
+        "subtitle": "Connections, sync, package edits, and diagnostics live here.",
+        "components": [
+          {
+            "kind": "text",
+            "id": "system_hidden",
+            "title": "Quiet by default",
+            "subtitle": "Source checks, package locks, sync health, and native permissions stay here instead of every food card.",
+            "tone": "amber"
+          },
+          {
+            "kind": "widget",
+            "widget": "providerStatus",
+            "id": "system_provider_status",
+            "title": "Source health",
+            "subtitle": "Only open this when something needs attention.",
+            "tone": "blue",
+            "props": {
+              "provider": "summary"
+            }
+          },
+          {
+            "kind": "action",
+            "id": "system_health",
+            "title": "Native permissions",
+            "tone": "moss",
+            "action": {
+              "kind": "propose",
+              "label": "Health",
+              "command": "open_health",
+              "payload": {
+                "route": "/health-diagnostics"
+              }
+            }
+          }
+        ]
+      },
+      "notFound": {
+        "title": "This moved",
+        "subtitle": "Wonder can still route you back into the food workspace.",
+        "components": [
+          {
+            "kind": "action",
+            "id": "not_found_home",
+            "title": "Back to Today",
+            "subtitle": "Return to the generated Food home.",
+            "tone": "moss",
+            "action": {
+              "kind": "propose",
+              "label": "Today",
+              "command": "open_home",
+              "payload": {
+                "route": "/"
+              }
+            }
+          },
+          {
+            "kind": "action",
+            "id": "not_found_ask",
+            "title": "Ask Wonder",
+            "subtitle": "Tell Wonder what you were trying to open.",
+            "tone": "plum",
+            "action": {
+              "kind": "propose",
+              "label": "Ask",
+              "command": "open_chat",
+              "payload": {
+                "route": "/chat"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "relations": [
+    {
+      "from": "household",
+      "to": "member",
+      "name": "has_member"
+    },
+    {
+      "from": "member",
+      "to": "preference",
+      "name": "has_preference"
+    },
+    {
+      "from": "member",
+      "to": "nutrition_goal",
+      "name": "has_goal"
+    },
+    {
+      "from": "food_item",
+      "to": "preference",
+      "name": "shaped_by"
+    },
+    {
+      "from": "product",
+      "to": "food_item",
+      "name": "packages"
+    },
+    {
+      "from": "product",
+      "to": "nutrition_profile",
+      "name": "has_label_nutrition"
+    },
+    {
+      "from": "inventory",
+      "to": "food_item",
+      "name": "tracks"
+    },
+    {
+      "from": "inventory",
+      "to": "ingredient",
+      "name": "represents"
+    },
+    {
+      "from": "inventory_lot",
+      "to": "food_item",
+      "name": "stores"
+    },
+    {
+      "from": "inventory_lot",
+      "to": "product",
+      "name": "from_product"
+    },
+    {
+      "from": "inventory_lot",
+      "to": "purchase_line",
+      "name": "acquired_from"
+    },
+    {
+      "from": "inventory_movement",
+      "to": "inventory_lot",
+      "name": "moves"
+    },
+    {
+      "from": "inventory_movement",
+      "to": "meal_log",
+      "name": "caused_by_meal"
+    },
+    {
+      "from": "ingredient",
+      "to": "food_item",
+      "name": "matches_food"
+    },
+    {
+      "from": "recipe",
+      "to": "ingredient",
+      "name": "uses"
+    },
+    {
+      "from": "recipe",
+      "to": "recipe_revision",
+      "name": "has_revision"
+    },
+    {
+      "from": "recipe_revision",
+      "to": "recipe_step",
+      "name": "contains_step"
+    },
+    {
+      "from": "recipe",
+      "to": "recipe_step",
+      "name": "has_step"
+    },
+    {
+      "from": "recipe",
+      "to": "recipe_tool",
+      "name": "uses_tool"
+    },
+    {
+      "from": "recipe",
+      "to": "nutrition_profile",
+      "name": "has_nutrition"
+    },
+    {
+      "from": "meal_template",
+      "to": "recipe",
+      "name": "templates"
+    },
+    {
+      "from": "meal_plan",
+      "to": "recipe",
+      "name": "plans"
+    },
+    {
+      "from": "meal_plan",
+      "to": "meal_template",
+      "name": "uses_template"
+    },
+    {
+      "from": "meal_log",
+      "to": "meal_plan",
+      "name": "completes"
+    },
+    {
+      "from": "meal_consumption",
+      "to": "meal_log",
+      "name": "portion_of"
+    },
+    {
+      "from": "meal_consumption",
+      "to": "member",
+      "name": "eaten_by"
+    },
+    {
+      "from": "shopping_list",
+      "to": "meal_plan",
+      "name": "supports_plan"
+    },
+    {
+      "from": "shopping_item",
+      "to": "shopping_list",
+      "name": "belongs_to"
+    },
+    {
+      "from": "shopping_item",
+      "to": "inventory",
+      "name": "restocks"
+    },
+    {
+      "from": "shopping_item",
+      "to": "food_item",
+      "name": "buys_food"
+    },
+    {
+      "from": "shopping_demand",
+      "to": "shopping_item",
+      "name": "explains"
+    },
+    {
+      "from": "shopping_demand",
+      "to": "ingredient",
+      "name": "from_ingredient"
+    },
+    {
+      "from": "shopping_demand",
+      "to": "meal_plan",
+      "name": "from_plan"
+    },
+    {
+      "from": "purchase_line",
+      "to": "shopping_item",
+      "name": "fulfills"
+    },
+    {
+      "from": "purchase_line",
+      "to": "inventory",
+      "name": "adds"
+    },
+    {
+      "from": "purchase_line",
+      "to": "inventory_lot",
+      "name": "creates_lot"
+    },
+    {
+      "from": "purchase_line",
+      "to": "product",
+      "name": "bought_product"
+    },
+    {
+      "from": "purchase_line",
+      "to": "purchase",
+      "name": "part_of"
+    },
+    {
+      "from": "nutrition_observation",
+      "to": "meal_log",
+      "name": "describes"
+    },
+    {
+      "from": "nutrition_observation",
+      "to": "nutrition_profile",
+      "name": "uses_profile"
+    },
+    {
+      "from": "attachment",
+      "to": "*",
+      "name": "attached_to"
+    },
+    {
+      "from": "audit_event",
+      "to": "*",
+      "name": "records_change"
+    },
+    {
+      "from": "source_record",
+      "to": "*",
+      "name": "supports"
+    }
+  ],
+  "skills": [
+    "food"
+  ],
+  "workflows": [
+    "weekly_food_reset",
+    "receipt_to_kitchen",
+    "meal_plan_to_shopping",
+    "phase4_replay_workflow",
+    "phase4_compensation_probe"
+  ],
+  "data_homes": [
+    "notion",
+    "google_sheets",
+    "sqlite",
+    "postgres"
+  ],
+  "dependency_pins": [
+    {
+      "package": "expo-image-picker",
+      "version": "~57.0.6",
+      "source": "npm"
+    },
+    {
+      "package": "expo-sharing",
+      "version": "~57.0.7",
+      "source": "npm"
+    },
+    {
+      "package": "expo-linking",
+      "version": "~57.0.4",
+      "source": "npm"
+    },
+    {
+      "package": "react-native-health-connect",
+      "version": "^3.5.3",
+      "source": "npm"
+    }
+  ],
+  "native_capabilities": {
+    "schemaVersion": "wonder.app-package-native-capabilities.v1",
+    "platform": "expo",
+    "packages": [
+      "expo-image-picker",
+      "expo-sharing",
+      "expo-linking",
+      "react-native-health-connect"
+    ],
+    "permissions": [
+      {
+        "id": "health-connect-read-nutrition",
+        "platform": "android",
+        "permission": "android.permission.health.READ_NUTRITION",
+        "reason": "Use nutrition and food-health context only when the user enables Health Connect.",
+        "required": false,
+        "prompt": "Allow Utopia to read nutrition records for food context."
+      },
+      {
+        "id": "health-connect-read-hydration",
+        "platform": "android",
+        "permission": "android.permission.health.READ_HYDRATION",
+        "reason": "Use hydration records as optional food-health context after user approval.",
+        "required": false,
+        "prompt": "Allow Utopia to read hydration records for food context."
+      },
+      {
+        "id": "health-connect-read-steps",
+        "platform": "android",
+        "permission": "android.permission.health.READ_STEPS",
+        "reason": "Use step trends as optional planning context after user approval.",
+        "required": false,
+        "prompt": "Allow Utopia to read step records for food context."
+      },
+      {
+        "id": "health-connect-read-active-calories",
+        "platform": "android",
+        "permission": "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "reason": "Use active calorie context only when the user enables Health Connect.",
+        "required": false,
+        "prompt": "Allow Utopia to read active calorie records for food context."
+      },
+      {
+        "id": "health-connect-read-weight",
+        "platform": "android",
+        "permission": "android.permission.health.READ_WEIGHT",
+        "reason": "Use weight context only when the user enables Health Connect.",
+        "required": false,
+        "prompt": "Allow Utopia to read weight records for food context."
+      },
+      {
+        "id": "health-connect-write-hydration-proof",
+        "platform": "android",
+        "permission": "android.permission.health.WRITE_HYDRATION",
+        "reason": "Run a user-approved disposable Health Connect write/read/delete proof.",
+        "required": false,
+        "prompt": "Allow Utopia to write a disposable hydration proof record."
+      },
+      {
+        "id": "camera-photo-library",
+        "platform": "expo",
+        "permission": "expo-image-picker:media-library",
+        "reason": "Attach receipts, pantry photos, food labels, and meal images to food records.",
+        "required": false,
+        "prompt": "Allow Utopia to choose photos for receipts and food capture."
+      },
+      {
+        "id": "share-intent",
+        "platform": "expo",
+        "permission": "expo-sharing",
+        "reason": "Save food links, recipes, videos, and shopping context into the active package.",
+        "required": false,
+        "prompt": "Allow Utopia to use the share sheet for food capture."
+      }
+    ],
+    "intents": [
+      {
+        "id": "save-food-link",
+        "platform": "expo",
+        "kind": "share",
+        "reason": "Let users send recipes, YouTube cooking links, grocery pages, and receipts into the Food package.",
+        "required": false,
+        "payload": {
+          "accepts": [
+            "url",
+            "text",
+            "image"
+          ],
+          "target": "food.capture"
+        }
+      },
+      {
+        "id": "open-recipe-url",
+        "platform": "expo",
+        "kind": "url_open",
+        "reason": "Open cited recipe, product, store, and video sources from rendered Food cards.",
+        "required": false,
+        "payload": {
+          "allowlist": [
+            "https://www.youtube.com",
+            "https://youtu.be",
+            "https://docs.google.com",
+            "https://www.notion.so",
+            "https://app.notion.com"
+          ]
+        }
+      },
+      {
+        "id": "open-food-capture",
+        "platform": "expo",
+        "kind": "deep_link",
+        "reason": "Open the Food capture surface through the app scheme.",
+        "required": false,
+        "payload": {
+          "scheme": "utopia",
+          "target": "food.capture"
+        }
+      }
+    ]
+  },
+  "render": {
+    "answer_label": "Food",
+    "empty_intro": "No matching local Food records were loaded. Connect Notion/Sheets or add records, then ask again.",
+    "default_title": "Local Food answer",
+    "default_intro": "I found {count} local Food record{plural} tied to this question.",
+    "default_columns": [
+      "Record",
+      "Available",
+      "Missing / shopping"
+    ],
+    "default_fields": [
+      "title",
+      "available_ingredients",
+      "missing_ingredients"
+    ],
+    "card_bullets": [
+      "nutrition",
+      "available_ingredients",
+      "first_instruction"
+    ],
+    "source_quote_fields": [
+      "body",
+      "meta",
+      "ingredients",
+      "first_instruction"
+    ],
+    "source_exclude_fields": [
+      "tone",
+      "food_detail"
+    ],
+    "intents": {
+      "inventory": {
+        "terms": [
+          "inventory",
+          "pantry",
+          "fridge",
+          "freezer",
+          "what do i have",
+          "what do we have",
+          "what we have",
+          "on hand",
+          "available"
+        ],
+        "title": "Current food inventory",
+        "intro": "I found {count} current inventory record{plural}.",
+        "columns": [
+          "Item",
+          "Status",
+          "Details"
+        ],
+        "fields": [
+          "title",
+          "status",
+          "meta"
+        ],
+        "boost_collections": [
+          "inventory",
+          "inventory_lot"
+        ]
+      },
+      "shopping": {
+        "terms": [
+          "shop",
+          "buy",
+          "grocery",
+          "missing",
+          "cart"
+        ],
+        "title": "Local shopping answer",
+        "intro": "I found {count} local Food record{plural} that explain what to buy and why.",
+        "columns": [
+          "Record",
+          "Available",
+          "Missing / shopping"
+        ],
+        "fields": [
+          "title",
+          "available_ingredients",
+          "missing_ingredients"
+        ],
+        "boost_collections": [
+          "shopping_item",
+          "shopping_list",
+          "shopping_demand",
+          "purchase"
+        ]
+      },
+      "planning": {
+        "terms": [
+          "recipe",
+          "cook",
+          "dinner",
+          "meal",
+          "ingredient",
+          "nutrition"
+        ],
+        "title": "Local food planning answer",
+        "intro": "I found {count} local Food record{plural} with ingredients, availability, and next cooking steps.",
+        "columns": [
+          "Record",
+          "Available",
+          "Missing / shopping"
+        ],
+        "fields": [
+          "title",
+          "available_ingredients",
+          "missing_ingredients"
+        ],
+        "boost_collections": [
+          "recipe",
+          "meal_plan",
+          "meal_log",
+          "nutrition_profile",
+          "nutrition_observation"
+        ]
+      }
+    }
+  },
+  "mcp": {
+    "resources": [
+      "domain_manifest",
+      "schema",
+      "record",
+      "source_snapshot",
+      "conversation"
+    ],
+    "tools": [
+      "search",
+      "read_record",
+      "create_record",
+      "update_record",
+      "archive_record",
+      "run_workflow"
+    ]
+  }
+}

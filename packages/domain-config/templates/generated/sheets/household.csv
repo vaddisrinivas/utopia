@@ -1,0 +1,5 @@
+id,collection,title,member,preference_type,value,goal_type,target,food_detail_json
+household-example,household,Household,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+member-example,member,Member,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+preference-example,preference,Preference,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"
+nutrition_goal-example,nutrition_goal,Nutrition Goal,,,,,,"{""nutrition"":[],""ingredients"":[],""instructions"":[],""logs"":[],""variations"":[]}"

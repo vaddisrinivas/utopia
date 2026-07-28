@@ -1,0 +1,3 @@
+id,collection,provider,external_id,url,version,content_hash,observed_at,event_type,actor,undo_until
+source_record-example,source_record,,,,,,,,,
+audit_event-example,audit_event,,,,,,,,,

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "demo.shelf",
+  "version": "1.0.0",
+  "collections": {
+    "task": {
+      "id": "task",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true }
+      }
+    }
+  },
+  "queries": {
+    "tasks": {
+      "from": "records",
+      "where": { "op": "eq", "field": "collection", "value": "task" }
+    }
+  },
+  "views": {
+    "tasks": {
+      "id": "tasks",
+      "query": "tasks",
+      "mode": "list",
+      "fields": ["title", "updated_at"]
+    }
+  },
+  "presentation": {
+    "label": "Demo Shelf",
+    "homeSurface": "home",
+    "surfaces": [
+      { "id": "home", "label": "Home", "icon": "home", "collections": ["task"], "views": ["tasks"] },
+      { "id": "review", "label": "Review", "collections": ["task"], "views": ["tasks"] }
+    ],
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Home",
+          "components": [
+            { "kind": "widget", "widget": "metricTile", "title": "Open", "query": { "collections": ["task"] } }
+          ]
+        },
+        "review": {
+          "title": "Review",
+          "components": [
+            { "kind": "list", "title": "Tasks", "query": { "collections": ["task"] } }
+          ]
+        }
+      }
+    }
+  },
+  "rules": [],
+  "capabilities": ["provider:notion", "plugin:metricTile"],
+  "acceptanceTests": ["install-preview"]
+}

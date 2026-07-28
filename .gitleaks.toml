@@ -1,0 +1,12 @@
+title = "Utopia gitleaks config"
+
+[[allowlists]]
+description = "Deterministic test fixture idempotency keys"
+condition = "AND"
+paths = [
+  '''app/src/test/java/com/utopia/app/ai/CommandEnvelopeDraftMapperTest\.kt''',
+  '''core/ai/src/test/kotlin/com/utopia/core/ai/CommandEnvelopeGoldenStabilityTest\.kt''',
+]
+regexes = [
+  '''idempotency_?[Kk]ey[" ]*[:=][" ]*repeat''',
+]

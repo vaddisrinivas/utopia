@@ -1,0 +1,763 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.app/schemas/domain.v1.schema.json",
+  "title": "Utopia domain package",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "label",
+    "surfaces",
+    "collections",
+    "relations",
+    "skills",
+    "workflows",
+    "data_homes",
+    "mcp"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "utopia.domain.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "home_surface": {
+      "type": "string"
+    },
+    "surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "collections"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "visual_identity": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "$ref": "#/$defs/visual_token"
+        },
+        "surfaces": {
+          "$ref": "#/$defs/visual_token_map"
+        },
+        "collections": {
+          "$ref": "#/$defs/visual_token_map"
+        },
+        "statuses": {
+          "$ref": "#/$defs/visual_token_map"
+        },
+        "actions": {
+          "$ref": "#/$defs/visual_token_map"
+        },
+        "sources": {
+          "$ref": "#/$defs/visual_token_map"
+        },
+        "skills": {
+          "$ref": "#/$defs/visual_token_map"
+        },
+        "agents": {
+          "$ref": "#/$defs/visual_token_map"
+        }
+      },
+      "additionalProperties": false
+    },
+    "relations": {
+      "type": "array"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "data_homes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "notion",
+          "google_sheets",
+          "sqlite",
+          "postgres"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "dependency_pins": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dependency_pin"
+      },
+      "uniqueItems": true
+    },
+    "native_capabilities": {
+      "$ref": "#/$defs/native_capability"
+    },
+    "rich_detail_schema": {
+      "type": "string"
+    },
+    "provider_template_fields": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "rich_detail_json": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "relations_json": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "render": {
+      "type": "object",
+      "properties": {
+        "answer_label": {
+          "type": "string"
+        },
+        "empty_intro": {
+          "type": "string"
+        },
+        "default_title": {
+          "type": "string"
+        },
+        "default_intro": {
+          "type": "string"
+        },
+        "default_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "card_bullets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_quote_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_exclude_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "intents": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "terms": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "intro": {
+                "type": "string"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "boost_collections": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mcp": {
+      "type": "object",
+      "required": [
+        "resources",
+        "tools"
+      ]
+    },
+    "ui": {
+      "$ref": "#/$defs/package_ui"
+    }
+  },
+  "$defs": {
+    "visual_token": {
+      "type": "object",
+      "properties": {
+        "icon": {
+          "type": "string"
+        },
+        "emoji": {
+          "type": "string"
+        },
+        "image_url": {
+          "type": "string"
+        },
+        "accent": {
+          "enum": [
+            "neutral",
+            "moss",
+            "amber",
+            "plum",
+            "blue"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "visual_token_map": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/visual_token"
+      }
+    },
+    "native_permission": {
+      "type": "object",
+      "required": [
+        "id",
+        "platform",
+        "permission",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "platform": {
+          "enum": [
+            "expo",
+            "android",
+            "ios",
+            "web"
+          ]
+        },
+        "permission": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "native_intent": {
+      "type": "object",
+      "required": [
+        "id",
+        "platform",
+        "kind",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "platform": {
+          "enum": [
+            "expo",
+            "android",
+            "ios",
+            "web"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "share",
+            "deep_link",
+            "shortcut",
+            "voice",
+            "background_task",
+            "file_open",
+            "url_open"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dependency_pin": {
+      "type": "object",
+      "required": [
+        "package",
+        "version"
+      ],
+      "properties": {
+        "package": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "enum": [
+            "npm",
+            "maven",
+            "gradle",
+            "cocoapods",
+            "other"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "native_capability": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "platform",
+        "packages"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "wonder.app-package-native-capabilities.v1"
+        },
+        "platform": {
+          "enum": [
+            "expo",
+            "android",
+            "ios",
+            "web"
+          ]
+        },
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "$ref": "#/$defs/native_permission"
+              }
+            ]
+          }
+        },
+        "intents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/native_intent"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "package_ui_action": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "open_url",
+            "propose"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "tool": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "open_url"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "url"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "propose"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "command"
+                ]
+              },
+              {
+                "required": [
+                  "tool"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "package_ui_component": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "recordList",
+            "metric",
+            "action",
+            "text",
+            "widget"
+          ]
+        },
+        "widget": {
+          "enum": [
+            "assistantChat",
+            "healthConnect",
+            "schemaEditor",
+            "widgetCatalog",
+            "postCard",
+            "pollCard",
+            "linkPreview",
+            "feedList",
+            "kanbanBoard",
+            "smartCapture",
+            "chartBlock",
+            "mediaBlock",
+            "mapBlock",
+            "formCard",
+            "checklistCard",
+            "calendarBlock",
+            "timelineBlock",
+            "galleryGrid",
+            "dataTable",
+            "permissionCard",
+            "providerStatus",
+            "themePreview",
+            "themeDensitySelector",
+            "aiProviderSettings",
+            "dataHomeSettings",
+            "foodHero",
+            "useFirstCarousel",
+            "mealTimeline",
+            "recipeCard",
+            "receiptReviewCard",
+            "pantryShelf",
+            "askFoodBar"
+          ]
+        },
+        "props": {
+          "type": "object"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "view": {
+          "type": "string"
+        },
+        "tone": {
+          "enum": [
+            "neutral",
+            "moss",
+            "amber",
+            "plum",
+            "blue"
+          ]
+        },
+        "placement": {
+          "enum": [
+            "inline",
+            "top",
+            "fab"
+          ]
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "collections": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "match": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "additionalProperties": false
+        },
+        "action": {
+          "$ref": "#/$defs/package_ui_action"
+        }
+      },
+      "additionalProperties": false
+    },
+    "package_ui_screen": {
+      "type": "object",
+      "required": [
+        "components"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/package_ui_component"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "package_ui": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": "a2ui.v0_9"
+        },
+        "openUrlAllowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "navigation": {
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 5,
+              "items": {
+                "type": "object",
+                "required": [
+                  "screen",
+                  "label"
+                ],
+                "properties": {
+                  "screen": {
+                    "enum": [
+                      "home",
+                      "overview",
+                      "chat",
+                      "sources",
+                      "settings"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "icon": {
+                    "enum": [
+                      "home",
+                      "food",
+                      "sparkles",
+                      "sync",
+                      "settings"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/package_ui_component"
+          }
+        },
+        "screens": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/package_ui_screen"
+          }
+        },
+        "defaultScreen": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

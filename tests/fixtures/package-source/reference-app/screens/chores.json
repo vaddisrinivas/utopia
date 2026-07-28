@@ -1,0 +1,21 @@
+{
+  "label": "Chores",
+  "subtitle": "Every routine task in one list.",
+  "collections": ["chore"],
+  "query": "chore_list",
+  "mode": "list",
+  "fields": ["title", "status", "frequency_label"],
+  "components": [
+    {
+      "kind": "recordList",
+      "title": "Chore list",
+      "subtitle": "Open or add a chore",
+      "query": { "collections": ["chore"], "limit": 8 },
+      "props": {
+        "emptyText": "No chores ready yet.",
+        "subtitleFields": ["status", "frequency_label"],
+        "iconField": "emoji"
+      }
+    }
+  ]
+}

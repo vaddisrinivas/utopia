@@ -1,0 +1,4 @@
+{
+  "from": "records",
+  "where": { "op": "eq", "field": "collection", "value": "household_member" }
+}
