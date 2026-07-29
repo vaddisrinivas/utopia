@@ -3,8 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   activateAppPackage,
   activateApprovedAppPackageChange,
+  activateApprovedAppPackageUpdate,
+  archiveAppInstallation,
   bootstrapAppPackageRegistry,
+  deleteAppInstallationAndData,
   getActiveAppPackage,
+  getAppInstallation,
+  installApprovedAppPackage,
+  previewAppPackageUpdate,
   previewAppPackageChange,
   rollbackAppPackage,
   type AppPackageChangeRequest,
@@ -13,7 +19,9 @@ import { buildAppPackageFromManifest } from '@/src/domain/app-package-bridge';
 import { loadCatalog, setActivePackageOverride } from '@/src/domain/catalog';
 import { buildSafePackageChangeRequest } from '@/src/domain/package-change-templates';
 import { MemoryDb } from '@/tests/helpers/memory-db';
-import type { AppPackage } from '@/packages/shared/contracts/package';
+import type { AppPackage, AppPackageV3 } from '@/packages/shared/contracts/package';
+import { buildPackageInstallApprovalReceipt, buildPackageInstallPreview } from '@/packages/shared/contracts/package-install';
+import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
 
 describe('app package SQLite registry', () => {
   it('bootstraps once, persists activation across reopen, and rolls back', async () => {
@@ -86,6 +94,130 @@ describe('app package SQLite registry', () => {
 
     await expect(bootstrapAppPackageRegistry(db)).rejects.toThrow(/app_package_active_missing/);
     expect(db.appPackageReceipts).toEqual([]);
+  });
+
+  it('archives installed apps without deleting package state or approval evidence', async () => {
+    const db = new MemoryDb() as any;
+    const pkg = buildAppPackageFromManifest(loadCatalog().activeManifest).package;
+    const preview = buildPackageInstallPreview(pkg, { sourceUrl: 'https://example.com/archive-demo.package.json' });
+    await installApprovedAppPackage(db, {
+      packageJson: pkg,
+      preview,
+      approval: buildPackageInstallApprovalReceipt(preview, 'tester', '2026-07-28T11:59:00.000Z'),
+      installationId: 'archive-demo',
+      now: '2026-07-28T11:59:01.000Z',
+    });
+
+    const archived = await archiveAppInstallation(db, 'archive-demo', '2026-07-28T12:00:00.000Z');
+
+    expect(archived.status).toBe('archived');
+    expect(archived.activation?.activePackageKey).toBe(`${pkg.id}@${pkg.version}`);
+    expect(archived.approval?.approvedBy).toBe('tester');
+    expect(await getActiveAppPackage(db, 'archive-demo')).toBeTruthy();
+    expect((await getAppInstallation(db, 'archive-demo'))?.status).toBe('archived');
+  });
+
+  it('previews app updates and requires a fresh approval for capability escalation', async () => {
+    const db = new MemoryDb() as any;
+    const pkg = buildAppPackageFromManifest(loadCatalog().activeManifest).package;
+    const installPreview = buildPackageInstallPreview(pkg, { sourceUrl: 'https://example.com/update-demo.package.json' });
+    const installApproval = buildPackageInstallApprovalReceipt(installPreview, 'tester', '2026-07-28T12:09:00.000Z');
+    await installApprovedAppPackage(db, {
+      packageJson: pkg,
+      preview: installPreview,
+      approval: installApproval,
+      installationId: 'update-demo',
+      now: '2026-07-28T12:09:01.000Z',
+    });
+
+    const nextPackage = withSupportedNativeEscalation({
+      ...pkg,
+      version: '1.0.1',
+      capabilities: [...pkg.capabilities, 'provider:notion'],
+    });
+    const updateInstallPreview = buildPackageInstallPreview(nextPackage, {
+      sourceUrl: 'https://example.com/update-demo-1.0.1.package.json',
+      expectedChecksum: sha256Canonical(nextPackage),
+    });
+    const updatePreview = await previewAppPackageUpdate(db, 'update-demo', nextPackage, updateInstallPreview);
+
+    expect(updatePreview).toMatchObject({
+      status: 'ready_for_review',
+      installationId: 'update-demo',
+      currentVersion: pkg.version,
+      nextVersion: '1.0.1',
+      approvalRequired: true,
+      capabilityDiff: {
+        addedProviders: ['provider:notion'],
+        addedNativePermissions: ['expo-image-picker:camera'],
+      },
+    });
+
+    await expect(activateApprovedAppPackageUpdate(db, {
+      packageJson: nextPackage,
+      preview: updateInstallPreview,
+      approval: installApproval,
+      installationId: 'update-demo',
+    })).rejects.toThrow(/package_install_approval_mismatch/);
+
+    const updateApproval = buildPackageInstallApprovalReceipt(updateInstallPreview, 'tester', '2026-07-28T12:10:00.000Z');
+    const updated = await activateApprovedAppPackageUpdate(db, {
+      packageJson: nextPackage,
+      preview: updateInstallPreview,
+      approval: updateApproval,
+      installationId: 'update-demo',
+      now: '2026-07-28T12:10:01.000Z',
+    });
+
+    expect(updated.packageBinding?.version).toBe('1.0.1');
+    expect(updated.approval?.approvedBy).toBe('tester');
+    expect((await getActiveAppPackage(db, 'update-demo'))?.version).toBe('1.0.1');
+    expect(db.appPackageReceipts.at(-1)).toMatchObject({
+      action: 'activate',
+      package_key: `${pkg.id}@1.0.1`,
+      approval_hash: sha256Canonical(updateApproval),
+      approved_by: 'tester',
+    });
+  });
+
+  it('deletes an app and its scoped data only after exact confirmation', async () => {
+    const db = new MemoryDb() as any;
+    const pkg = buildAppPackageFromManifest(loadCatalog().activeManifest).package;
+    const preview = buildPackageInstallPreview(pkg, { sourceUrl: 'https://example.com/delete-demo.package.json' });
+    await installApprovedAppPackage(db, {
+      packageJson: pkg,
+      preview,
+      approval: buildPackageInstallApprovalReceipt(preview, 'tester', '2026-07-28T12:19:00.000Z'),
+      installationId: 'delete-demo',
+      now: '2026-07-28T12:19:01.000Z',
+    });
+    db.records.set('delete-demo:r1', { app_installation_id: 'delete-demo', id: 'r1' });
+    db.records.set('other-demo:r1', { app_installation_id: 'other-demo', id: 'r1' });
+    db.operations.set('op-delete', { app_installation_id: 'delete-demo', op_id: 'op-delete' });
+    db.outbox.set('out-delete', { app_installation_id: 'delete-demo', id: 'out-delete' });
+    db.providerLinks.set('provider-delete', { app_installation_id: 'delete-demo', id: 'provider-delete' });
+    db.sourceSnapshots.set('snapshot-delete', { app_installation_id: 'delete-demo', id: 'snapshot-delete' });
+    db.sourceSnapshotRelations.push({ app_installation_id: 'delete-demo', snapshot_id: 'snapshot-delete', record_id: 'r1' });
+
+    await expect(deleteAppInstallationAndData(db, 'delete-demo', {
+      confirmedInstallationId: 'wrong-demo',
+      deleteData: true,
+    })).rejects.toThrow(/app_installation_delete_confirmation_required/);
+
+    await deleteAppInstallationAndData(db, 'delete-demo', {
+      confirmedInstallationId: 'delete-demo',
+      deleteData: true,
+    });
+
+    expect(await getAppInstallation(db, 'delete-demo')).toBeNull();
+    expect(db.appInstallationPackageState.has('delete-demo')).toBe(false);
+    expect(Array.from(db.records.values()).some((row: any) => row.app_installation_id === 'delete-demo')).toBe(false);
+    expect(Array.from(db.operations.values()).some((row: any) => row.app_installation_id === 'delete-demo')).toBe(false);
+    expect(Array.from(db.outbox.values()).some((row: any) => row.app_installation_id === 'delete-demo')).toBe(false);
+    expect(Array.from(db.providerLinks.values()).some((row: any) => row.app_installation_id === 'delete-demo')).toBe(false);
+    expect(Array.from(db.sourceSnapshots.values()).some((row: any) => row.app_installation_id === 'delete-demo')).toBe(false);
+    expect(db.sourceSnapshotRelations.some((row: any) => row.app_installation_id === 'delete-demo')).toBe(false);
+    expect(db.records.get('other-demo:r1')).toMatchObject({ app_installation_id: 'other-demo' });
   });
 
   it('uses bridged package presentation as catalog authority', async () => {
@@ -271,16 +403,16 @@ describe('app package SQLite registry', () => {
       summaryFirst: true,
     });
 
-    const movedWidget = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'move dinner vote first on overview'));
+    const movedWidget = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'move dinner vote first on plan'));
     expect(movedWidget.status).toBe('valid');
     expect(movedWidget.package?.collections.ai_dinner_vote).toBeUndefined();
-    expect(movedWidget.package?.presentation?.ui?.screens?.overview.components?.[0].id).toBe('dinner_vote');
-    expect(movedWidget.package?.presentation?.ui?.screens?.overview.components?.length)
-      .toBe(active.presentation?.ui?.screens?.overview.components?.length);
+    expect(movedWidget.package?.presentation?.ui?.screens?.plan.components?.[0].id).toBe('plan_dinner_vote');
+    expect(movedWidget.package?.presentation?.ui?.screens?.plan.components?.length)
+      .toBe(active.presentation?.ui?.screens?.plan.components?.length);
 
     const renamedWidget = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'rename dinner vote to "Family vote"'));
     expect(renamedWidget.status).toBe('valid');
-    const dinnerVote = renamedWidget.package?.presentation?.ui?.screens?.overview.components?.find((component) => component.id === 'dinner_vote');
+    const dinnerVote = renamedWidget.package?.presentation?.ui?.screens?.plan.components?.find((component) => component.id === 'plan_dinner_vote');
     expect(dinnerVote?.title).toBe('Family vote');
 
     const controlRoom = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'add settings control room'));
@@ -383,6 +515,39 @@ describe('app package SQLite registry', () => {
     expect(native.package.presentation?.ui?.screens?.ai_camera_share_permissions.components?.some((component) => component.id === 'ai_camera_share_test_intents')).toBe(true);
   });
 });
+
+function withSupportedNativeEscalation(appPackage: AppPackage): AppPackage {
+  if (appPackage.schemaVersion !== 'wonder.app-package.v3') throw new Error('expected V3 package');
+  const v3Package = appPackage as AppPackageV3;
+  const nativeCapabilities = {
+    ...v3Package.nativeCapabilities,
+    permissions: [
+      ...(v3Package.nativeCapabilities.permissions ?? []),
+      {
+        id: 'camera-capture',
+        platform: 'expo',
+        permission: 'expo-image-picker:camera',
+        reason: 'Capture reference photos.',
+        required: true,
+      },
+    ],
+  } satisfies AppPackageV3['nativeCapabilities'];
+  return {
+    ...v3Package,
+    nativeCapabilities,
+    contractLock: {
+      ...v3Package.contractLock,
+      nativeCapabilities,
+      checksum: sha256Canonical({
+        schemaVersion: v3Package.contractLock.schemaVersion,
+        algorithm: v3Package.contractLock.algorithm,
+        pinnedAt: v3Package.contractLock.pinnedAt,
+        dependencyPins: v3Package.contractLock.dependencyPins,
+        nativeCapabilities,
+      }),
+    },
+  };
+}
 
 function reopen(source: MemoryDb): MemoryDb {
   const db = new MemoryDb();

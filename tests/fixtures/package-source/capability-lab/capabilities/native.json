@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "wonder.app-package-native-capabilities.v1",
+  "platform": "expo",
+  "packages": [
+    "expo-camera",
+    "expo-calendar",
+    "expo-contacts",
+    "expo-document-picker",
+    "expo-image-picker",
+    "expo-local-authentication",
+    "expo-location",
+    "expo-notifications",
+    "expo-sensors",
+    "expo-sharing",
+    "expo-speech",
+    "expo-task-manager",
+    "expo-video"
+  ],
+  "permissions": [
+    {
+      "id": "scan-camera",
+      "platform": "expo",
+      "permission": "expo-camera",
+      "reason": "Scan QR and barcodes.",
+      "required": false
+    },
+    {
+      "id": "use-location",
+      "platform": "expo",
+      "permission": "expo-location",
+      "reason": "Request current location for map widgets.",
+      "required": false
+    },
+    {
+      "id": "schedule-notifications",
+      "platform": "expo",
+      "permission": "expo-notifications",
+      "reason": "Schedule local reminders.",
+      "required": false
+    },
+    {
+      "id": "pick-contacts",
+      "platform": "expo",
+      "permission": "expo-contacts",
+      "reason": "Pick one local contact.",
+      "required": false
+    },
+    {
+      "id": "create-calendar-event",
+      "platform": "expo",
+      "permission": "expo-calendar",
+      "reason": "Create a reviewed local calendar event.",
+      "required": false
+    },
+    {
+      "id": "local-auth",
+      "platform": "expo",
+      "permission": "expo-local-authentication",
+      "reason": "Gate sensitive actions behind local authentication.",
+      "required": false
+    },
+    {
+      "id": "read-sensors",
+      "platform": "expo",
+      "permission": "expo-sensors",
+      "reason": "Sample local device sensors.",
+      "required": false
+    },
+    {
+      "id": "speak-text",
+      "platform": "expo",
+      "permission": "expo-speech",
+      "reason": "Read package text aloud.",
+      "required": false
+    },
+    {
+      "id": "pick-files",
+      "platform": "expo",
+      "permission": "expo-document-picker",
+      "reason": "Exercise file-pick capability in the test app.",
+      "required": false
+    },
+    {
+      "id": "pick-video",
+      "platform": "expo",
+      "permission": "expo-image-picker:media-library",
+      "reason": "Pick local videos for playback.",
+      "required": false
+    },
+    {
+      "id": "record-video",
+      "platform": "expo",
+      "permission": "expo-image-picker:camera",
+      "reason": "Record local videos for playback.",
+      "required": false
+    },
+    {
+      "id": "share-files",
+      "platform": "expo",
+      "permission": "expo-sharing",
+      "reason": "Exercise file-export share/download capability in the test app.",
+      "required": false
+    },
+    {
+      "id": "future-ios-speech",
+      "platform": "ios",
+      "permission": "ios.permission.speech",
+      "reason": "Track planned speech support without blocking the lab app.",
+      "required": false
+    }
+  ],
+  "intents": [
+    {
+      "id": "open-capability-lab",
+      "platform": "expo",
+      "kind": "deep_link",
+      "reason": "Open the lab from release-smoke links.",
+      "required": false,
+      "payload": {
+        "scheme": "utopia",
+        "target": "capability.lab"
+      }
+    },
+    {
+      "id": "future-file-open",
+      "platform": "expo",
+      "kind": "file_open",
+      "reason": "Track planned file-open intent without blocking the lab app.",
+      "required": false
+    }
+  ]
+}

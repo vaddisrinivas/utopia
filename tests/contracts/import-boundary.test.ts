@@ -17,6 +17,7 @@ describe('shared contracts boundary', () => {
   it('rejects imports outside contract layer', () => {
     const contractsDir = resolve(process.cwd(), 'packages/shared/contracts');
     const files = readdirSync(contractsDir).filter((file) => file.endsWith('.ts'));
+    const allowedExternal = new Set(['js-sha256', 'json-canonicalize', 'zod']);
     const violations: string[] = [];
 
     for (const file of files) {
@@ -28,7 +29,8 @@ describe('shared contracts boundary', () => {
         if (
           specifier.startsWith('./') ||
           specifier.startsWith('../') ||
-          specifier.startsWith('@/packages/shared/contracts')
+          specifier.startsWith('@/packages/shared/contracts') ||
+          allowedExternal.has(specifier)
         ) {
           continue;
         }

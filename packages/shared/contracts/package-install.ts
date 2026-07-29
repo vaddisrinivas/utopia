@@ -3,8 +3,8 @@ import {
   formatAppPackageValidationIssues,
   type AppPackage,
 } from './package';
-import { nativeCapabilitySupportErrors } from './native-capabilities';
-import { sha256Canonical } from './canonical-json';
+import { nativeCapabilitySupportErrors, nativeCapabilitySupportFindings, type NativeCapabilityFinding } from './native-capabilities';
+import { canonicalJson, sha256Canonical } from './canonical-json';
 
 export const UTOPIA_REGISTRY_SCHEMA_VERSION = 'utopia.registry.v1' as const;
 export const UTOPIA_INSTALL_PREVIEW_SCHEMA_VERSION = 'utopia.install-preview.v1' as const;
@@ -18,6 +18,23 @@ export type UtopiaRegistryPackage = Readonly<{
   url: string;
   checksum?: string;
   description?: string;
+  publisher?: UtopiaRegistryPublisher;
+  signature?: UtopiaRegistrySignature;
+}>;
+
+export type UtopiaRegistryPublisher = Readonly<{
+  id: string;
+  name?: string;
+  homepage?: string;
+  verified?: boolean;
+}>;
+
+export type UtopiaRegistrySignature = Readonly<{
+  algorithm: string;
+  value: string;
+  keyId?: string;
+  publicKey?: string;
+  signedAt?: string;
 }>;
 
 export type UtopiaRegistryManifest = Readonly<{
@@ -32,6 +49,23 @@ export type PackageInstallTarget = Readonly<{
 }>;
 
 export type PackageInstallTrustStatus = 'checksum_verified' | 'checksum_missing' | 'checksum_mismatch';
+export type PackageInstallSignatureStatus = 'signature_verified' | 'signature_present' | 'signature_missing' | 'signature_invalid';
+
+export type PackageInstallSignatureVerifierInput = Readonly<{
+  canonicalPackage: string;
+  computedChecksum: string;
+  signature: UtopiaRegistrySignature;
+  publisher?: UtopiaRegistryPublisher;
+}>;
+
+export type PackageInstallSignatureVerifierResult = boolean | Readonly<{
+  verified: boolean;
+  error?: string;
+}>;
+
+export type PackageInstallSignatureVerifier = (
+  input: PackageInstallSignatureVerifierInput,
+) => PackageInstallSignatureVerifierResult;
 
 export type PackageInstallPreview = Readonly<{
   schemaVersion: typeof UTOPIA_INSTALL_PREVIEW_SCHEMA_VERSION;
@@ -51,6 +85,7 @@ export type PackageInstallPreview = Readonly<{
   dataCollections: string[];
   providersRequested: string[];
   nativePermissionsRequested: string[];
+  nativeCapabilitySupport: readonly NativeCapabilityFinding[];
   widgetsRequired: string[];
   pluginsRequired: string[];
   fallbacks: string[];
@@ -58,6 +93,11 @@ export type PackageInstallPreview = Readonly<{
     status: PackageInstallTrustStatus;
     checksum?: string;
     computedChecksum: string | null;
+    publisher?: UtopiaRegistryPublisher;
+    signatureStatus: PackageInstallSignatureStatus;
+    signatureAlgorithm?: string;
+    signatureKeyId?: string;
+    signatureSignedAt?: string;
   };
   validationErrors: string[];
 }>;
@@ -161,6 +201,8 @@ export function collectRegistryManifestValidationErrors(input: unknown): string[
     if (entry.description !== undefined && !isText(entry.description)) {
       errors.push(`${path}.description must be text`);
     }
+    errors.push(...collectPublisherValidationErrors(entry.publisher, `${path}.publisher`));
+    errors.push(...collectSignatureValidationErrors(entry.signature, `${path}.signature`));
     const key = isText(entry.id) && isText(entry.version) ? `${entry.id}@${entry.version}` : null;
     if (key) {
       if (ids.has(key)) errors.push(`${path} duplicates ${key}`);
@@ -183,16 +225,30 @@ export function buildPackageInstallPreview(
     sourceUrl: string;
     registryPackage?: UtopiaRegistryPackage;
     expectedChecksum?: string;
+    signatureVerifier?: PackageInstallSignatureVerifier;
   },
 ): PackageInstallPreview {
   const packageIssues = collectAppPackageValidationIssues(candidate);
   const packageErrors = formatAppPackageValidationIssues(packageIssues);
   const pkg = packageErrors.length === 0 ? candidate as AppPackage : null;
-  const computedChecksum = pkg ? sha256Canonical(pkg) : null;
+  const canonicalPackage = isRecord(candidate) ? canonicalJson(candidate) : null;
+  const computedChecksum = isRecord(candidate) ? sha256Canonical(candidate) : null;
   const expectedChecksum = options.expectedChecksum ?? options.registryPackage?.checksum;
   const trust = resolveTrustStatus(expectedChecksum, computedChecksum);
+  const signature = resolveSignatureTrust(options.registryPackage?.signature, {
+    canonicalPackage,
+    computedChecksum,
+    publisher: options.registryPackage?.publisher,
+    verifier: options.signatureVerifier,
+  });
   const compatibilityReasons = pkg ? collectRuntimeCompatibilityReasons(pkg) : packageErrors;
-  const blocked = packageErrors.length > 0 || compatibilityReasons.length > 0 || trust.status === 'checksum_mismatch';
+  const nativeCapabilitySupport = pkg?.schemaVersion === 'wonder.app-package.v3'
+    ? nativeCapabilitySupportFindings(pkg.nativeCapabilities)
+    : [];
+  const blocked = packageErrors.length > 0
+    || compatibilityReasons.length > 0
+    || trust.status === 'checksum_mismatch'
+    || signature.status === 'signature_invalid';
 
   return {
     schemaVersion: UTOPIA_INSTALL_PREVIEW_SCHEMA_VERSION,
@@ -212,6 +268,7 @@ export function buildPackageInstallPreview(
     dataCollections: pkg ? Object.keys(pkg.collections).sort() : [],
     providersRequested: pkg ? providerRequests(pkg) : [],
     nativePermissionsRequested: pkg ? nativePermissionLabels(pkg) : [],
+    nativeCapabilitySupport,
     widgetsRequired: pkg ? widgetRequests(pkg) : [],
     pluginsRequired: pkg ? pluginRequests(pkg) : [],
     fallbacks: pkg ? fallbackLabels(pkg) : [],
@@ -219,8 +276,13 @@ export function buildPackageInstallPreview(
       status: trust.status,
       ...(expectedChecksum ? { checksum: expectedChecksum } : {}),
       computedChecksum,
+      ...(options.registryPackage?.publisher ? { publisher: options.registryPackage.publisher } : {}),
+      signatureStatus: signature.status,
+      ...(signature.algorithm ? { signatureAlgorithm: signature.algorithm } : {}),
+      ...(signature.keyId ? { signatureKeyId: signature.keyId } : {}),
+      ...(signature.signedAt ? { signatureSignedAt: signature.signedAt } : {}),
     },
-    validationErrors: [...packageErrors, ...(trust.error ? [trust.error] : [])],
+    validationErrors: [...packageErrors, ...(trust.error ? [trust.error] : []), ...(signature.error ? [signature.error] : [])],
   };
 }
 
@@ -326,6 +388,101 @@ function resolveTrustStatus(expectedChecksum: string | undefined, computedChecks
   }
   if (computedChecksum && expectedChecksum === computedChecksum) return { status: 'checksum_verified' };
   return { status: 'checksum_mismatch', error: 'checksum mismatch' };
+}
+
+function resolveSignatureTrust(
+  signature: UtopiaRegistrySignature | undefined,
+  options: {
+    canonicalPackage: string | null;
+    computedChecksum: string | null;
+    publisher?: UtopiaRegistryPublisher;
+    verifier?: PackageInstallSignatureVerifier;
+  },
+): {
+  status: PackageInstallSignatureStatus;
+  algorithm?: string;
+  keyId?: string;
+  signedAt?: string;
+  error?: string;
+} {
+  if (signature === undefined) return { status: 'signature_missing' };
+  const errors = collectSignatureValidationErrors(signature, 'signature');
+  if (errors.length) return { status: 'signature_invalid', error: errors.join('|') };
+  const metadata = {
+    algorithm: signature.algorithm,
+    ...(signature.keyId ? { keyId: signature.keyId } : {}),
+    ...(signature.signedAt ? { signedAt: signature.signedAt } : {}),
+  };
+  if (options.verifier) {
+    if (!options.canonicalPackage || !options.computedChecksum) {
+      return { status: 'signature_invalid', ...metadata, error: 'signature verification package unavailable' };
+    }
+    try {
+      const result = options.verifier({
+        canonicalPackage: options.canonicalPackage,
+        computedChecksum: options.computedChecksum,
+        signature,
+        ...(options.publisher ? { publisher: options.publisher } : {}),
+      });
+      const verified = typeof result === 'boolean' ? result : result.verified;
+      if (!verified) {
+        const error = typeof result === 'boolean' ? undefined : result.error;
+        return { status: 'signature_invalid', ...metadata, error: error ?? 'signature verification failed' };
+      }
+      return { status: 'signature_verified', ...metadata };
+    } catch (error) {
+      return {
+        status: 'signature_invalid',
+        ...metadata,
+        error: `signature verification failed:${error instanceof Error ? error.message : 'unknown_error'}`,
+      };
+    }
+  }
+  return {
+    status: 'signature_present',
+    ...metadata,
+  };
+}
+
+function collectPublisherValidationErrors(value: unknown, path: string): string[] {
+  if (value === undefined) return [];
+  if (!isRecord(value)) return [`${path} must be an object`];
+  const errors: string[] = [];
+  if (!isText(value.id)) errors.push(`${path}.id is required`);
+  if (value.name !== undefined && !isText(value.name)) errors.push(`${path}.name must be text`);
+  if (value.homepage !== undefined) {
+    if (!isText(value.homepage)) {
+      errors.push(`${path}.homepage must be text`);
+    } else {
+      try {
+        requireHttpsUrl(value.homepage);
+      } catch (error) {
+        errors.push(`${path}.homepage ${error instanceof Error ? error.message : 'invalid'}`);
+      }
+    }
+  }
+  if (value.verified !== undefined && typeof value.verified !== 'boolean') {
+    errors.push(`${path}.verified must be boolean`);
+  }
+  return errors;
+}
+
+function collectSignatureValidationErrors(value: unknown, path: string): string[] {
+  if (value === undefined) return [];
+  if (!isRecord(value)) return [`${path} must be an object`];
+  const errors: string[] = [];
+  if (!isText(value.algorithm)) errors.push(`${path}.algorithm is required`);
+  if (!isText(value.value)) errors.push(`${path}.value is required`);
+  if (value.keyId !== undefined && !isText(value.keyId)) errors.push(`${path}.keyId must be text`);
+  if (value.publicKey !== undefined && !isText(value.publicKey)) errors.push(`${path}.publicKey must be text`);
+  if (value.signedAt !== undefined) {
+    if (!isText(value.signedAt)) {
+      errors.push(`${path}.signedAt must be text`);
+    } else if (Number.isNaN(Date.parse(value.signedAt))) {
+      errors.push(`${path}.signedAt must be ISO date`);
+    }
+  }
+  return errors;
 }
 
 function collectRuntimeCompatibilityReasons(pkg: AppPackage): string[] {

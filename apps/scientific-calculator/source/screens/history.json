@@ -1,0 +1,20 @@
+{
+  "label": "History",
+  "subtitle": "Saved calculation records.",
+  "collections": ["calculation"],
+  "query": "history",
+  "mode": "table",
+  "fields": ["title", "expression", "result", "mode", "notes", "updated_at"],
+  "components": [
+    {
+      "kind": "recordList",
+      "title": "Saved Calculations",
+      "subtitle": "Newest first",
+      "query": { "collections": ["calculation"], "limit": 50 },
+      "props": {
+        "emptyText": "No saved calculations yet.",
+        "subtitleFields": ["expression", "result", "mode", "notes"]
+      }
+    }
+  ]
+}

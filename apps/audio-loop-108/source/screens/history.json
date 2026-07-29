@@ -1,0 +1,8 @@
+{
+  "label": "History",
+  "subtitle": "Loop session records.",
+  "collections": ["session"],
+  "query": "recent-sessions",
+  "mode": "table",
+  "fields": ["title", "file_name", "target_plays", "completed_plays", "delay_seconds", "status", "started_at", "finished_at"]
+}

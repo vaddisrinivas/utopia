@@ -1,0 +1,22 @@
+[
+  {
+    "package": "expo-image-picker",
+    "version": "~57.0.6",
+    "source": "npm"
+  },
+  {
+    "package": "expo-sharing",
+    "version": "~57.0.7",
+    "source": "npm"
+  },
+  {
+    "package": "expo-linking",
+    "version": "~57.0.4",
+    "source": "npm"
+  },
+  {
+    "package": "react-native-health-connect",
+    "version": "^3.5.3",
+    "source": "npm"
+  }
+]

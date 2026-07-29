@@ -1,0 +1,12 @@
+{
+  "fields": {
+    "id": { "type": "text", "required": true, "indexed": true },
+    "title": { "type": "text", "required": true, "indexed": true },
+    "collection": { "type": "text", "required": true, "indexed": true },
+    "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+    "properties": { "type": "json", "required": true },
+    "company": { "type": "text" },
+    "last_contacted_at": { "type": "timestamp" },
+    "next_step": { "type": "text" }
+  }
+}

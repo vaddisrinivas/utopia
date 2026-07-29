@@ -307,10 +307,11 @@ describe('applyOperation', () => {
     expect(rows).toHaveLength(1);
     expect(outboxRow).toBeTruthy();
     const payload = JSON.parse(String(outboxRow.payload_json)) as CommittedOperationOutboxPayload;
-    expect(outboxRow.action_key).toBe('committed-operation:food:outbox-committed-create');
+    expect(outboxRow.action_key).toBe('committed-operation:food:default:outbox-committed-create');
     expect(outboxRow.domain).toBe(manifest.id);
     expect(payload).toEqual({
       schema_version: 'wonder.committed-operation.v1',
+      app_installation_id: 'default',
       operation_id: 'outbox-committed-create',
       cause_id: 'outbox-cause-001',
       domain: manifest.id,

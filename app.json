@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Utopia",
-    "slug": "utopia",
+    "slug": "manasa",
     "description": "A local-first AI food workspace for pantry, meals, recipes, shopping, and trusted source sync.",
     "version": "1.0.0",
     "platforms": [
@@ -27,7 +27,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -68,10 +71,20 @@
             ]
           }
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-asset",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "01515db7-1b6c-446c-ba67-876165ecc438"
+      }
+    },
+    "owner": "manasaivaturis-team"
   }
 }

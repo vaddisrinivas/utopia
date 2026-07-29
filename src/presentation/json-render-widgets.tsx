@@ -1,8 +1,20 @@
 import type { ComponentRegistry, ComponentRenderProps } from '@json-render/react-native';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult, type BarcodeType } from 'expo-camera';
+import * as Calendar from 'expo-calendar';
+import * as Contacts from 'expo-contacts';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import { Accelerometer, Gyroscope, Magnetometer } from 'expo-sensors';
+import * as Speech from 'expo-speech';
+import * as Sharing from 'expo-sharing';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, Keyboard, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,8 +40,28 @@ import {
   requestUtopiaHealthPermissions,
   type HealthConnectStatus,
 } from '@/src/health/connect';
-import type { ProviderSyncStatus } from '@/src/db/provider-status';
 import { useAppRuntime } from '@/src/domain/runtime-context';
+import {
+  actionRoute,
+  actionUrl,
+  detail,
+  label,
+  list,
+  numberValue,
+  openWidgetTarget,
+  rows,
+  text,
+  type WidgetProps,
+} from '@/src/presentation/widgets/widget-sdk';
+import { evaluateScientificExpression, formatCalcValue } from '@/src/presentation/widgets/scientific-calculator-engine';
+import {
+  audioLoopStatusLabel,
+  clampInteger,
+  formatAudioLoopTime,
+  formatDelayOption,
+  numericOptions,
+  type AudioLoopStatus,
+} from '@/src/presentation/widgets/audio-loop-engine';
 import {
   maskSecret,
   providerLabel,
@@ -41,56 +73,29 @@ import {
   type AiProviderProfile,
   type SourceProviderSettingsUpdate,
 } from '@/src/settings/utopia-settings';
+import {
+  DomainAskBarWidget as AskFoodBarWidget,
+  DomainHeroWidget as FoodHeroWidget,
+  DomainRecipeCardWidget as RecipeCardWidget,
+  DomainReceiptReviewCardWidget as ReceiptReviewCardWidget,
+  DomainShelfWidget as PantryShelfWidget,
+  DomainTimelineWidget as MealTimelineWidget,
+  UseFirstCarouselWidget,
+} from '@/src/presentation/json-render-domain-widgets';
 
-type WidgetProps = {
-  widget?: string;
-  label?: string;
-  title?: string;
-  subtitle?: string;
-  prompt?: string;
-  placeholder?: string;
-  eyebrow?: string;
-  actionLabel?: string;
-  actionRoute?: string;
-  route?: string;
-  showBack?: boolean;
-  examples?: unknown[];
-  suggestions?: string[];
-  compact?: boolean;
-  body?: string;
-  author?: string;
-  url?: string;
-  imageUrl?: string;
-  items?: unknown[];
-  options?: unknown[];
-  columns?: unknown[];
-  fields?: unknown[];
-  events?: unknown[];
-  points?: unknown[];
-  permissions?: unknown[];
-  provider?: string;
-  providerStatus?: ProviderSyncStatus;
-  status?: string;
-  badge?: string;
-  cta?: string;
-  ctaRoute?: string;
-  homes?: unknown[];
-  steps?: unknown[];
-  actions?: unknown[];
-  showHeader?: boolean;
-  fullPage?: boolean;
-  initialPrompt?: string;
-  autoSubmitPrompt?: boolean;
-  records?: unknown[];
-  dataBound?: boolean;
-  searchable?: boolean;
-  detail?: boolean;
-  emptyTitle?: string;
-  emptyCopy?: string;
-  emptyActionLabel?: string;
-  emptyActionRoute?: string;
-  saveOutcome?: unknown;
-};
+export {
+  actionRoute,
+  actionUrl,
+  detail,
+  label,
+  list,
+  navigateWidgetRoute,
+  numberValue,
+  openWidgetTarget,
+  rows,
+  text,
+} from '@/src/presentation/widgets/widget-sdk';
+export type { WidgetProps } from '@/src/presentation/widgets/widget-sdk';
 
 const DEFAULT_PROMPTS = [
   'Summarize what needs attention today.',
@@ -98,37 +103,6 @@ const DEFAULT_PROMPTS = [
   'Create a simpler records table.',
   'Make this app calmer and less dense.',
 ];
-
-function text(value: unknown, fallback = '') {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
-}
-
-function list(value: unknown, fallback: string[]) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : fallback;
-}
-
-function rows(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
-    : [];
-}
-
-function label(value: unknown, fallback = 'Item') {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const raw = value as Record<string, unknown>;
-    return text(raw.title, text(raw.label, text(raw.name, text(raw.permission, text(raw.id, fallback)))));
-  }
-  return fallback;
-}
-
-function detail(value: unknown, fallback = '') {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const raw = value as Record<string, unknown>;
-    return text(raw.subtitle, text(raw.body, text(raw.detail, text(raw.reason, fallback))));
-  }
-  return fallback;
-}
 
 function permissionLabel(value: Record<string, unknown>): string {
   const explicit = text(value.title, text(value.label, text(value.name)));
@@ -150,54 +124,6 @@ function permissionMeta(value: Record<string, unknown>): string {
   const platform = text(value.platform, 'app');
   const required = value.required === true ? 'required' : 'optional';
   return `${platform} · ${required}`;
-}
-
-function actionRoute(value: Record<string, unknown>): string {
-  return normalizeWidgetRoute(text(value.route, text(value.path)));
-}
-
-function actionUrl(value: Record<string, unknown>): string {
-  return text(value.url, text(value.href, text(value.deeplink)));
-}
-
-function openWidgetTarget(router: ReturnType<typeof useRouter>, target: Record<string, unknown>) {
-  const route = actionRoute(target);
-  if (route) {
-    navigateWidgetRoute(router, route);
-    return;
-  }
-  const url = actionUrl(target);
-  if (url) {
-    void Linking.openURL(url);
-  }
-}
-
-function navigateWidgetRoute(router: ReturnType<typeof useRouter>, route: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.location.assign(route);
-    return;
-  }
-  router.push(route as never);
-}
-
-function normalizeWidgetRoute(route: string) {
-  if (!route) return '';
-  const [path, query] = route.split('?');
-  const suffix = query ? `?${query}` : '';
-  if (path.startsWith('/collection/')) {
-    const id = path.slice('/collection/'.length);
-    return `/collection?id=${encodeURIComponent(id)}${query ? `&${query}` : ''}`;
-  }
-  if (path.startsWith('/record/')) {
-    const id = path.slice('/record/'.length);
-    return `/record?id=${encodeURIComponent(id)}${query ? `&${query}` : ''}`;
-  }
-  if (path === '/' || path === '/home') return `/${suffix}`;
-  if (path === '/chat' || path === '/ask') return `/chat${suffix}`;
-  if (path === `/${'fo'}${'od'}` || path === '/kitchen') return `/${'fo'}${'od'}${suffix}`;
-  if (path === '/sources') return `/sources${suffix}`;
-  if (path === '/settings') return `/settings${suffix}`;
-  return route;
 }
 
 function MarkdownText({
@@ -253,11 +179,6 @@ function MarkdownText({
 
 function fieldKey(value: Record<string, unknown>, index: number): string {
   return text(value.id, text(value.name, label(value, `field_${index}`))).toLowerCase().replace(/[^a-z0-9]+/g, '_');
-}
-
-function numberValue(value: unknown, fallback = 0): number {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function WidgetShell({
@@ -913,11 +834,11 @@ function DataHomeSettingsWidget({ element }: ComponentRenderProps<WidgetProps>) 
     setSyncing(true);
     setMessage(null);
     try {
-      if (!db || !activeManifest) throw new Error('Food data is still opening.');
+      if (!db || !activeManifest) throw new Error('Package data is still opening.');
       const receipts = await syncConfiguredSources({ db, manifest: activeManifest, settings });
       setMessage(receipts.map((receipt) => receipt.message).join('\n'));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not pull food homes.');
+      setMessage(error instanceof Error ? error.message : 'Could not pull data homes.');
     } finally {
       setSyncing(false);
     }
@@ -947,7 +868,7 @@ function DataHomeSettingsWidget({ element }: ComponentRenderProps<WidgetProps>) 
           <DataHomeEditor provider="notion" onSaved={setMessage} />
           <DataHomeEditor provider="sheets" onSaved={setMessage} />
           <Pressable style={[styles.primaryButton, syncing ? styles.disabled : null]} onPress={pullNow} disabled={syncing}>
-            <Text style={styles.primaryButtonText}>{syncing ? 'Pulling…' : 'Pull food home now'}</Text>
+            <Text style={styles.primaryButtonText}>{syncing ? 'Pulling…' : 'Pull data home now'}</Text>
           </Pressable>
         </>
       )}
@@ -1226,7 +1147,7 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
       setAsset(saved);
       setPreviewing(false);
       if (!title.trim()) {
-        setTitle(inputKind === 'receipt' ? 'Receipt' : 'Food photo');
+        setTitle(inputKind === 'receipt' ? 'Receipt' : 'Photo');
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not capture image.');
@@ -1254,7 +1175,7 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
   const save = useCallback(async () => {
     if (!db || !runtime.activeManifest || !activeMode) {
-      setMessage('Food storage is not ready.');
+      setMessage('Package storage is not ready.');
       return;
     }
     setBusy(true);
@@ -1371,7 +1292,7 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
           {notes.trim() ? <Text style={styles.previewText}>{notes.trim()}</Text> : null}
           {needsUrl ? <Text style={styles.previewText}>{url.trim()}</Text> : null}
           <Pressable style={styles.primaryButton} onPress={() => void save()} disabled={busy}>
-            <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save to Food'}</Text>
+            <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save'}</Text>
           </Pressable>
         </View>
       ) : (
@@ -1424,6 +1345,1101 @@ function FormCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
       </Pressable>
     </WidgetShell>
   );
+}
+
+function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [expression, setExpression] = useState(text(props.initialExpression, ''));
+  const [result, setResult] = useState(text(props.initialResult, '0'));
+  const [angleMode, setAngleMode] = useState<'deg' | 'rad'>(text(props.angleMode, 'deg') === 'rad' ? 'rad' : 'deg');
+  const [memory, setMemory] = useState(0);
+  const [error, setError] = useState('');
+
+  const commitExpression = useCallback((next: string) => {
+    setExpression(next);
+    setError('');
+  }, []);
+
+  const append = useCallback((value: string) => {
+    commitExpression(`${expression}${value}`);
+  }, [commitExpression, expression]);
+
+  const evaluate = useCallback(() => {
+    try {
+      const value = evaluateScientificExpression(expression || result, { angleMode, memory });
+      const formatted = formatCalcValue(value);
+      setResult(formatted);
+      setExpression(formatted);
+      setError('');
+    } catch (calcError) {
+      setError(calcError instanceof Error ? calcError.message : 'Invalid expression');
+    }
+  }, [angleMode, expression, memory, result]);
+
+  const rows: string[][] = [
+    ['MC', 'MR', 'M+', 'M-'],
+    ['sin(', 'cos(', 'tan(', 'sqrt('],
+    ['ln(', 'log(', '^', '!'],
+    ['7', '8', '9', '/'],
+    ['4', '5', '6', '*'],
+    ['1', '2', '3', '-'],
+    ['0', '.', 'pi', '+'],
+    ['(', ')', 'DEL', '='],
+  ];
+
+  function press(key: string) {
+    if (key === '=') {
+      evaluate();
+      return;
+    }
+    if (key === 'DEL') {
+      commitExpression(expression.slice(0, -1));
+      return;
+    }
+    if (key === 'MC') {
+      setMemory(0);
+      return;
+    }
+    if (key === 'MR') {
+      append('M');
+      return;
+    }
+    if (key === 'M+') {
+      try {
+        setMemory((prev) => prev + evaluateScientificExpression(expression || result, { angleMode, memory }));
+        setError('');
+      } catch {
+        setError('Memory needs a valid number');
+      }
+      return;
+    }
+    if (key === 'M-') {
+      try {
+        setMemory((prev) => prev - evaluateScientificExpression(expression || result, { angleMode, memory }));
+        setError('');
+      } catch {
+        setError('Memory needs a valid number');
+      }
+      return;
+    }
+    append(key === 'pi' ? 'pi' : key);
+  }
+
+  return (
+    <WidgetShell title={text(props.title, 'Scientific Calculator')} subtitle={text(props.subtitle, 'Tap an expression and evaluate locally.')}>
+      <View style={styles.calculatorDisplay}>
+        <TextInput
+          value={expression}
+          onChangeText={commitExpression}
+          placeholder="0"
+          placeholderTextColor="#8A8172"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="numbers-and-punctuation"
+          style={styles.calculatorInput}
+        />
+        <Text style={styles.calculatorResult}>{result}</Text>
+        {error ? <Text style={styles.warning}>{error}</Text> : null}
+      </View>
+      <View style={styles.segmentedRow}>
+        {(['deg', 'rad'] as const).map((mode) => (
+          <Pressable key={mode} style={[styles.segment, angleMode === mode ? styles.segmentActive : null]} onPress={() => setAngleMode(mode)}>
+            <Text style={[styles.segmentText, angleMode === mode ? styles.segmentTextActive : null]}>{mode}</Text>
+          </Pressable>
+        ))}
+        <Pressable style={styles.segment} onPress={() => { setExpression(''); setResult('0'); setError(''); }}>
+          <Text style={styles.segmentText}>AC</Text>
+        </Pressable>
+      </View>
+      <View style={styles.calculatorPad}>
+        {rows.map((row) => (
+          <View key={row.join('|')} style={styles.calculatorRow}>
+            {row.map((key) => (
+              <Pressable
+                key={key}
+                style={[styles.calculatorKey, key === '=' ? styles.calculatorKeyEquals : null, /[+*/^!-]/.test(key) ? styles.calculatorKeyOperator : null]}
+                onPress={() => press(key)}
+              >
+                <Text style={[styles.calculatorKeyText, key === '=' ? styles.calculatorKeyEqualsText : null]}>{key}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ))}
+      </View>
+      <Text style={styles.formHint}>Memory: {formatCalcValue(memory)} · Constants: pi, e, M</Text>
+    </WidgetShell>
+  );
+}
+
+function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const delayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const targetPlaysRef = useRef(1);
+  const delaySecondsRef = useRef(0);
+  const remainingDelayRef = useRef(0);
+  const finishedRef = useRef(false);
+  const [fileName, setFileName] = useState('');
+  const [status, setStatus] = useState<AudioLoopStatus>('empty');
+  const [error, setError] = useState('');
+  const [targetPlays, setTargetPlays] = useState(() => clampInteger(props.defaultPlays, 1, clampInteger(props.maxPlays, 108, 1, 999), 108));
+  const [completedPlays, setCompletedPlays] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [delaySeconds, setDelaySeconds] = useState(() => clampInteger(props.defaultDelaySeconds, 0, 0, 3600));
+  const [startDelaySeconds, setStartDelaySeconds] = useState(() => clampInteger(props.defaultStartDelaySeconds, 0, 0, 3600));
+  const [remainingDelay, setRemainingDelay] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const maxPlays = clampInteger(props.maxPlays, 108, 1, 999);
+  const presets = rows(props.presets);
+  const delayOptions = numericOptions(props.delayOptions, [0, 5, 15, 30, 60, 120, 300]);
+  const startDelayOptions = numericOptions(props.startDelayOptions, [0, 10, 30, 60, 180]);
+  const sessionActive = status === 'playing' || status === 'paused' || status === 'between' || status === 'starting';
+
+  useEffect(() => {
+    targetPlaysRef.current = targetPlays;
+  }, [targetPlays]);
+
+  useEffect(() => {
+    delaySecondsRef.current = delaySeconds;
+  }, [delaySeconds]);
+
+  useEffect(() => () => {
+    clearAudioLoopDelay(delayTimerRef);
+    playerRef.current?.pause();
+    playerRef.current?.remove();
+    playerRef.current = null;
+  }, []);
+
+  const playAudio = useCallback(async (restartTrack = true) => {
+    const player = playerRef.current;
+    if (!player) {
+      setError('Choose an audio file first.');
+      setStatus('error');
+      return;
+    }
+    clearAudioLoopDelay(delayTimerRef);
+    try {
+      setStatus('playing');
+      setError('');
+      player.volume = volume;
+      if (restartTrack) {
+        finishedRef.current = false;
+        await player.seekTo(0);
+      }
+      player.play();
+    } catch {
+      setStatus('ready');
+      setError('Playback was blocked. Tap Start again.');
+    }
+  }, [volume]);
+
+  const scheduleDelay = useCallback((seconds: number) => {
+    clearAudioLoopDelay(delayTimerRef);
+    const normalized = Math.max(0, Math.floor(seconds));
+    if (!normalized) {
+      void playAudio(true);
+      return;
+    }
+    const startedAt = Date.now();
+    setStatus('between');
+    setRemainingDelay(normalized);
+    remainingDelayRef.current = normalized;
+    delayTimerRef.current = setInterval(() => {
+      const left = Math.max(0, normalized - Math.floor((Date.now() - startedAt) / 1000));
+      remainingDelayRef.current = left;
+      setRemainingDelay(left);
+      if (left <= 0) {
+        clearAudioLoopDelay(delayTimerRef);
+        void playAudio(true);
+      }
+    }, 250);
+  }, [playAudio]);
+
+  const finishPlay = useCallback(() => {
+    setCurrentTime(duration);
+    setCompletedPlays((previous) => {
+      const next = Math.min(targetPlaysRef.current, previous + 1);
+      if (next >= targetPlaysRef.current) {
+        clearAudioLoopDelay(delayTimerRef);
+        setStatus('completed');
+        return next;
+      }
+      scheduleDelay(delaySecondsRef.current);
+      return next;
+    });
+  }, [duration, scheduleDelay]);
+
+  useEffect(() => {
+    if (status !== 'playing') return undefined;
+    const interval = setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      const playerStatus = player.currentStatus;
+      setCurrentTime(Number(playerStatus.currentTime) || 0);
+      setDuration(Number(playerStatus.duration) || duration);
+      if (playerStatus.didJustFinish || (playerStatus.duration > 0 && playerStatus.currentTime >= playerStatus.duration - 0.08 && !playerStatus.playing)) {
+        if (!finishedRef.current) {
+          finishedRef.current = true;
+          finishPlay();
+        }
+      } else if (playerStatus.playing) {
+        finishedRef.current = false;
+      }
+    }, 350);
+    return () => clearInterval(interval);
+  }, [duration, finishPlay, status]);
+
+  const loadFile = useCallback(async (asset: DocumentPicker.DocumentPickerAsset) => {
+    const fileType = String(asset.mimeType ?? '');
+    const name = String(asset.name ?? 'Audio file');
+    if (fileType && !fileType.startsWith('audio/')) {
+      setError('Choose an audio file.');
+      setStatus('error');
+      return;
+    }
+    clearAudioLoopDelay(delayTimerRef);
+    playerRef.current?.pause();
+    playerRef.current?.remove();
+    try {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+      });
+      const player = createAudioPlayer({ uri: asset.uri, name }, { updateInterval: 250, downloadFirst: Platform.OS !== 'web' });
+      player.volume = volume;
+      player.loop = false;
+      playerRef.current = player;
+      finishedRef.current = false;
+      setDuration(Number(player.currentStatus.duration) || 0);
+      setCurrentTime(0);
+      setCompletedPlays(0);
+      setFileName(name);
+      setStatus('ready');
+      setError('');
+    } catch {
+      playerRef.current = null;
+      setStatus('error');
+      setError('This file could not be played.');
+    }
+  }, [volume]);
+
+  const chooseFile = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: Platform.OS !== 'web',
+        multiple: false,
+        base64: false,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      await loadFile(result.assets[0]);
+    } catch {
+      setStatus('error');
+      setError('File picker failed.');
+    }
+  }, [loadFile]);
+
+  const startSession = useCallback(() => {
+    if (!playerRef.current) {
+      setError('Choose an audio file first.');
+      return;
+    }
+    clearAudioLoopDelay(delayTimerRef);
+    setCompletedPlays(0);
+    setCurrentTime(0);
+    setStatus('starting');
+    if (startDelaySeconds > 0) {
+      scheduleDelay(startDelaySeconds);
+    } else {
+      void playAudio(true);
+    }
+  }, [playAudio, scheduleDelay, startDelaySeconds]);
+
+  const pauseSession = useCallback(() => {
+    if (status === 'between') {
+      clearAudioLoopDelay(delayTimerRef);
+      setStatus('paused');
+      return;
+    }
+    playerRef.current?.pause();
+    setStatus('paused');
+  }, [status]);
+
+  const resumeSession = useCallback(() => {
+    if (status !== 'paused') return;
+    if (remainingDelayRef.current > 0) {
+      scheduleDelay(remainingDelayRef.current);
+    } else {
+      void playAudio(false);
+    }
+  }, [playAudio, scheduleDelay, status]);
+
+  const stopSession = useCallback(() => {
+    clearAudioLoopDelay(delayTimerRef);
+    const player = playerRef.current;
+    player?.pause();
+    void player?.seekTo(0);
+    finishedRef.current = false;
+    remainingDelayRef.current = 0;
+    setRemainingDelay(0);
+    setCurrentTime(0);
+    setStatus(player ? 'stopped' : 'empty');
+  }, []);
+
+  const skipCurrent = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    player.pause();
+    void player.seekTo(duration || 0);
+    if (props.countSkippedAsCompleted === false) {
+      scheduleDelay(delaySecondsRef.current);
+    } else {
+      finishPlay();
+    }
+  }, [duration, finishPlay, props.countSkippedAsCompleted, scheduleDelay]);
+
+  const progress = duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0;
+  const statusLabel = audioLoopStatusLabel(status, remainingDelay);
+
+  return (
+    <WidgetShell title={text(props.title, 'Audio Loop 108')} subtitle={text(props.subtitle, 'Choose a track, set a play count, and loop it with optional pauses.')}>
+      <>
+          <View style={styles.audioLoopDeck}>
+            <View style={styles.audioLoopHeader}>
+              <View style={styles.audioLoopFileCopy}>
+                <Text numberOfLines={1} style={styles.audioLoopFileName}>{fileName || 'No audio selected'}</Text>
+                <Text style={styles.audioLoopText}>{statusLabel} · {completedPlays}/{targetPlays} plays</Text>
+              </View>
+              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={chooseFile}>
+                <Text style={styles.secondaryButtonText}>{fileName ? 'Change' : 'Choose'}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.audioLoopProgressTrack}>
+              <View style={[styles.audioLoopProgressFill, { width: `${Math.round(progress * 100)}%` }]} />
+            </View>
+            <View style={styles.audioLoopTimeRow}>
+              <Text style={styles.audioLoopMeta}>{formatAudioLoopTime(currentTime)}</Text>
+              <Text style={styles.audioLoopMeta}>{formatAudioLoopTime(duration)}</Text>
+            </View>
+            {error ? <Text style={styles.warning}>{error}</Text> : null}
+          </View>
+
+          <View style={styles.audioLoopControls}>
+            <Pressable accessibilityRole="button" style={[styles.primaryButton, sessionActive && status !== 'paused' ? styles.disabled : null]} onPress={startSession} disabled={sessionActive && status !== 'paused'}>
+              <Text style={styles.primaryButtonText}>{status === 'completed' || status === 'stopped' ? 'Restart' : 'Start'}</Text>
+            </Pressable>
+            {status === 'paused' ? (
+              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={resumeSession}>
+                <Text style={styles.secondaryButtonText}>Resume</Text>
+              </Pressable>
+            ) : (
+              <Pressable accessibilityRole="button" style={[styles.secondaryButton, !sessionActive ? styles.disabled : null]} onPress={pauseSession} disabled={!sessionActive}>
+                <Text style={styles.secondaryButtonText}>Pause</Text>
+              </Pressable>
+            )}
+            <Pressable accessibilityRole="button" style={[styles.secondaryButton, !sessionActive && status !== 'completed' ? styles.disabled : null]} onPress={stopSession} disabled={!sessionActive && status !== 'completed'}>
+              <Text style={styles.secondaryButtonText}>Stop</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" style={[styles.secondaryButton, status !== 'playing' ? styles.disabled : null]} onPress={skipCurrent} disabled={status !== 'playing'}>
+              <Text style={styles.secondaryButtonText}>Skip</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.audioLoopSettings}>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Play count</Text>
+              <View style={styles.audioLoopStepper}>
+                <Pressable style={styles.segment} onPress={() => setTargetPlays((value) => Math.max(1, value - 1))}>
+                  <Text style={styles.segmentText}>-</Text>
+                </Pressable>
+                <TextInput
+                  accessibilityLabel="Play count"
+                  keyboardType="number-pad"
+                  value={String(targetPlays)}
+                  onChangeText={(value) => setTargetPlays(clampInteger(value, 1, 1, maxPlays))}
+                  style={styles.audioLoopNumberInput}
+                />
+                <Pressable style={styles.segment} onPress={() => setTargetPlays((value) => Math.min(maxPlays, value + 1))}>
+                  <Text style={styles.segmentText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Volume</Text>
+              <View style={styles.audioLoopStepper}>
+                <Pressable style={styles.segment} onPress={() => setVolume((value) => Math.max(0, Number((value - 0.1).toFixed(1))))}>
+                  <Text style={styles.segmentText}>-</Text>
+                </Pressable>
+                <Text style={styles.audioLoopVolumeText}>{Math.round(volume * 100)}%</Text>
+                <Pressable style={styles.segment} onPress={() => setVolume((value) => Math.min(1, Number((value + 0.1).toFixed(1))))}>
+                  <Text style={styles.segmentText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Delay between plays</Text>
+            <View style={styles.captureModes}>
+              {delayOptions.map((option) => (
+                <Pressable key={option} style={[styles.captureMode, delaySeconds === option ? styles.captureModeActive : null]} onPress={() => setDelaySeconds(option)}>
+                  <Text style={[styles.captureModeText, delaySeconds === option ? styles.captureModeTextActive : null]}>{formatDelayOption(option)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Start delay</Text>
+            <View style={styles.captureModes}>
+              {startDelayOptions.map((option) => (
+                <Pressable key={option} style={[styles.captureMode, startDelaySeconds === option ? styles.captureModeActive : null]} onPress={() => setStartDelaySeconds(option)}>
+                  <Text style={[styles.captureModeText, startDelaySeconds === option ? styles.captureModeTextActive : null]}>{formatDelayOption(option)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {presets.length ? (
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Presets</Text>
+              <View style={styles.captureModes}>
+                {presets.slice(0, 8).map((preset) => (
+                  <Pressable
+                    key={label(preset)}
+                    style={styles.captureMode}
+                    onPress={() => {
+                      setTargetPlays(clampInteger(preset.plays, targetPlays, 1, maxPlays));
+                      setDelaySeconds(clampInteger(preset.delaySeconds, delaySeconds, 0, 3600));
+                      setStartDelaySeconds(clampInteger(preset.startDelaySeconds, startDelaySeconds, 0, 3600));
+                    }}
+                  >
+                    <Text style={styles.captureModeText}>{label(preset)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </>
+    </WidgetShell>
+  );
+}
+
+type PickedFileInfo = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  size?: number;
+};
+
+function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [files, setFiles] = useState<PickedFileInfo[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const mimeTypes = stringList(props.mimeTypes, ['*/*']);
+  const multiple = props.multiple === true;
+  const copyToCacheDirectory = props.copyToCacheDirectory !== false && Platform.OS !== 'web';
+
+  const chooseFile = useCallback(async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: mimeTypes.length === 1 ? mimeTypes[0] : mimeTypes,
+        multiple,
+        copyToCacheDirectory,
+        base64: false,
+      });
+      if (result.canceled) return;
+      const nextFiles: PickedFileInfo[] = [];
+      for (const asset of result.assets ?? []) {
+        const info = await safeFileInfo(asset.uri);
+        nextFiles.push({
+          uri: asset.uri,
+          name: String(asset.name ?? asset.uri.split('/').pop() ?? 'Picked file'),
+          mimeType: String(asset.mimeType ?? 'unknown'),
+          size: typeof asset.size === 'number' ? asset.size : info.size,
+        });
+      }
+      setFiles(nextFiles);
+    } catch {
+      setError('File picker failed.');
+    } finally {
+      setBusy(false);
+    }
+  }, [copyToCacheDirectory, mimeTypes, multiple]);
+
+  return (
+    <WidgetShell title={text(props.title, 'File picker')} subtitle={text(props.subtitle, 'Pick local files without uploading them.')}>
+      <View style={styles.previewBox}>
+        <Text style={styles.previewTitle}>{files.length ? `${files.length} selected` : text(props.emptyTitle, 'No file selected')}</Text>
+        <Text style={styles.previewText}>{mimeTypes.join(', ')}</Text>
+        <View style={styles.providerActions}>
+          <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={chooseFile} disabled={busy}>
+            <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : files.length ? 'Change' : 'Choose file'}</Text>
+          </Pressable>
+          {files.length ? (
+            <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setFiles([])}>
+              <Text style={styles.secondaryButtonText}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        {error ? <Text style={styles.warning}>{error}</Text> : null}
+      </View>
+
+      {files.map((file) => (
+        <View key={file.uri} style={styles.fileRow}>
+          <View style={styles.fileIcon}>
+            <Text style={styles.fileIconText}>F</Text>
+          </View>
+          <View style={styles.fileCopy}>
+            <Text numberOfLines={1} style={styles.fileName}>{file.name}</Text>
+            <Text style={styles.formHint}>{file.mimeType} · {formatFileSize(file.size)} · local only</Text>
+            <Text numberOfLines={1} style={styles.previewText}>{file.uri}</Text>
+          </View>
+        </View>
+      ))}
+    </WidgetShell>
+  );
+}
+
+function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+  const fileName = sanitizeFileName(text(props.fileName, 'utopia-export.txt'));
+  const mimeType = text(props.mimeType, 'text/plain');
+  const content = exportContent(props.content, text(props.body, 'Created by Utopia.'));
+
+  const exportFile = useCallback(async () => {
+    setBusy(true);
+    setStatus('');
+    setError('');
+    try {
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && typeof URL !== 'undefined') {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        setStatus('Download started.');
+        return;
+      }
+      const base = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+      if (!base) throw new Error('missing_file_directory');
+      const uri = `${base}${fileName}`;
+      await FileSystem.writeAsStringAsync(uri, content, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType, dialogTitle: text(props.shareTitle, 'Share file') });
+        setStatus('Share sheet opened.');
+      } else {
+        setStatus(`Saved locally: ${uri}`);
+      }
+    } catch {
+      setError('File export failed.');
+    } finally {
+      setBusy(false);
+    }
+  }, [content, fileName, mimeType, props.shareTitle]);
+
+  return (
+    <WidgetShell title={text(props.title, 'File export')} subtitle={text(props.subtitle, 'Create a local file and share or download it.')}>
+      <View style={styles.previewBox}>
+        <Text style={styles.previewTitle}>{fileName}</Text>
+        <Text style={styles.previewText}>{mimeType} · {formatFileSize(content.length)}</Text>
+        <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={exportFile} disabled={busy}>
+          <Text style={styles.primaryButtonText}>{busy ? 'Preparing…' : text(props.cta, 'Export')}</Text>
+        </Pressable>
+        {status ? <Text style={styles.success}>{status}</Text> : null}
+        {error ? <Text style={styles.warning}>{error}</Text> : null}
+      </View>
+    </WidgetShell>
+  );
+}
+
+function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const initialUri = text(props.sourceUri, text(props.source, text(props.url)));
+  const [videoUri, setVideoUri] = useState(initialUri);
+  const [videoName, setVideoName] = useState(initialUri ? text(props.title, 'Video') : '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (nextPlayer) => {
+    nextPlayer.loop = props.loop === true;
+    if (props.autoplay === true) nextPlayer.play();
+  });
+  const contentFit = props.contentFit === 'cover' || props.contentFit === 'fill' ? props.contentFit : 'contain';
+
+  useEffect(() => {
+    player.loop = props.loop === true;
+  }, [player, props.loop]);
+
+  const chooseVideo = useCallback(async (mode: 'camera' | 'library') => {
+    setBusy(true);
+    setError('');
+    try {
+      if (mode === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setError('Camera permission is required.');
+          return;
+        }
+      }
+      const result = mode === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], quality: 1 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setVideoUri(asset.uri);
+      setVideoName(String(asset.fileName ?? asset.uri.split('/').pop() ?? 'Picked video'));
+    } catch {
+      setError('Video selection failed.');
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  return (
+    <WidgetShell title={text(props.title, 'Video player')} subtitle={text(props.subtitle, 'Play a package video or choose one locally.')}>
+      {videoUri ? (
+        <View style={styles.videoFrame}>
+          <VideoView
+            player={player}
+            nativeControls={props.nativeControls !== false}
+            contentFit={contentFit}
+            fullscreenOptions={{ enable: true }}
+            style={styles.videoView}
+          />
+        </View>
+      ) : (
+        <View style={styles.mediaBox}>
+          <Text style={styles.mediaGlyph}>VID</Text>
+          <Text style={styles.bodyText}>{text(props.emptyCopy, 'No video selected.')}</Text>
+        </View>
+      )}
+      <View style={styles.providerActions}>
+        {props.allowPick !== false ? (
+          <Pressable accessibilityRole="button" style={[styles.secondaryButton, busy ? styles.disabled : null]} onPress={() => void chooseVideo('library')} disabled={busy}>
+            <Text style={styles.secondaryButtonText}>Choose video</Text>
+          </Pressable>
+        ) : null}
+        {props.allowCapture === true ? (
+          <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={() => void chooseVideo('camera')} disabled={busy}>
+            <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : 'Record'}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {videoName ? <Text style={styles.formHint}>{videoName}</Text> : null}
+      {error ? <Text style={styles.warning}>{error}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scan, setScan] = useState<BarcodeScanningResult | null>(null);
+  const barcodeTypes = stringList(props.barcodeTypes, ['qr', 'code128', 'ean13']) as BarcodeType[];
+  return (
+    <WidgetShell title={text(props.title, 'Camera scanner')} subtitle={text(props.subtitle, 'Scan QR and barcode values locally.')}>
+      {!permission?.granted ? (
+        <View style={styles.previewBox}>
+          <Text style={styles.previewTitle}>Camera access</Text>
+          <Text style={styles.previewText}>Required to scan codes.</Text>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void requestPermission()}>
+            <Text style={styles.primaryButtonText}>Choose access</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.cameraFrame}>
+          <CameraView
+            style={styles.cameraView}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes }}
+            onBarcodeScanned={scan ? undefined : (result) => setScan(result)}
+          />
+        </View>
+      )}
+      {scan ? (
+        <View style={styles.previewBox}>
+          <Text style={styles.previewTitle}>{scan.type}</Text>
+          <Text style={styles.bodyText}>{scan.data}</Text>
+          <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setScan(null)}>
+            <Text style={styles.secondaryButtonText}>Scan again</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </WidgetShell>
+  );
+}
+
+function LocationMapWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [busy, setBusy] = useState(false);
+  const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(() => {
+    const latitude = numberValue(props.latitude, Number.NaN);
+    const longitude = numberValue(props.longitude, Number.NaN);
+    return Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : null;
+  });
+  const [error, setError] = useState('');
+
+  const requestCurrent = useCallback(async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) {
+        setError('Location permission is required.');
+        return;
+      }
+      const current = await Location.getCurrentPositionAsync({});
+      setLocation({ latitude: current.coords.latitude, longitude: current.coords.longitude });
+    } catch {
+      setError('Location failed.');
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const openMap = useCallback(() => {
+    if (location) {
+      const query = `${location.latitude},${location.longitude}`;
+      void Linking.openURL(Platform.OS === 'ios' ? `http://maps.apple.com/?ll=${query}` : `https://www.google.com/maps/search/?api=1&query=${query}`);
+      return;
+    }
+    const address = text(props.address);
+    if (address) void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+  }, [location, props.address]);
+
+  return (
+    <WidgetShell title={text(props.title, 'Location map')} subtitle={text(props.subtitle, 'Show or request a local location, then open the system map.')}>
+      <View style={styles.mapBox}>
+        <Text style={styles.mapPin}>PIN</Text>
+        <Text style={styles.bodyText}>{location ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : text(props.address, 'No location selected')}</Text>
+      </View>
+      <View style={styles.providerActions}>
+        <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={requestCurrent} disabled={busy}>
+          <Text style={styles.primaryButtonText}>{busy ? 'Locating…' : 'Use current'}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={openMap} disabled={!location && !props.address}>
+          <Text style={styles.secondaryButtonText}>Open map</Text>
+        </Pressable>
+      </View>
+      {error ? <Text style={styles.warning}>{error}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const sensorName = text(props.sensor, 'accelerometer');
+  const sensor = sensorName === 'gyroscope' ? Gyroscope : sensorName === 'magnetometer' ? Magnetometer : Accelerometer;
+  const [reading, setReading] = useState<Record<string, number> | null>(null);
+  const [active, setActive] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!active) return undefined;
+    let mounted = true;
+    let subscription: { remove(): void } | null = null;
+    void sensor.isAvailableAsync().then((available) => {
+      if (!mounted) return;
+      if (!available) {
+        setError('Sensor unavailable on this device.');
+        setActive(false);
+        return;
+      }
+      sensor.setUpdateInterval(500);
+      subscription = sensor.addListener((next) => setReading(next as Record<string, number>));
+    }).catch(() => {
+      setError('Sensor failed.');
+      setActive(false);
+    });
+    return () => {
+      mounted = false;
+      subscription?.remove();
+    };
+  }, [active, sensor]);
+
+  return (
+    <WidgetShell title={text(props.title, 'Sensor readout')} subtitle={text(props.subtitle, 'Sample local device motion sensors.')}>
+      <View style={styles.previewBox}>
+        <Text style={styles.previewTitle}>{titleize(sensorName)}</Text>
+        <Text style={styles.previewText}>{reading ? Object.entries(reading).slice(0, 4).map(([key, value]) => `${key}: ${value.toFixed(3)}`).join(' · ') : 'No sample yet'}</Text>
+        <Pressable accessibilityRole="button" style={active ? styles.secondaryButton : styles.primaryButton} onPress={() => setActive((value) => !value)}>
+          <Text style={active ? styles.secondaryButtonText : styles.primaryButtonText}>{active ? 'Stop' : 'Start'}</Text>
+        </Pressable>
+        {error ? <Text style={styles.warning}>{error}</Text> : null}
+      </View>
+    </WidgetShell>
+  );
+}
+
+function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [notificationId, setNotificationId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const seconds = clampInteger(props.seconds, 10, 1, 86400);
+
+  const schedule = useCallback(async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const permission = await Notifications.requestPermissionsAsync();
+      if (!permission.granted) {
+        setMessage('Notification permission is required.');
+        return;
+      }
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: text(props.title, 'Utopia reminder'),
+          body: text(props.body, 'Reminder from this app.'),
+        },
+        trigger: { seconds } as Notifications.NotificationTriggerInput,
+      });
+      setNotificationId(id);
+      setMessage(`Scheduled in ${seconds}s.`);
+    } catch {
+      setMessage('Notification scheduling failed.');
+    } finally {
+      setBusy(false);
+    }
+  }, [props.body, props.title, seconds]);
+
+  const cancel = useCallback(async () => {
+    if (!notificationId) return;
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    setNotificationId('');
+    setMessage('Canceled.');
+  }, [notificationId]);
+
+  return (
+    <WidgetShell title={text(props.title, 'Notification')} subtitle={text(props.subtitle, 'Schedule a local notification.')}>
+      <View style={styles.providerActions}>
+        <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={schedule} disabled={busy}>
+          <Text style={styles.primaryButtonText}>{busy ? 'Scheduling…' : 'Schedule'}</Text>
+        </Pressable>
+        {notificationId ? (
+          <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void cancel()}>
+            <Text style={styles.secondaryButtonText}>Cancel</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {message ? <Text style={styles.formHint}>{message}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [contact, setContact] = useState<{name?: string; phone?: string; email?: string} | null>(null);
+  const [message, setMessage] = useState('');
+  const pick = useCallback(async () => {
+    setMessage('');
+    try {
+      const available = await Contacts.isAvailableAsync();
+      if (!available || Platform.OS === 'web') {
+        setMessage('Contact picker unavailable on this runtime.');
+        return;
+      }
+      const permission = await Contacts.requestPermissionsAsync();
+      if (!permission.granted) {
+        setMessage('Contacts permission is required.');
+        return;
+      }
+      const picked = await Contacts.presentContactPickerAsync();
+      if (!picked) return;
+      setContact({
+        name: picked.name,
+        phone: picked.phoneNumbers?.[0]?.number,
+        email: picked.emails?.[0]?.email,
+      });
+    } catch {
+      setMessage('Contact picker failed.');
+    }
+  }, []);
+  return (
+    <WidgetShell title={text(props.title, 'Contact picker')} subtitle={text(props.subtitle, 'Pick one contact without bulk importing address book data.')}>
+      <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void pick()}>
+        <Text style={styles.primaryButtonText}>Pick contact</Text>
+      </Pressable>
+      {contact ? (
+        <View style={styles.previewBox}>
+          <Text style={styles.previewTitle}>{contact.name ?? 'Contact'}</Text>
+          <Text style={styles.previewText}>{[contact.phone, contact.email].filter(Boolean).join(' · ') || 'No contact detail shared'}</Text>
+        </View>
+      ) : null}
+      {message ? <Text style={styles.warning}>{message}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const create = useCallback(async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const available = await Calendar.isAvailableAsync();
+      if (!available || Platform.OS === 'web') {
+        setMessage('Calendar unavailable on this runtime.');
+        return;
+      }
+      const permission = await Calendar.requestPermissionsAsync();
+      if (!permission.granted) {
+        setMessage('Calendar permission is required.');
+        return;
+      }
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const target = calendars.find((item) => item.allowsModifications) ?? calendars[0];
+      if (!target) {
+        setMessage('No writable calendar found.');
+        return;
+      }
+      const start = new Date(Date.now() + clampInteger(props.startOffsetMinutes, 10, 0, 525600) * 60_000);
+      const end = new Date(start.getTime() + clampInteger(props.durationMinutes, 30, 1, 1440) * 60_000);
+      await Calendar.createEventAsync(target.id, {
+        title: text(props.eventTitle, text(props.title, 'Utopia event')),
+        notes: text(props.body, 'Created from a Utopia JSON app.'),
+        startDate: start,
+        endDate: end,
+      });
+      setMessage('Calendar event created.');
+    } catch {
+      setMessage('Calendar event failed.');
+    } finally {
+      setBusy(false);
+    }
+  }, [props.body, props.durationMinutes, props.eventTitle, props.startOffsetMinutes, props.title]);
+  return (
+    <WidgetShell title={text(props.title, 'Calendar event')} subtitle={text(props.subtitle, 'Create one reviewed local calendar event.')}>
+      <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={() => void create()} disabled={busy}>
+        <Text style={styles.primaryButtonText}>{busy ? 'Creating…' : 'Create event'}</Text>
+      </Pressable>
+      {message ? <Text style={styles.formHint}>{message}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function BiometricGateWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const [message, setMessage] = useState('');
+  const authenticate = useCallback(async () => {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware || !enrolled) {
+        setMessage('Biometric auth unavailable or not enrolled.');
+        return;
+      }
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: text(props.authPrompt, text(props.title, 'Unlock')),
+      });
+      setMessage(result.success ? 'Unlocked.' : 'Not unlocked.');
+    } catch {
+      setMessage('Authentication failed.');
+    }
+  }, [props.authPrompt, props.title]);
+  return (
+    <WidgetShell title={text(props.title, 'Biometric gate')} subtitle={text(props.subtitle, 'Require local device authentication before sensitive actions.')}>
+      <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void authenticate()}>
+        <Text style={styles.primaryButtonText}>Unlock</Text>
+      </Pressable>
+      {message ? <Text style={styles.formHint}>{message}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function HealthKitStatusWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  return (
+    <WidgetShell title={text(props.title, 'Apple Health')} subtitle={text(props.subtitle, 'HealthKit is declared in package capabilities; native iOS bridge is still required for live reads.')}>
+      <View style={styles.previewBox}>
+        <Text style={styles.previewTitle}>Planned iOS bridge</Text>
+        <Text style={styles.previewText}>Android Health Connect exists separately. Apple Health needs a signed native entitlement path before release proof.</Text>
+      </View>
+    </WidgetShell>
+  );
+}
+
+function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const props = element.props ?? {};
+  const phrase = text(props.speechText, text(props.body, 'Hello from Utopia.'));
+  const [message, setMessage] = useState('');
+  return (
+    <WidgetShell title={text(props.title, 'Speech')} subtitle={text(props.subtitle, 'Text-to-speech works locally; speech-to-text remains a planned native permission path.')}>
+      <View style={styles.providerActions}>
+        <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => {
+          Speech.speak(phrase);
+          setMessage('Speaking.');
+        }}>
+          <Text style={styles.primaryButtonText}>Speak</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => {
+          void Speech.stop();
+          setMessage('Stopped.');
+        }}>
+          <Text style={styles.secondaryButtonText}>Stop</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.previewText}>{phrase}</Text>
+      {message ? <Text style={styles.formHint}>{message}</Text> : null}
+    </WidgetShell>
+  );
+}
+
+function clearAudioLoopDelay(ref: { current: ReturnType<typeof setInterval> | null }) {
+  if (ref.current) {
+    clearInterval(ref.current);
+    ref.current = null;
+  }
+}
+
+async function safeFileInfo(uri: string): Promise<{ size?: number }> {
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    return info.exists && typeof info.size === 'number' ? { size: info.size } : {};
+  } catch {
+    return {};
+  }
+}
+
+function stringList(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    const items = value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    return items.length ? items : fallback;
+  }
+  if (typeof value === 'string' && value.trim()) return [value];
+  return fallback;
+}
+
+function formatFileSize(size: number | undefined): string {
+  if (typeof size !== 'number' || !Number.isFinite(size) || size < 0) return 'size unknown';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 1024 * 10 ? 1 : 0)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(size < 1024 * 1024 * 10 ? 1 : 0)} MB`;
+}
+
+function titleize(value: string): string {
+  return value.replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function sanitizeFileName(value: string): string {
+  const normalized = value.trim().replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
+  return normalized || 'utopia-export.txt';
+}
+
+function exportContent(value: unknown, fallback: string): string {
+  if (typeof value === 'string') return value;
+  if (value !== undefined) return JSON.stringify(value, null, 2);
+  return fallback;
 }
 
 function ChecklistCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
@@ -1529,214 +2545,6 @@ function ProviderStatusWidget({ element }: ComponentRenderProps<WidgetProps>) {
       ) : null}
       {props.cta ? <Text style={styles.providerCta}>{text(props.cta)}</Text> : null}
     </WidgetShell>
-  );
-}
-
-function FoodHeroWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const stats = rows((props as Record<string, unknown>).stats);
-  const actions = rows(props.actions);
-  return (
-    <View style={styles.premiumHero}>
-      <Text style={styles.premiumEmoji}>{text((props as Record<string, unknown>).emoji, '🍲')}</Text>
-      <Text style={styles.premiumBadge}>{text(props.badge, 'Smart plan')}</Text>
-      <Text style={styles.premiumTitle}>{text(props.title, 'Tonight is almost solved')}</Text>
-      <Text style={styles.premiumSubtitle}>{text(props.subtitle, 'Use-first records, review, and next steps in one place.')}</Text>
-      {stats.length ? (
-        <View style={styles.premiumStats}>
-          {stats.slice(0, 3).map((stat) => (
-            <View key={label(stat)} style={styles.premiumStat}>
-              <Text style={styles.premiumStatValue}>{text(stat.value, label(stat))}</Text>
-              <Text style={styles.premiumStatLabel}>{text(stat.label, detail(stat))}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      <Text style={styles.premiumBody}>{text(props.body, 'The calmest next path is ready.')}</Text>
-      <View style={styles.premiumActions}>
-        {actions.slice(0, 3).map((action, index) => (
-          <Pressable key={label(action)} style={[styles.premiumAction, index === 0 ? styles.premiumActionPrimary : null]} onPress={() => openWidgetTarget(router, action)}>
-            <Text style={[styles.premiumActionText, index === 0 ? styles.premiumActionPrimaryText : null]}>{label(action)}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function UseFirstCarouselWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const boundItems = rows(props.records)
-    .sort((left, right) => {
-      const leftProperties = rows([left.properties])[0] ?? {};
-      const rightProperties = rows([right.properties])[0] ?? {};
-      return numberValue(leftProperties.expires_in_days, 999) - numberValue(rightProperties.expires_in_days, 999);
-    })
-    .map((record) => {
-      const properties = rows([record.properties])[0] ?? {};
-      const expiresInDays = numberValue(properties.expires_in_days, -1);
-      return {
-        title: text(record.title, 'Food item'),
-        subtitle: [text(record.status), text(record.meta)].filter(Boolean).join(' · '),
-        badge: expiresInDays >= 0 ? (expiresInDays === 0 ? 'today' : `${expiresInDays}d`) : text(record.status, 'use first'),
-        emoji: text(properties.emoji, text(properties.icon, '◉')),
-        route: `/record/${encodeURIComponent(text(record.id))}`,
-      };
-    });
-  const configuredItems = rows(props.items);
-  const items = props.dataBound === true ? boundItems : configuredItems;
-  return (
-    <View style={styles.premiumSection}>
-      <View style={styles.premiumSectionHeader}>
-        <Text style={styles.premiumSectionTitle}>{text(props.title, 'Use first')}</Text>
-        {text(props.ctaRoute) ? (
-          <Pressable onPress={() => openWidgetTarget(router, { route: props.ctaRoute })}>
-            <Text style={styles.premiumSectionCta}>{text(props.cta, 'Cook')}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      {props.subtitle ? <Text style={styles.premiumSectionSubtitle}>{text(props.subtitle)}</Text> : null}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.premiumRail}>
-        {(items.length ? items : props.dataBound === true
-          ? [{ title: 'Nothing urgent', subtitle: 'No expiring kitchen items need attention.', emoji: '✓', badge: 'clear' }]
-          : [{ title: 'Baby spinach', subtitle: '2 days · wraps or eggs', emoji: '🥬', badge: '2 days' }]).slice(0, 8).map((item, index) => (
-          <Pressable key={label(item)} style={[styles.useFirstPremiumCard, index % 3 === 1 ? styles.useFirstPremiumBlue : index % 3 === 2 ? styles.useFirstPremiumYellow : null]} onPress={() => openWidgetTarget(router, item)}>
-            <Text style={styles.useFirstPremiumEmoji}>{text(item.emoji, '🥬')}</Text>
-            <Text style={styles.useFirstPremiumBadge}>{text(item.badge, text((item as Record<string, unknown>).status, 'use first'))}</Text>
-            <Text style={styles.useFirstPremiumTitle}>{label(item)}</Text>
-            <Text style={styles.useFirstPremiumDetail}>{detail(item, 'Ready to use.')}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-function MealTimelineWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const items = rows(props.items);
-  return (
-    <View style={styles.premiumCard}>
-      <Text style={styles.premiumSectionTitle}>{text(props.title, 'Meal timeline')}</Text>
-      {props.subtitle ? <Text style={styles.premiumSectionSubtitle}>{text(props.subtitle)}</Text> : null}
-      {(items.length ? items : [{ title: 'Dinner', subtitle: 'Pick from available items', time: 'PM' }]).slice(0, 6).map((item) => (
-        <Pressable key={label(item)} style={styles.mealPremiumRow} onPress={() => openWidgetTarget(router, item)}>
-          <Text style={styles.mealPremiumTime}>{text(item.time, text(item.badge, 'Now'))}</Text>
-          <View style={styles.mealPremiumCopy}>
-            <Text style={styles.mealPremiumTitle}>{label(item)}</Text>
-            <Text style={styles.mealPremiumDetail}>{detail(item, 'Plan-first item.')}</Text>
-          </View>
-          <Text style={styles.mealPremiumChevron}>›</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-function RecipeCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const chips = rows((props as Record<string, unknown>).chips);
-  return (
-    <Pressable style={styles.recipePremiumCard} onPress={() => openWidgetTarget(router, props)} disabled={!actionRoute(props) && !actionUrl(props)}>
-      <View style={styles.recipePremiumArt}><Text style={styles.recipePremiumEmoji}>{text((props as Record<string, unknown>).emoji, '🍛')}</Text></View>
-      <View style={styles.recipePremiumCopy}>
-        <Text style={styles.recipePremiumBadge}>{text(props.badge, 'Pantry match')}</Text>
-        <Text style={styles.recipePremiumTitle}>{text(props.title, 'Recipe')}</Text>
-        <Text style={styles.recipePremiumDetail}>{text(props.subtitle, text(props.body, 'Cook from what you already have.'))}</Text>
-        <View style={styles.recipePremiumChips}>
-          {(chips.length ? chips : [{ label: '25 min' }, { label: '82% match' }]).slice(0, 4).map((chip) => (
-            <Text key={label(chip)} style={styles.recipePremiumChip}>{label(chip)}</Text>
-          ))}
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function ReceiptReviewCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const items = rows(props.items);
-  const actions = rows(props.actions);
-  return (
-    <View style={styles.receiptPremiumCard}>
-      <View style={styles.receiptPremiumHeader}>
-        <Text style={styles.receiptPremiumIcon}>🧾</Text>
-        <View style={styles.mealPremiumCopy}>
-          <Text style={styles.receiptPremiumTitle}>{text(props.title, 'Receipt draft')}</Text>
-          <Text style={styles.receiptPremiumDetail}>{text(props.subtitle, 'Source rows are matched and ready for review.')}</Text>
-        </View>
-        <Text style={styles.receiptPremiumBadge}>{text(props.badge, 'review')}</Text>
-      </View>
-      {(items.length ? items : [{ title: 'Salmon', subtitle: 'freezer · dinner', status: '+1' }]).slice(0, 5).map((item) => (
-        <View key={label(item)} style={styles.receiptPremiumLine}>
-          <Text style={styles.receiptPremiumLineTitle}>{label(item)}</Text>
-          <Text style={styles.receiptPremiumLineDetail}>{detail(item)}</Text>
-          <Text style={styles.receiptPremiumLineStatus}>{text(item.status, 'new')}</Text>
-        </View>
-      ))}
-      <View style={styles.premiumActions}>
-        {(actions.length ? actions : [{ title: 'Accept', route: '/capture' }, { title: 'Edit', route: '/capture' }, { title: 'Skip', route: '/capture' }]).slice(0, 3).map((action, index) => (
-          <Pressable key={label(action)} style={[styles.premiumAction, index === 0 ? styles.premiumActionPrimary : null]} onPress={() => openWidgetTarget(router, action)}>
-            <Text style={[styles.premiumActionText, index === 0 ? styles.premiumActionPrimaryText : null]}>{label(action)}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function PantryShelfWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const items = rows(props.items);
-  return (
-    <View style={styles.premiumCard}>
-      <Text style={styles.premiumSectionTitle}>{text(props.title, 'Kitchen map')}</Text>
-      {props.subtitle ? <Text style={styles.premiumSectionSubtitle}>{text(props.subtitle)}</Text> : null}
-      <View style={styles.shelfPremiumGrid}>
-        {(items.length ? items : [{ title: 'Fridge', subtitle: '18 items', emoji: '❄️' }]).slice(0, 6).map((item) => (
-          <Pressable key={label(item)} style={styles.shelfPremiumTile} onPress={() => openWidgetTarget(router, item)}>
-            <Text style={styles.shelfPremiumEmoji}>{text(item.emoji, '🥫')}</Text>
-            <Text style={styles.shelfPremiumTitle}>{label(item)}</Text>
-            <Text style={styles.shelfPremiumDetail}>{detail(item)}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function AskFoodBarWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const suggestions = list(props.suggestions, ['What should we do next?', 'Use items before they expire', 'Turn source into clean updates']);
-  const ask = (prompt?: string) => {
-    const route = prompt
-      ? `/chat?prompt=${encodeURIComponent(prompt)}&run=1`
-      : '/chat';
-    navigateWidgetRoute(router, route);
-  };
-  return (
-    <View style={styles.askPremiumCard}>
-      <Text style={styles.askPremiumTitle}>{text(props.title, 'Ask')}</Text>
-      <Text style={styles.askPremiumSubtitle}>{text(props.subtitle, 'Questions, sources, updates, decisions.')}</Text>
-      <View style={styles.suggestions}>
-        {suggestions.slice(0, 4).map((suggestion) => (
-          <Pressable accessibilityRole="button" key={suggestion} onPress={() => ask(suggestion)}>
-            <Text style={styles.askPremiumChip}>{suggestion}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Pressable accessibilityRole="button" onPress={() => ask()} style={styles.askPremiumInput}>
-        <Text style={styles.askPremiumPlaceholder}>{text(props.placeholder, 'Ask what to do, update, use, or change…')}</Text>
-        <Text style={styles.askPremiumSend}>Ask</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -2064,6 +2872,20 @@ export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
   KanbanBoardWidget,
   SmartCaptureWidget,
   FormCardWidget,
+  ScientificCalculatorWidget,
+  AudioLoopPlayerWidget,
+  FilePickerWidget,
+  FileExportWidget,
+  VideoPlayerWidget,
+  CameraScannerWidget,
+  LocationMapWidget,
+  SensorReadoutWidget,
+  NotificationSchedulerWidget,
+  ContactPickerWidget,
+  CalendarEventWidget,
+  BiometricGateWidget,
+  HealthKitStatusWidget,
+  SpeechToolWidget,
   ChecklistCardWidget,
   PermissionCardWidget,
   ProviderStatusWidget,
@@ -2076,7 +2898,7 @@ export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
   AskFoodBarWidget,
 };
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   screenHeader: {
     backgroundColor: '#FBF7EE',
     borderBottomColor: '#E8DFD1',
@@ -2423,6 +3245,10 @@ const styles = StyleSheet.create({
   chartFill: { height: 12, backgroundColor: '#2F7448', borderRadius: 999 },
   mediaBox: { minHeight: 112, borderRadius: 18, backgroundColor: '#F6F1E8', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 },
   mediaGlyph: { color: '#241C16', fontSize: 32, fontWeight: '900' },
+  videoFrame: { backgroundColor: '#111111', borderRadius: 18, minHeight: 220, overflow: 'hidden' },
+  videoView: { height: 220, width: '100%' },
+  cameraFrame: { backgroundColor: '#111111', borderRadius: 18, height: 260, overflow: 'hidden' },
+  cameraView: { flex: 1 },
   mapBox: { minHeight: 112, borderRadius: 18, backgroundColor: '#E8F4F5', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 },
   mapPin: { color: '#2F7448', fontSize: 32, fontWeight: '900' },
   formField: { borderRadius: 14, backgroundColor: '#F6F1E8', padding: 12, gap: 7 },
@@ -2430,6 +3256,38 @@ const styles = StyleSheet.create({
   formHint: { color: '#6D6257', fontSize: 12 },
   formInput: { minHeight: 42, borderRadius: 12, backgroundColor: '#FFFFFF', color: '#241C16', paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 },
   formInputMultiline: { minHeight: 82, textAlignVertical: 'top' },
+  calculatorDisplay: { backgroundColor: '#F6F1E8', borderRadius: 18, gap: 8, padding: 14 },
+  calculatorInput: { color: '#241C16', fontSize: 26, fontWeight: '800', minHeight: 48 },
+  calculatorResult: { color: '#2F7448', fontSize: 30, fontWeight: '900', textAlign: 'right' },
+  calculatorPad: { gap: 8 },
+  calculatorRow: { flexDirection: 'row', gap: 8 },
+  calculatorKey: { alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, flex: 1, minHeight: 50, justifyContent: 'center', paddingHorizontal: 4 },
+  calculatorKeyOperator: { backgroundColor: '#E3EFF3' },
+  calculatorKeyEquals: { backgroundColor: '#241C16' },
+  calculatorKeyText: { color: '#241C16', fontSize: 15, fontWeight: '900' },
+  calculatorKeyEqualsText: { color: '#FFFFFF' },
+  audioLoopUnsupported: { backgroundColor: '#F6F1E8', borderRadius: 18, gap: 8, padding: 16 },
+  audioLoopIcon: { alignSelf: 'flex-start', backgroundColor: '#E3EFF3', borderRadius: 999, color: '#1F3138', fontSize: 11, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 6, overflow: 'hidden' },
+  audioLoopTitle: { color: '#241C16', fontSize: 18, fontWeight: '900' },
+  audioLoopText: { color: '#6D6257', fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  audioLoopDeck: { backgroundColor: '#F6F1E8', borderRadius: 18, gap: 10, padding: 14 },
+  audioLoopHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  audioLoopFileCopy: { flex: 1, gap: 3 },
+  audioLoopFileName: { color: '#241C16', fontSize: 17, fontWeight: '900' },
+  audioLoopProgressTrack: { height: 10, backgroundColor: '#FFFFFF', borderRadius: 999, overflow: 'hidden' },
+  audioLoopProgressFill: { height: 10, backgroundColor: '#2F7448', borderRadius: 999 },
+  audioLoopTimeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  audioLoopMeta: { color: '#6D6257', fontSize: 12, fontWeight: '900' },
+  audioLoopControls: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  audioLoopSettings: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  audioLoopStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  audioLoopNumberInput: { minWidth: 76, borderRadius: 14, backgroundColor: '#FFFFFF', color: '#241C16', fontSize: 18, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 9, textAlign: 'center' },
+  audioLoopVolumeText: { minWidth: 64, color: '#241C16', fontSize: 16, fontWeight: '900', textAlign: 'center' },
+  fileRow: { alignItems: 'center', backgroundColor: '#F6F1E8', borderRadius: 16, flexDirection: 'row', gap: 10, padding: 12 },
+  fileIcon: { alignItems: 'center', backgroundColor: '#E4F1E8', borderRadius: 14, height: 42, justifyContent: 'center', width: 42 },
+  fileIconText: { color: '#2F7448', fontSize: 18, fontWeight: '900' },
+  fileCopy: { flex: 1, gap: 3 },
+  fileName: { color: '#241C16', fontSize: 15, fontWeight: '900' },
   captureModes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   captureMode: { borderRadius: 999, backgroundColor: '#F6F1E8', paddingHorizontal: 12, paddingVertical: 9 },
   captureModeActive: { backgroundColor: '#241C16' },

@@ -326,7 +326,8 @@
             "expo",
             "android",
             "ios",
-            "web"
+            "web",
+            "macos"
           ]
         },
         "permission": {
@@ -365,7 +366,8 @@
             "expo",
             "android",
             "ios",
-            "web"
+            "web",
+            "macos"
           ]
         },
         "kind": {
@@ -435,7 +437,8 @@
             "expo",
             "android",
             "ios",
-            "web"
+            "web",
+            "macos"
           ]
         },
         "packages": {
@@ -577,19 +580,33 @@
             "smartCapture",
             "chartBlock",
             "mediaBlock",
+            "videoPlayer",
+            "cameraScanner",
             "mapBlock",
+            "locationMap",
+            "sensorReadout",
             "formCard",
             "checklistCard",
             "calendarBlock",
+            "notificationScheduler",
+            "contactPicker",
+            "calendarEvent",
+            "biometricGate",
+            "healthKitStatus",
+            "speechTool",
             "timelineBlock",
             "galleryGrid",
             "dataTable",
             "permissionCard",
+            "filePicker",
+            "fileExport",
             "providerStatus",
             "themePreview",
             "themeDensitySelector",
             "aiProviderSettings",
             "dataHomeSettings",
+            "scientificCalculator",
+            "audioLoopPlayer",
             "foodHero",
             "useFirstCarousel",
             "mealTimeline",

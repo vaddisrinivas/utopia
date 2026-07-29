@@ -6,6 +6,7 @@ export * from './package';
 export * from './package-change';
 export * from './package-authoring';
 export * from './package-install';
+export * from './package-trust';
 export {
   DEFAULT_APP_INSTALLATION_ID,
   DEFAULT_WORKSPACE_ID,

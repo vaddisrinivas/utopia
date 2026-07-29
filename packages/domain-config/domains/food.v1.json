@@ -1679,7 +1679,19 @@
                   "title": "Media block"
                 },
                 {
+                  "title": "Video player"
+                },
+                {
+                  "title": "Camera scanner"
+                },
+                {
                   "title": "Map block"
+                },
+                {
+                  "title": "Location map"
+                },
+                {
+                  "title": "Sensor readout"
                 },
                 {
                   "title": "Form card"
@@ -1689,6 +1701,27 @@
                 },
                 {
                   "title": "Calendar block"
+                },
+                {
+                  "title": "Notification scheduler"
+                },
+                {
+                  "title": "Contact picker"
+                },
+                {
+                  "title": "Calendar event"
+                },
+                {
+                  "title": "Biometric gate"
+                },
+                {
+                  "title": "Apple Health"
+                },
+                {
+                  "title": "Health kit status"
+                },
+                {
+                  "title": "Speech tool"
                 },
                 {
                   "title": "Timeline block"
@@ -1731,6 +1764,18 @@
                 },
                 {
                   "title": "Package editor"
+                },
+                {
+                  "title": "Scientific calculator"
+                },
+                {
+                  "title": "Audio loop player"
+                },
+                {
+                  "title": "File picker"
+                },
+                {
+                  "title": "File export"
                 },
                 {
                   "title": "Food hero"
@@ -2096,7 +2141,19 @@
                   "title": "Media block"
                 },
                 {
+                  "title": "Video player"
+                },
+                {
+                  "title": "Camera scanner"
+                },
+                {
                   "title": "Map block"
+                },
+                {
+                  "title": "Location map"
+                },
+                {
+                  "title": "Sensor readout"
                 },
                 {
                   "title": "Form card"
@@ -2106,6 +2163,27 @@
                 },
                 {
                   "title": "Calendar block"
+                },
+                {
+                  "title": "Notification scheduler"
+                },
+                {
+                  "title": "Contact picker"
+                },
+                {
+                  "title": "Calendar event"
+                },
+                {
+                  "title": "Biometric gate"
+                },
+                {
+                  "title": "Apple Health"
+                },
+                {
+                  "title": "Health kit status"
+                },
+                {
+                  "title": "Speech tool"
                 },
                 {
                   "title": "Timeline block"
@@ -2148,6 +2226,18 @@
                 },
                 {
                   "title": "Package editor"
+                },
+                {
+                  "title": "Scientific calculator"
+                },
+                {
+                  "title": "Audio loop player"
+                },
+                {
+                  "title": "File picker"
+                },
+                {
+                  "title": "File export"
                 },
                 {
                   "title": "Food hero"

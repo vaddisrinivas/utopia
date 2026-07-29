@@ -1,0 +1,17 @@
+{
+  "resources": [
+    "domain_manifest",
+    "schema",
+    "record",
+    "source_snapshot",
+    "conversation"
+  ],
+  "tools": [
+    "search",
+    "read_record",
+    "create_record",
+    "update_record",
+    "archive_record",
+    "run_workflow"
+  ]
+}
