@@ -6,6 +6,14 @@ The core idea is simple: a small native shell runs many useful apps from validat
 
 Utopia is for one person, a family, a group, or a small company that wants software shaped exactly around how they live and work.
 
+## License
+
+Utopia is source-available under the [PolyForm Noncommercial License 1.0.0](./LICENSE).
+
+Noncommercial personal, educational, research, charitable, government, and hobby use is permitted. Commercial use requires separate permission.
+
+Earlier public revisions released under Apache-2.0 remain under their original terms; this license applies from the commit that changed `LICENSE` forward.
+
 ## Why this exists
 
 Most personal software is trapped between two bad choices:

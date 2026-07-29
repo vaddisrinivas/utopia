@@ -1,6 +1,10 @@
-# Commercialization and Open-Core Strategy
+# Commercialization and Source-Available Strategy
 
-Scope: this is a product and licensing strategy note for Utopia as it exists today. It does not change code or policy by itself.
+Scope: this is a product and licensing strategy note for Utopia as it exists today.
+
+Current license decision: Utopia is source-available under PolyForm Noncommercial 1.0.0. Noncommercial personal, educational, research, charitable, government, and hobby use is permitted. Commercial use requires separate permission.
+
+Important caveat: earlier public revisions released under Apache-2.0 remain under their original terms. The noncommercial license applies from the commit that changed `LICENSE` forward.
 
 ## Positioning
 
@@ -8,13 +12,13 @@ Utopia is a package-driven app platform for personal software, built for one per
 
 The commercial shape should match that promise:
 
-- the core stays useful, portable, and publishable;
+- the core stays useful, portable, inspectable, and forkable for noncommercial users;
 - paid value comes from convenience, trust, and hosted operations, not from trapping user data;
 - the platform should remain viable for self-hosted and local-first users even if they never pay.
 
-## What stays OSS
+## What stays visible
 
-Keep these in the open source core:
+Keep these in the source-available core:
 
 - the native shell;
 - package validation and install flow;
@@ -29,8 +33,8 @@ Keep these in the open source core:
 Why:
 
 - this is the platform moat;
-- users must be able to inspect, fork, fix, and self-host;
-- open code is the credibility layer for a personal software platform.
+- users must be able to inspect, fork, fix, and self-host for noncommercial use;
+- visible code is the credibility layer for a personal software platform.
 
 ## What can be paid later
 
@@ -52,23 +56,25 @@ Good rule:
 - pay for operations and guarantees;
 - do not paywall basic ownership of your own data.
 
-## Apache-2.0: why it fits
+## Why not Apache-2.0 now
 
-Apache-2.0 is allowed if the intent is:
+Apache-2.0 remains a reasonable license if the intent is:
 
 - maximize adoption;
 - encourage external contributions;
 - let people build on the platform without fear of copyleft contamination;
 - preserve the right to sell hosted services and proprietary add-ons around the core.
 
-Apache-2.0 is especially compatible with an open-core strategy because it:
+It is compatible with an open-core strategy because it:
 
 - permits commercial use;
 - permits redistribution and modification;
 - includes an explicit patent grant;
 - does not force downstream source disclosure in derivative products.
 
-## Apache-2.0: where it is risky
+That is also why it no longer matches the current goal. Utopia now wants a default stance that lets people learn, run, inspect, and share noncommercially while blocking third-party commercialization unless explicitly licensed.
+
+## Apache-2.0 risk
 
 Apache-2.0 also makes it easy for others to:
 
@@ -148,9 +154,9 @@ Tradeoff:
 
 Decision point summary:
 
-- if the product wins on trust and portability, Apache-2.0 is the cleanest default;
+- if the product wins on trust and portability and wants maximum adoption, Apache-2.0 is the cleanest permissive default;
 - if the product must defend against SaaS cloning, AGPL-3.0 deserves a hard look;
-- if the product will sell enterprise rights or closed extensions, dual licensing becomes a serious option.
+- if the product must block commercial use by default, PolyForm Noncommercial or a dual-license model is the cleaner fit.
 
 ## Packaging by user type
 
@@ -243,11 +249,12 @@ Operational version of the promise:
 
 If the goal is to grow Utopia without breaking trust:
 
-- keep the core under Apache-2.0;
-- monetize hosted convenience, collaboration, and support;
+- keep the public repo source-available under PolyForm Noncommercial 1.0.0;
+- offer separate commercial licenses for companies, vendors, embedded distributions, and hosted resale;
+- monetize hosted convenience, collaboration, support, and commercial rights;
 - keep local/self-hosted use first-class;
 - treat the brand and the hosted service as the paid moat;
-- avoid paywalling the basic right to run, inspect, and export the platform.
+- avoid paywalling the basic noncommercial right to run, inspect, and export the platform.
 
 ## Open questions to settle before launch
 
@@ -259,6 +266,6 @@ If the goal is to grow Utopia without breaking trust:
 
 ## Bottom line
 
-Apache-2.0 is a good default if Utopia wants to be a trusted, forkable, user-owned platform with paid services around it.
+PolyForm Noncommercial is the current default because Utopia wants public code and user trust without granting free commercial exploitation.
 
-It is risky only if the business later depends on code scarcity instead of service quality, brand trust, and operational convenience.
+The business should still win through product quality, service quality, brand trust, and operational convenience, not through hiding the source.

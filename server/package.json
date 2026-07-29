@@ -2,6 +2,7 @@
   "name": "utopia-server",
   "private": true,
   "version": "0.1.0",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "description": "Utopia server runtimes and AI/action APIs (placeholder scaffold).",
   "type": "module",
   "scripts": {
