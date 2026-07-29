@@ -462,7 +462,7 @@
         "components": [
           {
             "kind": "widget",
-            "widget": "pantryShelf",
+            "widget": "galleryGrid",
             "id": "kitchen_map",
             "title": "Kitchen map",
             "subtitle": "Six shelves. Tap one to see everything inside.",
@@ -1124,11 +1124,11 @@
             "subtitle": "Meals, prep, and shopping gaps for the next thing you need to do.",
             "tone": "moss",
             "query": {
-        "collections": [
-          "meal_plan",
-          "recipe",
-          "shopping_item"
-        ],
+              "collections": [
+                "meal_plan",
+                "recipe",
+                "shopping_item"
+              ],
               "match": "today|tonight|planned|needed",
               "limit": 5
             },
@@ -1297,11 +1297,11 @@
         "subtitle": "Ask about food, recipes, shopping, or changes to this app.",
         "components": [
           {
-      "kind": "widget",
-      "widget": "assistantChat",
-      "id": "ask_chat",
-      "title": "Ask Wonder",
-      "subtitle": "Dinner ideas, shopping gaps, recipes, calories, and app changes.",
+            "kind": "widget",
+            "widget": "assistantChat",
+            "id": "ask_chat",
+            "title": "Ask Wonder",
+            "subtitle": "Dinner ideas, shopping gaps, recipes, calories, and app changes.",
             "tone": "neutral",
             "props": {
               "showHeader": false,
@@ -1772,6 +1772,12 @@
                   "title": "Audio loop player"
                 },
                 {
+                  "title": "Step flow"
+                },
+                {
+                  "title": "Duration timer"
+                },
+                {
                   "title": "File picker"
                 },
                 {
@@ -2234,6 +2240,12 @@
                   "title": "Audio loop player"
                 },
                 {
+                  "title": "Step flow"
+                },
+                {
+                  "title": "Duration timer"
+                },
+                {
                   "title": "File picker"
                 },
                 {
@@ -2684,6 +2696,11 @@
       "source": "npm"
     },
     {
+      "package": "expo-file-system",
+      "version": "~57.0.1",
+      "source": "npm"
+    },
+    {
       "package": "expo-sharing",
       "version": "~57.0.7",
       "source": "npm"
@@ -2703,6 +2720,7 @@
     "schemaVersion": "wonder.app-package-native-capabilities.v1",
     "platform": "expo",
     "packages": [
+      "expo-file-system",
       "expo-image-picker",
       "expo-sharing",
       "expo-linking",

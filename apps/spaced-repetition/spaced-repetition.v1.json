@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "spaced-repetition",
+  "version": "1.0.0",
+  "collections": {
+    "card": {
+      "id": "card",
+      "fields": {
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "status": { "type": "text", "indexed": true },
+        "topic": { "type": "text", "indexed": true },
+        "as_of": { "type": "timestamp", "indexed": true },
+        "schedule": { "type": "json", "required": true },
+        "ease_factor": { "type": "number", "indexed": true },
+        "notes": { "type": "text" }
+      }
+    }
+  },
+  "queries": {
+    "cards": {
+      "from": "card",
+      "orderBy": [{ "field": "title", "direction": "asc" }],
+      "limit": 50
+    }
+  },
+  "views": {
+    "cards": {
+      "id": "cards",
+      "query": "cards",
+      "mode": "table",
+      "fields": ["title", "topic", "ease_factor", "status", "next_review", "review_window"]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "next_review",
+      "collection": "card",
+      "dependsOn": [],
+      "expression": {
+        "recurrence_next": {
+          "schedule": { "var": "record.schedule" },
+          "after": { "var": "record.as_of" },
+          "budget": {
+            "maxOccurrences": 1,
+            "maxIterations": 16,
+            "maxRuleEvaluations": 32,
+            "maxLookaheadDays": 1200,
+            "maxExclusions": 16,
+            "maxOverrides": 16
+          }
+        }
+      }
+    },
+    {
+      "id": "review_window",
+      "collection": "card",
+      "dependsOn": ["next_review"],
+      "expression": {
+        "recurrence_expand": {
+          "schedule": { "var": "record.schedule" },
+          "after": { "var": "record.as_of" },
+          "limit": 5,
+          "budget": {
+            "maxOccurrences": 5,
+            "maxIterations": 32,
+            "maxRuleEvaluations": 64,
+            "maxLookaheadDays": 1200,
+            "maxExclusions": 16,
+            "maxOverrides": 16
+          }
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "recurrence-engine-weekday-reviews",
+    "recurrence-engine-monthday-reviews",
+    "package-only-recurrence-proof"
+  ],
+  "presentation": {
+    "label": "Spaced Repetition",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Study",
+        "collections": ["card"],
+        "views": ["cards"]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "sparkles",
+      "tone": "blue",
+      "accent": "#256B9E",
+      "canvas": "#F5FAFE"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Spaced Repetition",
+          "subtitle": "Weekday and monthday schedules with a shared recurrence engine.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Cards",
+              "query": { "collections": ["card"], "limit": 50 },
+              "props": {
+                "emptyText": "Add a study card.",
+                "columns": [
+                  { "key": "title", "label": "Card" },
+                  { "key": "topic", "label": "Topic" },
+                  { "key": "ease_factor", "label": "Ease" },
+                  { "key": "status", "label": "Status" },
+                  { "key": "next_review", "label": "Next review" },
+                  { "key": "review_window", "label": "Window" }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

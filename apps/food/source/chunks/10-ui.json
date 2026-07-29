@@ -32,7 +32,7 @@
       "components": [
         {
           "kind": "widget",
-          "widget": "pantryShelf",
+          "widget": "galleryGrid",
           "id": "kitchen_map",
           "title": "Kitchen map",
           "subtitle": "Six shelves. Tap one to see everything inside.",
@@ -1342,6 +1342,12 @@
                 "title": "Audio loop player"
               },
               {
+                "title": "Step flow"
+              },
+              {
+                "title": "Duration timer"
+              },
+              {
                 "title": "File picker"
               },
               {
@@ -1802,6 +1808,12 @@
               },
               {
                 "title": "Audio loop player"
+              },
+              {
+                "title": "Step flow"
+              },
+              {
+                "title": "Duration timer"
               },
               {
                 "title": "File picker"

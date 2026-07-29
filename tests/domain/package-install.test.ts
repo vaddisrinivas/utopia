@@ -16,7 +16,14 @@ import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
 import {
   BUNDLED_AUDIO_LOOP_PACKAGE_URL,
   BUNDLED_DEMO_PACKAGE_URL,
+  BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL,
+  BUNDLED_FOCUS_INTERVALS_PACKAGE_URL,
+  BUNDLED_HABIT_GRID_PACKAGE_URL,
+  BUNDLED_SPLIT_RENT_PACKAGE_URL,
+  BUNDLED_WORKOUT_LOGGER_PACKAGE_URL,
   BUNDLED_UTOPIA_REGISTRY_URL,
+  buildAppInstallationLifecycleViewModel,
+  buildPackageInstallReviewViewModel,
   buildPackageInstallPreviewWithSignatureVerification,
   createPackageInstallFetcher,
   fetchPackageInstallCandidate,
@@ -108,7 +115,7 @@ describe('package install link and registry contracts', () => {
     const bundled = getBundledRegistryManifest();
 
     expect(manifest).toEqual(bundled);
-    expect(manifest.packages).toHaveLength(2);
+    expect(manifest.packages).toHaveLength(7);
     expect(manifest.packages[0]).toMatchObject({
       id: 'scientific-calculator',
       name: 'Scientific Calculator',
@@ -116,9 +123,16 @@ describe('package install link and registry contracts', () => {
     });
     expect(manifest.packages[1]).toMatchObject({
       id: 'audio-loop-108',
-      name: 'Audio Loop 108',
+      name: 'Audio Loop',
       url: BUNDLED_AUDIO_LOOP_PACKAGE_URL,
     });
+    expect(manifest.packages.slice(2)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'habit-grid', url: BUNDLED_HABIT_GRID_PACKAGE_URL }),
+      expect.objectContaining({ id: 'expense-splitter', url: BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL }),
+      expect.objectContaining({ id: 'split-rent', url: BUNDLED_SPLIT_RENT_PACKAGE_URL }),
+      expect.objectContaining({ id: 'workout-logger', url: BUNDLED_WORKOUT_LOGGER_PACKAGE_URL }),
+      expect.objectContaining({ id: 'focus-intervals', url: BUNDLED_FOCUS_INTERVALS_PACKAGE_URL }),
+    ]));
 
     const candidate = await fetchPackageInstallCandidate(BUNDLED_DEMO_PACKAGE_URL, fetcher, {
       registryPackage: manifest.packages[0],
@@ -135,6 +149,15 @@ describe('package install link and registry contracts', () => {
     expect(audioLoopCandidate.preview.widgetsRequired).toContain('audioLoopPlayer');
     expect(audioLoopCandidate.preview.status).toBe('ready_for_review');
     expect(audioLoopCandidate.preview.trust.status).toBe('checksum_verified');
+
+    const expensePackage = manifest.packages.find((item) => item.id === 'expense-splitter')!;
+    const expenseCandidate = await fetchPackageInstallCandidate(
+      BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL,
+      fetcher,
+      { registryPackage: expensePackage },
+    );
+    expect(expenseCandidate.preview.widgetsRequired).toContain('dataTable');
+    expect(expenseCandidate.preview.trust.status).toBe('checksum_verified');
   });
 
   it('builds review-only preview with checksum trust metadata', async () => {
@@ -193,6 +216,16 @@ describe('package install link and registry contracts', () => {
       approvalLabel: 'Review required',
     });
     expect(packageInstallSignatureLabel(result.preview)).toBe('Signature verified (demo-key-1)');
+    expect(buildPackageInstallReviewViewModel(result.preview)).toMatchObject({
+      title: 'Demo Shelf',
+      identityRows: [
+        { label: 'Package ID', values: ['demo.shelf'] },
+        { label: 'Version', values: ['1.0.0'] },
+        { label: 'Source', values: ['https://example.com/apps/demo.package.json'] },
+      ],
+      blockingReasons: [],
+      primaryActionLabel: 'Install app',
+    });
     expect(packageInstallPreviewRows(result.preview)).toEqual([
       { label: 'Screens', values: ['home', 'review'] },
       { label: 'Collections', values: ['task'] },
@@ -373,6 +406,8 @@ describe('package install link and registry contracts', () => {
       trustTone: 'blocked',
       approvalLabel: 'Install blocked',
     });
+    expect(buildPackageInstallReviewViewModel(preview).blockingReasons)
+      .toContain('signature.value is required|signature.signedAt must be ISO date');
     expect(preview.validationErrors).toContain('signature.value is required|signature.signedAt must be ISO date');
     expect(() => buildPackageInstallApprovalReceipt(preview, 'test-user')).toThrow('package_install_preview_blocked');
   });
@@ -421,6 +456,11 @@ describe('package install link and registry contracts', () => {
     expect(preview.runtimeCompatibility.reasons).toContain('unsupported native permission:android.permission.BLUETOOTH_ADMIN');
     expect(preview.validationErrors).toContain('unsupported native permission:android.permission.BLUETOOTH_ADMIN');
     expect(packageInstallTrustLabel(preview)).toBe('Checksum verified');
+    expect(buildPackageInstallReviewViewModel(preview).capabilityRows).toContainEqual({
+      label: 'Requested permission',
+      value: 'android.permission.BLUETOOTH_ADMIN - unsupported native permission:android.permission.BLUETOOTH_ADMIN',
+      tone: 'blocked',
+    });
     expect(() => buildPackageInstallApprovalReceipt(preview, 'test-user')).toThrow('package_install_preview_blocked');
   });
 
@@ -527,6 +567,105 @@ describe('package install link and registry contracts', () => {
     expect(preview.validationErrors).toContain('id is required');
     expect(preview.validationErrors).toContain('checksum mismatch');
     expect(() => buildPackageInstallApprovalReceipt(preview, 'test-user')).toThrow('package_install_preview_blocked');
+  });
+
+  it('summarizes installation lifecycle actions for active and archived apps', () => {
+    expect(buildAppInstallationLifecycleViewModel({
+      id: 'demo-install',
+      workspaceId: 'default-workspace',
+      label: 'Demo Shelf',
+      status: 'active',
+      packageBinding: {
+        packageKey: 'demo.shelf@1.0.0',
+        packageId: 'demo.shelf',
+        version: '1.0.0',
+        sourceUrl: 'https://example.com/apps/demo.package.json',
+        checksum: 'sha256:1234',
+      },
+      approval: {
+        approvalHash: 'sha256:approval',
+        approvedBy: 'test-user',
+      },
+      activation: {
+        launchPath: '/apps/demo-install',
+        activePackageKey: 'demo.shelf@1.0.0',
+        previousPackageKey: null,
+        updatedAt: '2026-07-28T00:00:00.000Z',
+      },
+      createdAt: '2026-07-28T00:00:00.000Z',
+      updatedAt: '2026-07-28T00:00:00.000Z',
+    })).toMatchObject({
+      statusLabel: 'Active',
+      statusTone: 'verified',
+      packageIdLabel: 'demo.shelf',
+      actionLabel: 'Uninstall app',
+      canOpen: true,
+    });
+
+    expect(buildAppInstallationLifecycleViewModel({
+      id: 'demo-install',
+      workspaceId: 'default-workspace',
+      label: 'Demo Shelf',
+      status: 'archived',
+      packageBinding: {
+        packageKey: 'demo.shelf@1.0.0',
+        packageId: 'demo.shelf',
+        version: '1.0.0',
+        sourceUrl: 'https://example.com/apps/demo.package.json',
+        checksum: 'sha256:1234',
+      },
+      approval: {
+        approvalHash: 'sha256:approval',
+        approvedBy: 'test-user',
+      },
+      activation: {
+        launchPath: '/apps/demo-install',
+        activePackageKey: 'demo.shelf@1.0.0',
+        previousPackageKey: null,
+        updatedAt: '2026-07-28T00:00:00.000Z',
+      },
+      createdAt: '2026-07-28T00:00:00.000Z',
+      updatedAt: '2026-07-28T00:00:00.000Z',
+    })).toMatchObject({
+      statusLabel: 'Uninstalled',
+      statusTone: 'unknown',
+      actionLabel: 'Restore app',
+      canOpen: false,
+      canRestore: true,
+    });
+
+    expect(buildAppInstallationLifecycleViewModel({
+      id: 'demo-install',
+      workspaceId: 'default-workspace',
+      label: 'Demo Shelf',
+      status: 'disabled',
+      packageBinding: {
+        packageKey: 'demo.shelf@1.0.0',
+        packageId: 'demo.shelf',
+        version: '1.0.0',
+        sourceUrl: 'https://example.com/apps/demo.package.json',
+        checksum: 'sha256:1234',
+      },
+      approval: {
+        approvalHash: 'sha256:approval',
+        approvedBy: 'test-user',
+      },
+      activation: {
+        launchPath: '/apps/demo-install',
+        activePackageKey: 'demo.shelf@1.0.0',
+        previousPackageKey: null,
+        updatedAt: '2026-07-28T00:00:00.000Z',
+      },
+      createdAt: '2026-07-28T00:00:00.000Z',
+      updatedAt: '2026-07-28T00:00:00.000Z',
+    })).toMatchObject({
+      statusLabel: 'Disabled',
+      statusTone: 'blocked',
+      actionLabel: 'Review required',
+      actionHint: 'This app cannot be restored until the disabling reason is resolved.',
+      canOpen: false,
+      canRestore: false,
+    });
   });
 });
 

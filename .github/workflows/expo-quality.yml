@@ -17,16 +17,20 @@ jobs:
   quality:
     name: Web and Android quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -34,15 +38,14 @@ jobs:
       - name: Install server dependencies
         run: npm ci --prefix server --no-audit --no-fund
 
-      - name: Type-check
-        run: npm run typecheck
-
       - name: Validate domain package
         run: npm run config:validate
 
-      - name: Day 1 acceptance gate
-        continue-on-error: true
-        run: npm run check:platform-day1
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
 
       - name: Validate Expo dependencies
         run: npm run doctor
@@ -54,7 +57,7 @@ jobs:
         run: npm run export:android
 
       - name: Upload export evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: expo-exports
           path: |

@@ -1,18 +1,4 @@
 import type { ComponentRegistry, ComponentRenderProps } from '@json-render/react-native';
-import { CameraView, useCameraPermissions, type BarcodeScanningResult, type BarcodeType } from 'expo-camera';
-import * as Calendar from 'expo-calendar';
-import * as Contacts from 'expo-contacts';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
-import * as LocalAuthentication from 'expo-local-authentication';
-import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
-import { Accelerometer, Gyroscope, Magnetometer } from 'expo-sensors';
-import * as Speech from 'expo-speech';
-import * as Sharing from 'expo-sharing';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, Keyboard, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle } from 'react-native';
@@ -32,7 +18,6 @@ import { useUtopiaDatabase } from '@/src/db/provider';
 import { buildSafePackageChangeRequest } from '@/src/domain/package-change-templates';
 import type { DomainRecordViewModel } from '@/src/domain/renderer';
 import { extractMarkdownLinks, parseMarkdownBlocks, type MarkdownBlock } from '@/src/presentation/markdown';
-import { undoOperation } from '@/src/ops/undo';
 import { syncConfiguredSources } from '@/src/providers/direct-source-sync';
 import {
   getUtopiaHealthStatus,
@@ -41,6 +26,40 @@ import {
   type HealthConnectStatus,
 } from '@/src/health/connect';
 import { useAppRuntime } from '@/src/domain/runtime-context';
+import {
+  type WidgetCapabilityRequest,
+  requestWidgetCapability,
+  type WidgetCapabilityRuntime,
+} from '@/src/presentation/widgets/package-capability-broker';
+import {
+  Calendar,
+  Contacts,
+  DocumentPicker,
+  FileSystem,
+  ImagePicker,
+  LocalAuthentication,
+  Location,
+  Notifications,
+  Sharing,
+  Speech,
+  createAudioLoopRecorderDriver,
+  createAudioPlayer,
+  type AudioLoopRecorderDriver as NativeAudioLoopRecorderDriver,
+  loadExpoCamera,
+  loadExpoFileSystem,
+  loadExpoImagePicker,
+  loadExpoSensors,
+  loadExpoVideo,
+  setAudioModeAsync,
+  type NativeAudioPlayer,
+  type NativeCameraModule,
+  type NativeNotificationTriggerInput,
+  type NativeVideoModule,
+  type NativeVideoPlayer,
+} from '@/src/presentation/widget-native-bridges';
+import {
+  loadAudioLoopStateFromStorage,
+} from '@/src/presentation/widgets/audio-loop-persistence';
 import {
   actionRoute,
   actionUrl,
@@ -55,6 +74,14 @@ import {
 } from '@/src/presentation/widgets/widget-sdk';
 import { evaluateScientificExpression, formatCalcValue } from '@/src/presentation/widgets/scientific-calculator-engine';
 import {
+  SearchableRecordListWidget as SearchableRecordListWidgetCore,
+} from '@/src/presentation/widgets/generic-record-list-widgets';
+import {
+  FormCardWidget,
+  KanbanBoardWidget,
+  PollCardWidget,
+} from '@/src/presentation/widgets/panel-widget-family';
+import {
   audioLoopStatusLabel,
   clampInteger,
   formatAudioLoopTime,
@@ -62,6 +89,31 @@ import {
   numericOptions,
   type AudioLoopStatus,
 } from '@/src/presentation/widgets/audio-loop-engine';
+import {
+  addCurrentAssetToActivePlaylist,
+  appendAudioLoopHistoryEntry,
+  createAudioLoopAssetReference,
+  createAudioLoopRecentPlaylist,
+  createAudioLoopState,
+  renameAudioLoopImportedAsset,
+  renameAudioLoopRecordedAsset,
+  serializeAudioLoopState,
+  getAudioLoopPlaylistNavigation,
+  importAudioLoopAsset,
+  moveAudioLoopAssetInActivePlaylist,
+  moveCurrentAssetInActivePlaylist,
+  removeAudioLoopImportedAssetFromActivePlaylistAndHistory,
+  removeAudioLoopRecordedAssetFromActivePlaylistAndHistory,
+  setAudioLoopActivePlaylist,
+  type AudioLoopAssetReference,
+  type AudioLoopHistoryEntry,
+  type AudioLoopStateV2,
+} from '@/src/presentation/widgets/audio-loop-state';
+import {
+  createAudioLoopStorageMaterializer,
+  type AudioLoopMaterializer,
+} from '@/src/presentation/widgets/audio-loop-storage-bridge';
+import { loadAudioLoopStateValue, saveAudioLoopStateValue } from '@/src/settings/audio-loop-state-storage';
 import {
   maskSecret,
   providerLabel,
@@ -82,6 +134,11 @@ import {
   DomainTimelineWidget as MealTimelineWidget,
   UseFirstCarouselWidget,
 } from '@/src/presentation/json-render-domain-widgets';
+import {
+  DurationTimerWidget,
+  StepFlowWidget,
+} from '@/src/presentation/widgets/timed-flow-widgets';
+import { undoOperation } from '@/src/ops/undo';
 
 export {
   actionRoute,
@@ -103,6 +160,19 @@ const DEFAULT_PROMPTS = [
   'Create a simpler records table.',
   'Make this app calmer and less dense.',
 ];
+
+function requireWidgetCapability(
+  runtime: WidgetCapabilityRuntime,
+  request: WidgetCapabilityRequest,
+  onDenied: (message: string) => void,
+): boolean {
+  const result = requestWidgetCapability(runtime, request);
+  if (!result.ok) {
+    onDenied(result.error.message);
+    return false;
+  }
+  return true;
+}
 
 function permissionLabel(value: Record<string, unknown>): string {
   const explicit = text(value.title, text(value.label, text(value.name)));
@@ -175,10 +245,6 @@ function MarkdownText({
       })}
     </View>
   );
-}
-
-function fieldKey(value: Record<string, unknown>, index: number): string {
-  return text(value.id, text(value.name, label(value, `field_${index}`))).toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
 function WidgetShell({
@@ -994,71 +1060,6 @@ function shortHash(value: string) {
   return value.length > 18 ? `${value.slice(0, 14)}…${value.slice(-4)}` : value;
 }
 
-function PollCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const [selected, setSelected] = useState<string | null>(null);
-  const options = rows(props.options);
-  const actions = rows(props.actions);
-  const visibleOptions = (options.length ? options : [{ label: 'Yes' }, { label: 'No' }]).slice(0, 8);
-  const totalVotes = Math.max(0, visibleOptions.reduce((sum, option) => sum + numberValue(option.votes, numberValue(option.count)), 0));
-  return (
-    <WidgetShell title={text(props.title, 'Poll')} subtitle={text(props.subtitle, 'Choose one. Stored action wiring comes from package proposals.')}>
-      {visibleOptions.map((option) => {
-        const optionLabel = label(option);
-        const votes = numberValue(option.votes, numberValue(option.count));
-        const percent = Math.max(0, Math.min(100, numberValue(option.percent, totalVotes > 0 ? (votes / totalVotes) * 100 : 0)));
-        return (
-          <Pressable key={optionLabel} style={[styles.pollOption, selected === optionLabel ? styles.pollSelected : null]} onPress={() => setSelected(optionLabel)}>
-            <View style={styles.pollHeading}>
-              <Text style={styles.pollText}>{optionLabel}</Text>
-              {totalVotes || option.percent !== undefined ? <Text style={styles.pollMeta}>{Math.round(percent)}%</Text> : null}
-            </View>
-            <Text style={styles.pollMeta}>{selected === optionLabel ? 'Selected' : detail(option, 'Tap to choose')}</Text>
-            {totalVotes || option.percent !== undefined ? (
-              <View style={styles.pollTrack}>
-                <View style={[styles.pollFill, { width: `${Math.max(4, percent)}%` }]} />
-              </View>
-            ) : null}
-          </Pressable>
-        );
-      })}
-      {selected && actions.length ? (
-        <View style={styles.buttonRow}>
-          {actions.slice(0, 3).map((action) => (
-            <Pressable key={label(action)} style={styles.miniAction} onPress={() => openWidgetTarget(router, action)}>
-              <Text style={styles.miniActionText}>{label(action)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-    </WidgetShell>
-  );
-}
-
-function KanbanBoardWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  const columns = rows(props.columns);
-  return (
-    <WidgetShell title={text(props.title, 'Board')} subtitle={text(props.subtitle, 'Generic grouped work, projects, or approvals.')}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.board}>
-        {(columns.length ? columns : [{ title: 'Ideas', items: [{ title: 'Draft setup' }] }, { title: 'Next', items: [{ title: 'Review changes' }] }]).map((column) => (
-          <View key={label(column, 'Column')} style={styles.boardColumn}>
-            <Text style={styles.boardTitle}>{label(column, 'Column')}</Text>
-            {rows(column.items).slice(0, 5).map((item) => (
-              <Pressable key={label(item)} style={styles.boardCard} onPress={() => openWidgetTarget(router, item)} disabled={!actionRoute(item) && !actionUrl(item)}>
-                <Text style={styles.boardCardText}>{label(item)}</Text>
-                {detail(item) ? <Text style={styles.boardCardDetail}>{detail(item)}</Text> : null}
-              </Pressable>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
-    </WidgetShell>
-  );
-}
-
 type CaptureAsset = {
   uri: string;
   mimeType: string | null;
@@ -1066,8 +1067,15 @@ type CaptureAsset = {
   height: number | null;
 };
 
-async function persistCaptureAsset(asset: ImagePicker.ImagePickerAsset): Promise<CaptureAsset> {
-  const base = FileSystem.documentDirectory;
+async function persistCaptureAsset(asset: {
+  uri: string;
+  mimeType?: string | null;
+  width?: number | null;
+  height?: number | null;
+  fileName?: string | null;
+}): Promise<CaptureAsset> {
+  const fileSystem = await loadExpoFileSystem();
+  const base = fileSystem.documentDirectory;
   if (!base) {
     return {
       uri: asset.uri,
@@ -1077,7 +1085,7 @@ async function persistCaptureAsset(asset: ImagePicker.ImagePickerAsset): Promise
     };
   }
   const directory = `${base}wonder-captures/`;
-  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  await fileSystem.makeDirectoryAsync(directory, { intermediates: true });
   const extension = (() => {
     const fromName = asset.fileName?.match(/\.([a-zA-Z0-9]+)$/)?.[1];
     if (fromName) return fromName.toLowerCase();
@@ -1086,7 +1094,7 @@ async function persistCaptureAsset(asset: ImagePicker.ImagePickerAsset): Promise
     return 'jpg';
   })();
   const destination = `${directory}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-  await FileSystem.copyAsync({ from: asset.uri, to: destination });
+  await fileSystem.copyAsync({ from: asset.uri, to: destination });
   return {
     uri: destination,
     mimeType: asset.mimeType ?? null,
@@ -1132,6 +1140,13 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setBusy(true);
     setMessage(null);
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'media-picker', action: source, media: 'image' },
+        setMessage,
+      )) {
+        return;
+      }
       if (source === 'camera') {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
@@ -1154,7 +1169,7 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } finally {
       setBusy(false);
     }
-  }, [inputKind, title]);
+  }, [inputKind, runtime.activePackage, runtime.installationId, title]);
 
   const preview = useCallback(() => {
     if (!title.trim()) {
@@ -1304,49 +1319,6 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
   );
 }
 
-function FormCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const props = element.props ?? {};
-  const fields = rows(props.fields);
-  const fallback: Record<string, unknown>[] = [
-    { label: 'Title', subtitle: 'Text', placeholder: 'What is this?' },
-    { label: 'Notes', subtitle: 'Long text', placeholder: 'Add useful context…' },
-    { label: 'Status', subtitle: 'Choice', placeholder: 'New, review, done…' },
-  ];
-  const formFields = (fields.length ? fields : fallback).slice(0, 8);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
-  return (
-    <WidgetShell title={text(props.title, 'Form')} subtitle={text(props.subtitle, 'Config-declared inputs. Writes must still go through proposals/actions.')}>
-      {formFields.map((field, index) => {
-        const key = fieldKey(field, index);
-        const fieldType = text(field.type, detail(field, 'Field'));
-        const multiline = /long|note|textarea|multi/i.test(fieldType);
-        return (
-        <View key={key} style={styles.formField}>
-          <Text style={styles.formLabel}>{label(field)}</Text>
-          <Text style={styles.formHint}>{fieldType}{field.required === true ? ' · Required' : ''}</Text>
-          <TextInput
-            style={[styles.formInput, multiline ? styles.formInputMultiline : null]}
-            value={values[key] ?? ''}
-            onChangeText={(next) => {
-              setSubmitted(false);
-              setValues((prev) => ({ ...prev, [key]: next }));
-            }}
-            placeholder={text(field.placeholder, `Enter ${label(field).toLowerCase()}`)}
-            placeholderTextColor="#9A8D7D"
-            multiline={multiline}
-          />
-        </View>
-        );
-      })}
-      {submitted ? <Text style={styles.success}>Preview ready. Review before writing.</Text> : null}
-      <Pressable style={styles.primaryButton} onPress={() => setSubmitted(true)}>
-        <Text style={styles.primaryButtonText}>{text(props.body, text(props.cta, 'Preview action'))}</Text>
-      </Pressable>
-    </WidgetShell>
-  );
-}
-
 function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
   const [expression, setExpression] = useState(text(props.initialExpression, ''));
@@ -1473,7 +1445,8 @@ function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProp
 
 function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
-  const playerRef = useRef<AudioPlayer | null>(null);
+  const runtime = useAppRuntime();
+  const playerRef = useRef<NativeAudioPlayer | null>(null);
   const delayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const targetPlaysRef = useRef(1);
   const delaySecondsRef = useRef(0);
@@ -1482,7 +1455,8 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [fileName, setFileName] = useState('');
   const [status, setStatus] = useState<AudioLoopStatus>('empty');
   const [error, setError] = useState('');
-  const [targetPlays, setTargetPlays] = useState(() => clampInteger(props.defaultPlays, 1, clampInteger(props.maxPlays, 108, 1, 999), 108));
+  const [targetPlays, setTargetPlays] = useState(() => clampInteger(props.defaultPlays, 1, 1, Number.MAX_SAFE_INTEGER));
+  const [isInfiniteMode, setIsInfiniteMode] = useState(() => text((props as Record<string, unknown>).loopMode) === 'infinite');
   const [completedPlays, setCompletedPlays] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1490,11 +1464,36 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [startDelaySeconds, setStartDelaySeconds] = useState(() => clampInteger(props.defaultStartDelaySeconds, 0, 0, 3600));
   const [remainingDelay, setRemainingDelay] = useState(0);
   const [volume, setVolume] = useState(1);
-  const maxPlays = clampInteger(props.maxPlays, 108, 1, 999);
+  const [audioLoopState, setAudioLoopState] = useState<AudioLoopStateV2>(() => createAudioLoopState());
+  const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingBusy, setIsRecordingBusy] = useState(false);
+  const [recorderMessage, setRecorderMessage] = useState('');
+  const [activeAssetRenameInput, setActiveAssetRenameInput] = useState('');
+  const isInitializingFromStorage = useRef(true);
+  const audioLoopRecorderRef = useRef<NativeAudioLoopRecorderDriver | null>(null);
+  const audioLoopMaterializerRef = useRef<AudioLoopMaterializer | null>(null);
   const presets = rows(props.presets);
   const delayOptions = numericOptions(props.delayOptions, [0, 5, 15, 30, 60, 120, 300]);
   const startDelayOptions = numericOptions(props.startDelayOptions, [0, 10, 30, 60, 180]);
   const sessionActive = status === 'playing' || status === 'paused' || status === 'between' || status === 'starting';
+  const recorderCapability = useMemo(() => requestWidgetCapability(
+    { installationId: runtime.installationId, activePackage: runtime.activePackage },
+    { kind: 'audio-recorder', action: 'record' },
+  ), [runtime.activePackage, runtime.installationId]);
+  const recorderDisabledMessage = recorderCapability.ok ? null : recorderCapability.error.message;
+  const canRecordAudio = recorderCapability.ok && !recorderMessage;
+  const activeAsset = audioLoopState.assets.find((item) => item.id === audioLoopState.activeAssetId) ?? null;
+  const activePlaylist = audioLoopState.playlists.find((item) => item.id === audioLoopState.activePlaylistId) ?? null;
+  const playlistNavigation = useMemo(() => getAudioLoopPlaylistNavigation(audioLoopState), [audioLoopState]);
+  const recentAssets = useMemo(() => (
+    [...audioLoopState.assets].sort((a, b) => Date.parse(b.lastOpenedAt ?? b.createdAt) - Date.parse(a.lastOpenedAt ?? a.createdAt))
+  ), [audioLoopState.assets]);
+  const recentHistory = useMemo(() => (
+    [...audioLoopState.history].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))
+  ), [audioLoopState.history]);
+  const canMovePreviousInQueue = playlistNavigation.hasPrevious || (playlistNavigation.activeIndex < 0 && playlistNavigation.assetIds.length > 0);
+  const canMoveNextInQueue = playlistNavigation.hasNext || (playlistNavigation.activeIndex < 0 && playlistNavigation.assetIds.length > 0);
+  const canRenameCurrentAsset = Boolean(activeAsset && text(activeAssetRenameInput).trim().length > 0 && text(activeAssetRenameInput).trim() !== activeAsset.displayName);
 
   useEffect(() => {
     targetPlaysRef.current = targetPlays;
@@ -1559,6 +1558,11 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const finishPlay = useCallback(() => {
     setCurrentTime(duration);
     setCompletedPlays((previous) => {
+      if (isInfiniteMode) {
+        const nextInfinite = previous + 1;
+        scheduleDelay(delaySecondsRef.current);
+        return nextInfinite;
+      }
       const next = Math.min(targetPlaysRef.current, previous + 1);
       if (next >= targetPlaysRef.current) {
         clearAudioLoopDelay(delayTimerRef);
@@ -1568,7 +1572,7 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       scheduleDelay(delaySecondsRef.current);
       return next;
     });
-  }, [duration, scheduleDelay]);
+  }, [duration, isInfiniteMode, scheduleDelay]);
 
   useEffect(() => {
     if (status !== 'playing') return undefined;
@@ -1590,7 +1594,70 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     return () => clearInterval(interval);
   }, [duration, finishPlay, status]);
 
-  const loadFile = useCallback(async (asset: DocumentPicker.DocumentPickerAsset) => {
+  const nowISOString = () => new Date().toISOString();
+
+  const initializePlayer = useCallback(async (input: {
+    uri: string;
+    name: string;
+    volume?: number;
+  }) => {
+    clearAudioLoopDelay(delayTimerRef);
+    playerRef.current?.pause();
+    playerRef.current?.remove();
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+    });
+    const player = await createAudioPlayer({ uri: input.uri, name: input.name }, {
+      updateInterval: 250,
+      downloadFirst: Platform.OS !== 'web',
+    });
+    player.volume = input.volume ?? volume;
+    player.loop = false;
+    playerRef.current = player;
+    finishedRef.current = false;
+    setDuration(Number(player.currentStatus.duration) || 0);
+    setCurrentTime(0);
+    setCompletedPlays(0);
+    setFileName(input.name);
+    setStatus('ready');
+    return player;
+  }, [volume]);
+
+  const upsertImportedAsset = useCallback((asset: {
+    uri: string;
+    name: string;
+    mimeType: string | null;
+  }) => {
+    setAudioLoopState((current) => {
+      const now = new Date().toISOString();
+      const normalized = createAudioLoopState(current);
+      const existing = normalized.assets.find((item) => item.durableUri === asset.uri || item.sourceUri === asset.uri);
+      const nextAsset = createAudioLoopAssetReference({
+        id: existing?.id,
+        durableUri: asset.uri,
+        source: 'imported',
+        displayName: asset.name,
+        sourceUri: asset.uri,
+        mimeType: asset.mimeType,
+        originalName: asset.name,
+        bytes: null,
+        checksum: null,
+        createdAt: existing?.createdAt ?? now,
+        recordedAt: null,
+        lastOpenedAt: now,
+        lastPositionSeconds: 0,
+        existingNames: existing ? undefined : normalized.assets.map((item) => item.displayName),
+      });
+      return createAudioLoopState({
+        ...normalized,
+        assets: [nextAsset, ...normalized.assets.filter((item) => item.id !== nextAsset.id && item.durableUri !== asset.uri && item.sourceUri !== asset.uri)],
+        activeAssetId: nextAsset.id,
+        updatedAt: now,
+      });
+    });
+  }, []);
+
+  const loadFile = useCallback(async (asset: { uri: string; mimeType?: string | null; name?: string | null }) => {
     const fileType = String(asset.mimeType ?? '');
     const name = String(asset.name ?? 'Audio file');
     if (fileType && !fileType.startsWith('audio/')) {
@@ -1598,33 +1665,133 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       setStatus('error');
       return;
     }
-    clearAudioLoopDelay(delayTimerRef);
-    playerRef.current?.pause();
-    playerRef.current?.remove();
     try {
-      await setAudioModeAsync({
-        playsInSilentMode: true,
+      await initializePlayer({
+        uri: asset.uri,
+        name,
+        volume,
       });
-      const player = createAudioPlayer({ uri: asset.uri, name }, { updateInterval: 250, downloadFirst: Platform.OS !== 'web' });
-      player.volume = volume;
-      player.loop = false;
-      playerRef.current = player;
-      finishedRef.current = false;
-      setDuration(Number(player.currentStatus.duration) || 0);
-      setCurrentTime(0);
-      setCompletedPlays(0);
-      setFileName(name);
-      setStatus('ready');
+      upsertImportedAsset({
+        uri: asset.uri,
+        name: text(name, 'Audio file'),
+        mimeType: asset.mimeType ? String(asset.mimeType) : null,
+      });
+      setAudioLoopState((current) => appendAudioLoopHistoryEntry(current, {
+        assetId: current.activeAssetId,
+        playlistId: current.activePlaylistId,
+        status: 'paused',
+        startedAt: nowISOString(),
+        finishedAt: null,
+        completedLoops: 0,
+        loopCount: isInfiniteMode ? { kind: 'infinite' } : { kind: 'count', value: targetPlays },
+        settings: {
+          schemaVersion: 'wonder.audio-loop-playback-settings.v1',
+          loopCount: isInfiniteMode ? { kind: 'infinite' } : { kind: 'count', value: targetPlays },
+          startDelaySeconds,
+          betweenPlayDelaySeconds: delaySeconds,
+          resumePositionSeconds: 0,
+          volume,
+        },
+        note: `Loaded ${text(name, 'audio')}`,
+      }));
       setError('');
     } catch {
       playerRef.current = null;
       setStatus('error');
       setError('This file could not be played.');
     }
-  }, [volume]);
+  }, [delaySeconds, initializePlayer, isInfiniteMode, startDelaySeconds, targetPlays, upsertImportedAsset, volume]);
+
+  useEffect(() => {
+    if (isInitializingFromStorage.current) return;
+    void saveAudioLoopStateValue(serializeAudioLoopState(audioLoopState));
+  }, [audioLoopState]);
+
+  useEffect(() => {
+    if (!isInitializingFromStorage.current) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const fileSystem = await loadExpoFileSystem();
+        const materializer = createAudioLoopStorageMaterializer({ fileSystem });
+        const persisted = await loadAudioLoopStateFromStorage({
+          loadAudioLoopStateValue,
+          hasDurableUri: materializer.hasDurableUri,
+        });
+        if (cancelled || !persisted) return;
+
+        setAudioLoopState(persisted.state);
+        setDelaySeconds(persisted.state.lastPlaybackSettings.betweenPlayDelaySeconds);
+        setStartDelaySeconds(persisted.state.lastPlaybackSettings.startDelaySeconds);
+        setVolume(persisted.state.lastPlaybackSettings.volume);
+        setCurrentTime(persisted.state.lastPositionSeconds);
+        setCompletedPlays(0);
+
+        if (persisted.state.lastPlaybackSettings.loopCount.kind === 'count') {
+          setIsInfiniteMode(false);
+          setTargetPlays(persisted.state.lastPlaybackSettings.loopCount.value);
+        } else {
+          setIsInfiniteMode(true);
+          setTargetPlays(1);
+        }
+
+        if (!persisted.ready || persisted.needsReselect || !persisted.state.activeAssetId) {
+          setError('');
+          setStatus('empty');
+          setFileName('');
+          return;
+        }
+
+        const restoredAsset = persisted.state.assets.find((item) => item.id === persisted.state.activeAssetId) ?? null;
+        const activeUri = restoredAsset?.durableUri ?? restoredAsset?.sourceUri;
+        if (!restoredAsset || !activeUri) {
+          setError('');
+          setStatus('empty');
+          setFileName('');
+          return;
+        }
+
+        try {
+          const player = await initializePlayer({
+            uri: activeUri,
+            name: restoredAsset.displayName,
+            volume: persisted.state.lastPlaybackSettings.volume,
+          });
+          if (persisted.state.lastPositionSeconds > 0) {
+            await player.seekTo(persisted.state.lastPositionSeconds);
+            setCurrentTime(persisted.state.lastPositionSeconds);
+          }
+          setError('');
+        } catch {
+          setStatus('error');
+          setFileName(restoredAsset.displayName);
+          setError('Saved audio could not be loaded. Please choose a file.');
+        }
+      } catch {
+        setStatus('error');
+        setError('Could not load persisted audio state.');
+      } finally {
+        isInitializingFromStorage.current = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initializePlayer]);
+
+  useEffect(() => {
+    setActiveAssetRenameInput(activeAsset?.displayName ?? '');
+  }, [activeAsset]);
 
   const chooseFile = useCallback(async () => {
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'audio-file', action: 'choose' },
+        setError,
+      )) {
+        return;
+      }
       const result = await DocumentPicker.getDocumentAsync({
         type: 'audio/*',
         copyToCacheDirectory: Platform.OS !== 'web',
@@ -1637,7 +1804,213 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       setStatus('error');
       setError('File picker failed.');
     }
+  }, [loadFile, runtime.activePackage, runtime.installationId]);
+
+  const selectAsset = useCallback(async (asset: AudioLoopAssetReference) => {
+    const uri = asset.durableUri || asset.sourceUri;
+    if (!uri) {
+      setError('Audio file is not available.');
+      return;
+    }
+    await loadFile({
+      uri,
+      mimeType: asset.mimeType,
+      name: asset.displayName,
+    });
   }, [loadFile]);
+
+  const ensureRecentPlaylist = useCallback(() => {
+    setAudioLoopState((current) => {
+      const existing = current.playlists.find((playlist) => playlist.id === 'recent-queue');
+      if (existing) return setAudioLoopActivePlaylist(current, existing.id);
+      return createAudioLoopRecentPlaylist(current, {
+        id: 'recent-queue',
+        name: 'Recent queue',
+        createdAt: nowISOString(),
+        maxAssets: 12,
+      });
+    });
+  }, []);
+
+  const changeActivePlaylist = useCallback((playlistId: string) => {
+    setAudioLoopState((current) => setAudioLoopActivePlaylist(current, playlistId));
+  }, []);
+
+  const addCurrent = useCallback(() => {
+    if (!activeAsset || !activePlaylist) {
+      setError('Select a playlist and current asset first.');
+      return;
+    }
+    setAudioLoopState((current) => addCurrentAssetToActivePlaylist(current));
+  }, [activeAsset, activePlaylist]);
+
+  const removeCurrent = useCallback(() => {
+    if (!activeAsset || !activePlaylist) {
+      setError('Select a playlist and current asset first.');
+      return;
+    }
+    const nextState = activeAsset.source === 'imported'
+      ? removeAudioLoopImportedAssetFromActivePlaylistAndHistory(audioLoopState, activeAsset.id)
+      : removeAudioLoopRecordedAssetFromActivePlaylistAndHistory(audioLoopState, activeAsset.id);
+    const nextActive = nextState.assets.find((item) => item.id === nextState.activeAssetId) ?? null;
+    setAudioLoopState(nextState);
+    if (!nextActive) {
+      clearAudioLoopDelay(delayTimerRef);
+      playerRef.current?.pause();
+      void playerRef.current?.seekTo(0);
+      setCurrentTime(0);
+      setCompletedPlays(0);
+      setRemainingDelay(0);
+      setStatus('empty');
+      setFileName('');
+      setError('');
+      return;
+    }
+    if (nextActive.id !== activeAsset.id) {
+      void selectAsset(nextActive);
+    }
+    setError('');
+  }, [activeAsset, activePlaylist, audioLoopState, selectAsset]);
+
+  const renameCurrentAsset = useCallback(() => {
+    if (!activeAsset || !activePlaylist) {
+      setError('Select a playlist and current asset first.');
+      return;
+    }
+    const nextName = text(activeAssetRenameInput).trim();
+    if (!nextName) {
+      setError('Asset name cannot be empty.');
+      return;
+    }
+    if (nextName === activeAsset.displayName) return;
+    const nextState = activeAsset.source === 'imported'
+      ? renameAudioLoopImportedAsset(audioLoopState, activeAsset.id, nextName)
+      : renameAudioLoopRecordedAsset(audioLoopState, activeAsset.id, nextName);
+    setAudioLoopState(nextState);
+    setFileName(nextName);
+    setError('');
+  }, [activeAsset, activePlaylist, activeAssetRenameInput, audioLoopState]);
+
+  const moveCurrentUp = useCallback(() => {
+    if (!activeAsset || !activePlaylist) {
+      setError('Select a playlist and current asset first.');
+      return;
+    }
+    setAudioLoopState((current) => moveCurrentAssetInActivePlaylist(current, 'up'));
+  }, [activeAsset, activePlaylist]);
+
+  const moveCurrentDown = useCallback(() => {
+    if (!activeAsset || !activePlaylist) {
+      setError('Select a playlist and current asset first.');
+      return;
+    }
+    setAudioLoopState((current) => moveCurrentAssetInActivePlaylist(current, 'down'));
+  }, [activeAsset, activePlaylist]);
+
+  const moveInQueue = useCallback(async (direction: 'previous' | 'next') => {
+    if (!activePlaylist || !playlistNavigation.assetIds.length) {
+      setError('Select a playlist with assets first.');
+      return;
+    }
+    const nextState = moveAudioLoopAssetInActivePlaylist(audioLoopState, direction);
+    if (nextState.activeAssetId === audioLoopState.activeAssetId) {
+      setError(direction === 'previous' ? 'No previous asset in queue.' : 'No next asset in queue.');
+      return;
+    }
+    const nextAsset = nextState.assets.find((asset) => asset.id === nextState.activeAssetId) ?? null;
+    if (!nextAsset) {
+      setError('Queued asset is missing.');
+      return;
+    }
+    setAudioLoopState(nextState);
+    await selectAsset(nextAsset);
+    setError('');
+  }, [activePlaylist, audioLoopState, playlistNavigation.assetIds.length, selectAsset]);
+
+  const startRecording = useCallback(() => {
+    if (!canRecordAudio || isRecording || isRecordingBusy) return;
+    setIsRecordingBusy(true);
+    setRecorderMessage('');
+    void (async () => {
+      try {
+        if (!requireWidgetCapability(
+          { installationId: runtime.installationId, activePackage: runtime.activePackage },
+          { kind: 'audio-recorder', action: 'record' },
+          setRecorderMessage,
+        )) {
+          return;
+        }
+        const fileSystem = await loadExpoFileSystem();
+        const base = fileSystem.documentDirectory ?? fileSystem.cacheDirectory;
+        if (!base) throw new Error('Missing recording directory.');
+        const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+        const outputDirectory = `${normalizedBase}audio-loop-108/assets/`;
+        await fileSystem.makeDirectoryAsync(outputDirectory, { intermediates: true });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const outputFile = `${outputDirectory}recording-${timestamp}-${Math.random().toString(16).slice(2, 10)}.m4a`;
+        const driver = audioLoopRecorderRef.current ?? await createAudioLoopRecorderDriver();
+        audioLoopRecorderRef.current = driver;
+        audioLoopMaterializerRef.current = createAudioLoopStorageMaterializer({ fileSystem });
+        const started = await driver.startRecording({ outputFile, isMuted: false });
+        if (!text(started.sourceUri)) {
+          throw new Error('Recorder did not return a source file path.');
+        }
+        setIsRecording(true);
+        setError('');
+      } catch (error) {
+        setIsRecording(false);
+        setRecorderMessage(error instanceof Error ? error.message : 'Recording failed to start.');
+        audioLoopRecorderRef.current = null;
+        audioLoopMaterializerRef.current = null;
+      } finally {
+        setIsRecordingBusy(false);
+      }
+    })();
+  }, [canRecordAudio, isRecording, isRecordingBusy, runtime.activePackage, runtime.installationId]);
+
+  const stopRecording = useCallback(() => {
+    if (!isRecording || isRecordingBusy) return;
+    setIsRecordingBusy(true);
+    setRecorderMessage('');
+    void (async () => {
+      try {
+        const driver = audioLoopRecorderRef.current;
+        const materializer = audioLoopMaterializerRef.current;
+        if (!driver || !materializer) {
+          setRecorderMessage('No active recording session was found.');
+          return;
+        }
+        const stopped = await driver.stopRecording();
+        setIsRecording(false);
+        const sourceUri = text(stopped.sourceUri);
+        if (!sourceUri) {
+          setRecorderMessage('Recorder did not return a file path. Recording was not saved.');
+          return;
+        }
+        const nextState = await importAudioLoopAsset(audioLoopState, {
+          sourceUri,
+          source: 'recorded',
+          recordedAt: nowISOString(),
+        }, materializer);
+        setAudioLoopState(nextState);
+        const nextAsset = nextState.assets.find((asset) => asset.id === nextState.activeAssetId) ?? null;
+        const playableUri = nextAsset?.durableUri ?? nextAsset?.sourceUri;
+        if (nextAsset && playableUri) {
+          await loadFile({
+            uri: playableUri,
+            mimeType: nextAsset.mimeType,
+            name: nextAsset.displayName,
+          });
+        }
+        setRecorderMessage('Recording saved.');
+      } catch (error) {
+        setIsRecording(false);
+        setRecorderMessage(error instanceof Error ? error.message : 'Recording save failed.');
+      } finally {
+        setIsRecordingBusy(false);
+      }
+    })();
+  }, [audioLoopState, isRecording, isRecordingBusy, loadFile]);
 
   const startSession = useCallback(() => {
     if (!playerRef.current) {
@@ -1700,15 +2073,16 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
   const progress = duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0;
   const statusLabel = audioLoopStatusLabel(status, remainingDelay);
+  const maxLoopCountText = isInfiniteMode ? '∞' : String(targetPlays);
 
   return (
-    <WidgetShell title={text(props.title, 'Audio Loop 108')} subtitle={text(props.subtitle, 'Choose a track, set a play count, and loop it with optional pauses.')}>
+    <WidgetShell title={text(props.title, 'Audio Loop')} subtitle={text(props.subtitle)}>
       <>
           <View style={styles.audioLoopDeck}>
             <View style={styles.audioLoopHeader}>
               <View style={styles.audioLoopFileCopy}>
                 <Text numberOfLines={1} style={styles.audioLoopFileName}>{fileName || 'No audio selected'}</Text>
-                <Text style={styles.audioLoopText}>{statusLabel} · {completedPlays}/{targetPlays} plays</Text>
+                <Text style={styles.audioLoopText}>{statusLabel} · {completedPlays}/{maxLoopCountText} plays</Text>
               </View>
               <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={chooseFile}>
                 <Text style={styles.secondaryButtonText}>{fileName ? 'Change' : 'Choose'}</Text>
@@ -1724,7 +2098,48 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
             {error ? <Text style={styles.warning}>{error}</Text> : null}
           </View>
 
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Current asset</Text>
+            <TextInput
+              accessibilityLabel="Current asset name"
+              style={styles.formInput}
+              value={activeAssetRenameInput}
+              onChangeText={setActiveAssetRenameInput}
+              onSubmitEditing={() => void renameCurrentAsset()}
+              placeholder="Rename current asset"
+              editable={Boolean(activeAsset)}
+            />
+            <View style={styles.audioLoopControls}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Rename current asset"
+                style={[styles.secondaryButton, !canRenameCurrentAsset ? styles.disabled : null]}
+                onPress={renameCurrentAsset}
+                disabled={!canRenameCurrentAsset}
+              >
+                <Text style={styles.secondaryButtonText}>Rename</Text>
+              </Pressable>
+            </View>
+          </View>
+
           <View style={styles.audioLoopControls}>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.secondaryButton, canRecordAudio ? null : styles.disabled]}
+              onPress={startRecording}
+              disabled={!canRecordAudio || isRecording || isRecordingBusy}
+            >
+              <Text style={styles.secondaryButtonText}>{isRecording ? 'Recording' : 'Record'}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.secondaryButton, !isRecording || isRecordingBusy ? styles.disabled : null]}
+              onPress={stopRecording}
+              disabled={!isRecording || isRecordingBusy}
+            >
+              <Text style={styles.secondaryButtonText}>Stop recording</Text>
+            </Pressable>
+            {(recorderDisabledMessage || recorderMessage) ? <Text style={styles.formHint}>{recorderDisabledMessage || recorderMessage}</Text> : null}
             <Pressable accessibilityRole="button" style={[styles.primaryButton, sessionActive && status !== 'paused' ? styles.disabled : null]} onPress={startSession} disabled={sessionActive && status !== 'paused'}>
               <Text style={styles.primaryButtonText}>{status === 'completed' || status === 'stopped' ? 'Restart' : 'Start'}</Text>
             </Pressable>
@@ -1743,23 +2158,76 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
             <Pressable accessibilityRole="button" style={[styles.secondaryButton, status !== 'playing' ? styles.disabled : null]} onPress={skipCurrent} disabled={status !== 'playing'}>
               <Text style={styles.secondaryButtonText}>Skip</Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Previous in queue"
+              style={[styles.secondaryButton, !canMovePreviousInQueue ? styles.disabled : null]}
+              onPress={() => void moveInQueue('previous')}
+              disabled={!canMovePreviousInQueue}
+            >
+              <Text style={styles.secondaryButtonText}>Previous</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next in queue"
+              style={[styles.secondaryButton, !canMoveNextInQueue ? styles.disabled : null]}
+              onPress={() => void moveInQueue('next')}
+              disabled={!canMoveNextInQueue}
+            >
+              <Text style={styles.secondaryButtonText}>Next</Text>
+            </Pressable>
           </View>
 
           <View style={styles.audioLoopSettings}>
             <View style={styles.formField}>
+              <Text style={styles.formLabel}>Loop mode</Text>
+              <View style={styles.captureModes}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Finite loop"
+                  style={[styles.captureMode, !isInfiniteMode ? styles.captureModeActive : null]}
+                  onPress={() => setIsInfiniteMode(false)}
+                >
+                  <Text style={[styles.captureModeText, !isInfiniteMode ? styles.captureModeTextActive : null]}>Finite</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Infinite loop"
+                  style={[styles.captureMode, isInfiniteMode ? styles.captureModeActive : null]}
+                  onPress={() => setIsInfiniteMode(true)}
+                >
+                  <Text style={[styles.captureModeText, isInfiniteMode ? styles.captureModeTextActive : null]}>Infinite</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={styles.formField}>
               <Text style={styles.formLabel}>Play count</Text>
               <View style={styles.audioLoopStepper}>
-                <Pressable style={styles.segment} onPress={() => setTargetPlays((value) => Math.max(1, value - 1))}>
+                <Pressable
+                  style={[styles.segment, isInfiniteMode ? styles.disabled : null]}
+                  onPress={() => setTargetPlays((value) => Math.max(1, value - 1))}
+                  disabled={isInfiniteMode}
+                >
                   <Text style={styles.segmentText}>-</Text>
                 </Pressable>
                 <TextInput
                   accessibilityLabel="Play count"
                   keyboardType="number-pad"
+                  editable={!isInfiniteMode}
                   value={String(targetPlays)}
-                  onChangeText={(value) => setTargetPlays(clampInteger(value, 1, 1, maxPlays))}
+                  onChangeText={(value) => setTargetPlays((current) => {
+                    const trimmed = value.trim();
+                    if (!trimmed) return current;
+                    const parsed = Number.parseInt(trimmed, 10);
+                    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : current;
+                  })}
                   style={styles.audioLoopNumberInput}
                 />
-                <Pressable style={styles.segment} onPress={() => setTargetPlays((value) => Math.min(maxPlays, value + 1))}>
+                <Pressable
+                  style={[styles.segment, isInfiniteMode ? styles.disabled : null]}
+                  onPress={() => setTargetPlays((value) => value + 1)}
+                  disabled={isInfiniteMode}
+                >
                   <Text style={styles.segmentText}>+</Text>
                 </Pressable>
               </View>
@@ -1775,6 +2243,43 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
                   <Text style={styles.segmentText}>+</Text>
                 </Pressable>
               </View>
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Playlist</Text>
+            <View style={styles.captureModes}>
+              {audioLoopState.playlists.length ? audioLoopState.playlists.map((playlist) => (
+                <Pressable
+                  key={playlist.id}
+                  accessibilityRole="button"
+                  style={[styles.captureMode, playlist.id === audioLoopState.activePlaylistId ? styles.captureModeActive : null]}
+                  onPress={() => changeActivePlaylist(playlist.id)}
+                >
+                  <Text style={[styles.captureModeText, playlist.id === audioLoopState.activePlaylistId ? styles.captureModeTextActive : null]}>
+                    {playlist.name}
+                  </Text>
+                </Pressable>
+              )) : (
+                <Text style={styles.formHint}>No playlists yet</Text>
+              )}
+            </View>
+            <View style={styles.audioLoopControls}>
+              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={ensureRecentPlaylist}>
+                <Text style={styles.secondaryButtonText}>Create Recent queue</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={[styles.secondaryButton, (!activeAsset || !activePlaylist) ? styles.disabled : null]} onPress={addCurrent} disabled={!activeAsset || !activePlaylist}>
+                <Text style={styles.secondaryButtonText}>Add current</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={[styles.secondaryButton, (!activeAsset || !activePlaylist) ? styles.disabled : null]} onPress={removeCurrent} disabled={!activeAsset || !activePlaylist}>
+                <Text style={styles.secondaryButtonText}>Remove current</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={[styles.secondaryButton, (!activeAsset || !activePlaylist) ? styles.disabled : null]} onPress={moveCurrentUp} disabled={!activeAsset || !activePlaylist}>
+                <Text style={styles.secondaryButtonText}>Move up</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={[styles.secondaryButton, (!activeAsset || !activePlaylist) ? styles.disabled : null]} onPress={moveCurrentDown} disabled={!activeAsset || !activePlaylist}>
+                <Text style={styles.secondaryButtonText}>Move down</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -1809,7 +2314,8 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
                     key={label(preset)}
                     style={styles.captureMode}
                     onPress={() => {
-                      setTargetPlays(clampInteger(preset.plays, targetPlays, 1, maxPlays));
+                      setIsInfiniteMode(false);
+                      setTargetPlays(clampInteger(preset.plays, targetPlays, 1, Number.MAX_SAFE_INTEGER));
                       setDelaySeconds(clampInteger(preset.delaySeconds, delaySeconds, 0, 3600));
                       setStartDelaySeconds(clampInteger(preset.startDelaySeconds, startDelaySeconds, 0, 3600));
                     }}
@@ -1820,6 +2326,38 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
               </View>
             </View>
           ) : null}
+
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Recent</Text>
+            {recentAssets.length ? recentAssets.slice(0, 5).map((asset) => (
+              <Pressable key={asset.id} accessibilityRole="button" onPress={() => void selectAsset(asset)} style={styles.formField}>
+                <Text style={styles.formHint}>{asset.displayName}</Text>
+              </Pressable>
+            )) : <Text style={styles.formHint}>No recent assets.</Text>}
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>History</Text>
+            {recentHistory.length ? recentHistory.slice(0, 6).map((entry: AudioLoopHistoryEntry) => {
+              const source = audioLoopState.assets.find((asset) => asset.id === entry.assetId);
+              return (
+                <Pressable
+                  key={entry.id}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    if (!source) {
+                      setError('History item source was removed.');
+                      return;
+                    }
+                    void selectAsset(source);
+                  }}
+                  style={styles.formField}
+                >
+                  <Text style={styles.formHint}>{source?.displayName ?? 'Unknown'}: {entry.status}</Text>
+                </Pressable>
+              );
+            }) : <Text style={styles.formHint}>No history yet.</Text>}
+          </View>
         </>
     </WidgetShell>
   );
@@ -1834,6 +2372,7 @@ type PickedFileInfo = {
 
 function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [files, setFiles] = useState<PickedFileInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -1845,6 +2384,13 @@ function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setBusy(true);
     setError('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'file-picker', action: 'choose', mimeTypes, multiple, copyToCacheDirectory },
+        setError,
+      )) {
+        return;
+      }
       const result = await DocumentPicker.getDocumentAsync({
         type: mimeTypes.length === 1 ? mimeTypes[0] : mimeTypes,
         multiple,
@@ -1868,7 +2414,7 @@ function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } finally {
       setBusy(false);
     }
-  }, [copyToCacheDirectory, mimeTypes, multiple]);
+  }, [copyToCacheDirectory, mimeTypes, multiple, runtime.activePackage, runtime.installationId]);
 
   return (
     <WidgetShell title={text(props.title, 'File picker')} subtitle={text(props.subtitle, 'Pick local files without uploading them.')}>
@@ -1906,6 +2452,7 @@ function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -1918,6 +2465,13 @@ function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setStatus('');
     setError('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'file-export', action: 'export', fileName, mimeType },
+        setError,
+      )) {
+        return;
+      }
       if (Platform.OS === 'web' && typeof document !== 'undefined' && typeof URL !== 'undefined') {
         const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
@@ -1929,10 +2483,11 @@ function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
         setStatus('Download started.');
         return;
       }
-      const base = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+      const fileSystem = await loadExpoFileSystem();
+      const base = fileSystem.cacheDirectory ?? fileSystem.documentDirectory;
       if (!base) throw new Error('missing_file_directory');
       const uri = `${base}${fileName}`;
-      await FileSystem.writeAsStringAsync(uri, content, { encoding: FileSystem.EncodingType.UTF8 });
+      await fileSystem.writeAsStringAsync(uri, content, { encoding: fileSystem.EncodingType.UTF8 });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType, dialogTitle: text(props.shareTitle, 'Share file') });
         setStatus('Share sheet opened.');
@@ -1944,7 +2499,7 @@ function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } finally {
       setBusy(false);
     }
-  }, [content, fileName, mimeType, props.shareTitle]);
+  }, [content, fileName, mimeType, props.shareTitle, runtime.activePackage, runtime.installationId]);
 
   return (
     <WidgetShell title={text(props.title, 'File export')} subtitle={text(props.subtitle, 'Create a local file and share or download it.')}>
@@ -1963,35 +2518,75 @@ function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const initialUri = text(props.sourceUri, text(props.source, text(props.url)));
   const [videoUri, setVideoUri] = useState(initialUri);
   const [videoName, setVideoName] = useState(initialUri ? text(props.title, 'Video') : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (nextPlayer) => {
-    nextPlayer.loop = props.loop === true;
-    if (props.autoplay === true) nextPlayer.play();
-  });
+  const [videoModule, setVideoModule] = useState<NativeVideoModule | null>(null);
   const contentFit = props.contentFit === 'cover' || props.contentFit === 'fill' ? props.contentFit : 'contain';
+  const videoCapability = requestWidgetCapability(
+    { installationId: runtime.installationId, activePackage: runtime.activePackage },
+    { kind: 'video-player', action: 'render' },
+  );
 
   useEffect(() => {
-    player.loop = props.loop === true;
-  }, [player, props.loop]);
+    let cancelled = false;
+    void loadExpoVideo().then((module) => {
+      if (!cancelled) setVideoModule(module);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function LoadedVideoSurface() {
+    if (!videoModule) return null;
+    const player = videoModule.useVideoPlayer(videoUri ? { uri: videoUri } : null, (nextPlayer: NativeVideoPlayer) => {
+      nextPlayer.loop = props.loop === true;
+      if (props.autoplay === true) nextPlayer.play();
+    });
+
+    useEffect(() => {
+      player.loop = props.loop === true;
+    }, [player, props.loop]);
+
+    return (
+      <View style={styles.videoFrame}>
+        <videoModule.VideoView
+          player={player}
+          nativeControls={props.nativeControls !== false}
+          contentFit={contentFit}
+          fullscreenOptions={{ enable: true }}
+          style={styles.videoView}
+        />
+      </View>
+    );
+  }
 
   const chooseVideo = useCallback(async (mode: 'camera' | 'library') => {
     setBusy(true);
     setError('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'media-picker', action: mode, media: 'video' },
+        setError,
+      )) {
+        return;
+      }
+      const picker = await loadExpoImagePicker();
       if (mode === 'camera') {
-        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        const permission = await picker.requestCameraPermissionsAsync();
         if (!permission.granted) {
           setError('Camera permission is required.');
           return;
         }
       }
       const result = mode === 'camera'
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], quality: 1 })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
+        ? await picker.launchCameraAsync({ mediaTypes: ['videos'], quality: 1 })
+        : await picker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       setVideoUri(asset.uri);
@@ -2001,24 +2596,25 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [runtime.activePackage, runtime.installationId]);
 
   return (
     <WidgetShell title={text(props.title, 'Video player')} subtitle={text(props.subtitle, 'Play a package video or choose one locally.')}>
-      {videoUri ? (
-        <View style={styles.videoFrame}>
-          <VideoView
-            player={player}
-            nativeControls={props.nativeControls !== false}
-            contentFit={contentFit}
-            fullscreenOptions={{ enable: true }}
-            style={styles.videoView}
-          />
-        </View>
+      {videoUri && videoModule && videoCapability.ok ? (
+        <LoadedVideoSurface />
       ) : (
         <View style={styles.mediaBox}>
           <Text style={styles.mediaGlyph}>VID</Text>
-          <Text style={styles.bodyText}>{text(props.emptyCopy, 'No video selected.')}</Text>
+          <Text style={styles.bodyText}>
+            {text(
+              props.emptyCopy,
+              !videoCapability.ok
+                ? videoCapability.error.message
+                : videoModule
+                  ? 'No video selected.'
+                  : 'Loading video tools…',
+            )}
+          </Text>
         </View>
       )}
       <View style={styles.providerActions}>
@@ -2041,12 +2637,38 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
-  const [permission, requestPermission] = useCameraPermissions();
-  const [scan, setScan] = useState<BarcodeScanningResult | null>(null);
-  const barcodeTypes = stringList(props.barcodeTypes, ['qr', 'code128', 'ean13']) as BarcodeType[];
-  return (
-    <WidgetShell title={text(props.title, 'Camera scanner')} subtitle={text(props.subtitle, 'Scan QR and barcode values locally.')}>
-      {!permission?.granted ? (
+  const runtime = useAppRuntime();
+  const [cameraModule, setCameraModule] = useState<NativeCameraModule | null>(null);
+  const [scan, setScan] = useState<any>(null);
+  const barcodeTypes = stringList(props.barcodeTypes, ['qr', 'code128', 'ean13']);
+  useEffect(() => {
+    let cancelled = false;
+    void loadExpoCamera().then((module) => {
+      if (!cancelled) setCameraModule(module);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function LoadedCameraScanner() {
+    if (!cameraModule) return null;
+    const [permission, requestPermission] = cameraModule.useCameraPermissions();
+    if (!requireWidgetCapability(
+      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      { kind: 'camera-scanner', action: 'scan', barcodeTypes },
+      () => undefined,
+    )) {
+      return (
+        <View style={styles.previewBox}>
+          <Text style={styles.previewTitle}>Camera access</Text>
+          <Text style={styles.previewText}>Camera capability is not granted for this package.</Text>
+        </View>
+      );
+    }
+
+    if (!permission?.granted) {
+      return (
         <View style={styles.previewBox}>
           <Text style={styles.previewTitle}>Camera access</Text>
           <Text style={styles.previewText}>Required to scan codes.</Text>
@@ -2054,14 +2676,27 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
             <Text style={styles.primaryButtonText}>Choose access</Text>
           </Pressable>
         </View>
-      ) : (
-        <View style={styles.cameraFrame}>
-          <CameraView
+      );
+    }
+
+    return (
+      <View style={styles.cameraFrame}>
+          <cameraModule.CameraView
             style={styles.cameraView}
             facing="back"
             barcodeScannerSettings={{ barcodeTypes }}
-            onBarcodeScanned={scan ? undefined : (result) => setScan(result)}
+            onBarcodeScanned={scan ? undefined : (result: any) => setScan(result)}
           />
+      </View>
+    );
+  }
+
+  return (
+    <WidgetShell title={text(props.title, 'Camera scanner')} subtitle={text(props.subtitle, 'Scan QR and barcode values locally.')}>
+      {cameraModule ? <LoadedCameraScanner /> : (
+        <View style={styles.previewBox}>
+          <Text style={styles.previewTitle}>Camera access</Text>
+          <Text style={styles.previewText}>Loading camera tools…</Text>
         </View>
       )}
       {scan ? (
@@ -2079,6 +2714,7 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function LocationMapWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [busy, setBusy] = useState(false);
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(() => {
     const latitude = numberValue(props.latitude, Number.NaN);
@@ -2091,6 +2727,13 @@ function LocationMapWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setBusy(true);
     setError('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'location', action: 'current' },
+        setError,
+      )) {
+        return;
+      }
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) {
         setError('Location permission is required.');
@@ -2103,7 +2746,7 @@ function LocationMapWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [runtime.activePackage, runtime.installationId]);
 
   const openMap = useCallback(() => {
     if (location) {
@@ -2136,17 +2779,37 @@ function LocationMapWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const sensorName = text(props.sensor, 'accelerometer');
-  const sensor = sensorName === 'gyroscope' ? Gyroscope : sensorName === 'magnetometer' ? Magnetometer : Accelerometer;
+  const [sensorModule, setSensorModule] = useState<any>(null);
   const [reading, setReading] = useState<Record<string, number> | null>(null);
   const [active, setActive] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!active) return undefined;
+    let cancelled = false;
+    void loadExpoSensors().then((module) => {
+      if (!cancelled) setSensorModule(module);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!active || !sensorModule) return undefined;
+    if (!requireWidgetCapability(
+      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+      setError,
+    )) {
+      setActive(false);
+      return undefined;
+    }
     let mounted = true;
     let subscription: { remove(): void } | null = null;
-    void sensor.isAvailableAsync().then((available) => {
+    const sensor = sensorName === 'gyroscope' ? sensorModule.Gyroscope : sensorName === 'magnetometer' ? sensorModule.Magnetometer : sensorModule.Accelerometer;
+    void sensor.isAvailableAsync().then((available: boolean) => {
       if (!mounted) return;
       if (!available) {
         setError('Sensor unavailable on this device.');
@@ -2154,7 +2817,7 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
         return;
       }
       sensor.setUpdateInterval(500);
-      subscription = sensor.addListener((next) => setReading(next as Record<string, number>));
+      subscription = sensor.addListener((next: Record<string, number>) => setReading(next));
     }).catch(() => {
       setError('Sensor failed.');
       setActive(false);
@@ -2163,7 +2826,7 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
       mounted = false;
       subscription?.remove();
     };
-  }, [active, sensor]);
+  }, [active, runtime.activePackage, runtime.installationId, sensorModule, sensorName]);
 
   return (
     <WidgetShell title={text(props.title, 'Sensor readout')} subtitle={text(props.subtitle, 'Sample local device motion sensors.')}>
@@ -2181,6 +2844,7 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [notificationId, setNotificationId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -2190,6 +2854,13 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     setBusy(true);
     setMessage('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'notification', action: 'schedule' },
+        setMessage,
+      )) {
+        return;
+      }
       const permission = await Notifications.requestPermissionsAsync();
       if (!permission.granted) {
         setMessage('Notification permission is required.');
@@ -2200,7 +2871,7 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
           title: text(props.title, 'Utopia reminder'),
           body: text(props.body, 'Reminder from this app.'),
         },
-        trigger: { seconds } as Notifications.NotificationTriggerInput,
+        trigger: { seconds } as NativeNotificationTriggerInput,
       });
       setNotificationId(id);
       setMessage(`Scheduled in ${seconds}s.`);
@@ -2209,14 +2880,21 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     } finally {
       setBusy(false);
     }
-  }, [props.body, props.title, seconds]);
+  }, [props.body, props.title, runtime.activePackage, runtime.installationId, seconds]);
 
   const cancel = useCallback(async () => {
     if (!notificationId) return;
+    if (!requireWidgetCapability(
+      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      { kind: 'notification', action: 'cancel' },
+      setMessage,
+    )) {
+      return;
+    }
     await Notifications.cancelScheduledNotificationAsync(notificationId);
     setNotificationId('');
     setMessage('Canceled.');
-  }, [notificationId]);
+  }, [notificationId, runtime.activePackage, runtime.installationId]);
 
   return (
     <WidgetShell title={text(props.title, 'Notification')} subtitle={text(props.subtitle, 'Schedule a local notification.')}>
@@ -2237,11 +2915,19 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
 
 function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [contact, setContact] = useState<{name?: string; phone?: string; email?: string} | null>(null);
   const [message, setMessage] = useState('');
   const pick = useCallback(async () => {
     setMessage('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'contacts', action: 'pick' },
+        setMessage,
+      )) {
+        return;
+      }
       const available = await Contacts.isAvailableAsync();
       if (!available || Platform.OS === 'web') {
         setMessage('Contact picker unavailable on this runtime.');
@@ -2262,7 +2948,7 @@ function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } catch {
       setMessage('Contact picker failed.');
     }
-  }, []);
+  }, [runtime.activePackage, runtime.installationId]);
   return (
     <WidgetShell title={text(props.title, 'Contact picker')} subtitle={text(props.subtitle, 'Pick one contact without bulk importing address book data.')}>
       <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void pick()}>
@@ -2281,12 +2967,20 @@ function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const create = useCallback(async () => {
     setBusy(true);
     setMessage('');
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'calendar', action: 'create' },
+        setMessage,
+      )) {
+        return;
+      }
       const available = await Calendar.isAvailableAsync();
       if (!available || Platform.OS === 'web') {
         setMessage('Calendar unavailable on this runtime.');
@@ -2298,7 +2992,7 @@ function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
         return;
       }
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const target = calendars.find((item) => item.allowsModifications) ?? calendars[0];
+      const target = calendars.find((item: { allowsModifications?: boolean }) => item.allowsModifications) ?? calendars[0];
       if (!target) {
         setMessage('No writable calendar found.');
         return;
@@ -2317,7 +3011,7 @@ function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } finally {
       setBusy(false);
     }
-  }, [props.body, props.durationMinutes, props.eventTitle, props.startOffsetMinutes, props.title]);
+  }, [props.body, props.durationMinutes, props.eventTitle, props.startOffsetMinutes, props.title, runtime.activePackage, runtime.installationId]);
   return (
     <WidgetShell title={text(props.title, 'Calendar event')} subtitle={text(props.subtitle, 'Create one reviewed local calendar event.')}>
       <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={() => void create()} disabled={busy}>
@@ -2330,9 +3024,17 @@ function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function BiometricGateWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const [message, setMessage] = useState('');
   const authenticate = useCallback(async () => {
     try {
+      if (!requireWidgetCapability(
+        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        { kind: 'biometric', action: 'authenticate' },
+        setMessage,
+      )) {
+        return;
+      }
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
       if (!hasHardware || !enrolled) {
@@ -2346,7 +3048,7 @@ function BiometricGateWidget({ element }: ComponentRenderProps<WidgetProps>) {
     } catch {
       setMessage('Authentication failed.');
     }
-  }, [props.authPrompt, props.title]);
+  }, [props.authPrompt, props.title, runtime.activePackage, runtime.installationId]);
   return (
     <WidgetShell title={text(props.title, 'Biometric gate')} subtitle={text(props.subtitle, 'Require local device authentication before sensitive actions.')}>
       <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void authenticate()}>
@@ -2371,21 +3073,38 @@ function HealthKitStatusWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
 function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const phrase = text(props.speechText, text(props.body, 'Hello from Utopia.'));
   const [message, setMessage] = useState('');
+  const speak = useCallback(() => {
+    if (!requireWidgetCapability(
+      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      { kind: 'speech', action: 'speak', textLength: phrase.length },
+      setMessage,
+    )) {
+      return;
+    }
+    Speech.speak(phrase);
+    setMessage('Speaking.');
+  }, [phrase, runtime.activePackage, runtime.installationId]);
+  const stop = useCallback(() => {
+    if (!requireWidgetCapability(
+      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      { kind: 'speech', action: 'stop', textLength: phrase.length },
+      setMessage,
+    )) {
+      return;
+    }
+    void Speech.stop();
+    setMessage('Stopped.');
+  }, [phrase.length, runtime.activePackage, runtime.installationId]);
   return (
     <WidgetShell title={text(props.title, 'Speech')} subtitle={text(props.subtitle, 'Text-to-speech works locally; speech-to-text remains a planned native permission path.')}>
       <View style={styles.providerActions}>
-        <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => {
-          Speech.speak(phrase);
-          setMessage('Speaking.');
-        }}>
+        <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={speak}>
           <Text style={styles.primaryButtonText}>Speak</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => {
-          void Speech.stop();
-          setMessage('Stopped.');
-        }}>
+        <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={stop}>
           <Text style={styles.secondaryButtonText}>Stop</Text>
         </Pressable>
       </View>
@@ -2548,93 +3267,60 @@ function ProviderStatusWidget({ element }: ComponentRenderProps<WidgetProps>) {
   );
 }
 
-function SearchableRecordListWidget({ element }: ComponentRenderProps<WidgetProps>) {
+function ScreenHeaderWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const props = element.props ?? {};
-  const records = (Array.isArray(props.records) ? props.records : []) as DomainRecordViewModel[];
-  const [query, setQuery] = useState('');
-  const [collection, setCollection] = useState('all');
-  const collections = useMemo(
-    () => Array.from(new Set(records.map((record) => record.collection))).sort(),
-    [records],
-  );
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return records.filter((record) => {
-      if (collection !== 'all' && record.collection !== collection) return false;
-      if (!needle) return true;
-      return [
-        record.title,
-        record.body,
-        record.meta,
-        record.status,
-        ...Object.values(record.properties).map((value) => String(value ?? '')),
-      ].some((value) => value.toLowerCase().includes(needle));
-    });
-  }, [collection, query, records]);
-
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)' as never);
+  };
   return (
-    <View style={styles.recordSearch}>
-      <View style={styles.searchInputShell}>
-        <Text style={styles.searchIcon}>⌕</Text>
-        <TextInput
-          accessibilityLabel="Search records"
-          autoCapitalize="none"
-          onChangeText={setQuery}
-          placeholder={text(props.placeholder, 'Search names, locations, notes…')}
-          placeholderTextColor="#8C8175"
-          style={styles.searchInput}
-          value={query}
-        />
-        {query ? (
-          <Pressable accessibilityLabel="Clear search" accessibilityRole="button" hitSlop={10} onPress={() => setQuery('')}>
-            <Text style={styles.searchClear}>×</Text>
+    <View style={[styles.screenHeader, { paddingTop: Math.max(insets.top + 6, 10) }]}>
+      <View style={styles.screenHeaderTitleRow}>
+        {props.showBack ? (
+          <Pressable
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={goBack}
+            style={styles.screenHeaderBack}
+          >
+            <Text style={styles.screenHeaderBackText}>‹</Text>
+          </Pressable>
+        ) : null}
+        <View style={styles.screenHeaderCopy}>
+          {props.eyebrow ? <Text style={styles.screenHeaderEyebrow}>{text(props.eyebrow)}</Text> : null}
+          <Text numberOfLines={1} style={styles.screenHeaderTitle}>{text(props.title, 'App')}</Text>
+        </View>
+        {props.actionLabel && props.actionRoute ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push(props.actionRoute as never)}
+            style={styles.screenHeaderAction}
+          >
+            <Text style={styles.screenHeaderActionText}>{text(props.actionLabel)}</Text>
           </Pressable>
         ) : null}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchFilters}>
-        {['all', ...collections].map((item) => (
-          <Pressable
-            accessibilityRole="button"
-            key={item}
-            onPress={() => setCollection(item)}
-            style={[styles.searchFilter, collection === item ? styles.searchFilterActive : null]}
-          >
-            <Text style={[styles.searchFilterText, collection === item ? styles.searchFilterTextActive : null]}>
-              {item === 'all' ? 'All' : item.replaceAll('_', ' ')}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-      <Text style={styles.searchCount}>{filtered.length} result{filtered.length === 1 ? '' : 's'}</Text>
-      {filtered.length ? (
-        <View style={styles.compactRecordList}>
-          {filtered.slice(0, 100).map((record) => (
-            <Pressable
-              accessibilityRole="button"
-              key={record.id}
-              onPress={() => router.push(`/record/${encodeURIComponent(record.id)}` as never)}
-              style={styles.compactRecordRow}
-            >
-              <Text style={styles.compactRecordEmoji}>{text(record.properties.emoji, '•')}</Text>
-              <View style={styles.compactRecordCopy}>
-                <Text numberOfLines={1} style={styles.compactRecordTitle}>{record.title}</Text>
-                <Text numberOfLines={2} style={styles.compactRecordDetail}>{record.body || record.meta}</Text>
-              </View>
-              <Text style={styles.compactRecordArrow}>›</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : (
-        <View style={styles.searchEmpty}>
-          <Text style={styles.searchEmptyTitle}>{text(props.emptyTitle, 'Nothing matches yet')}</Text>
-          <Text style={styles.searchEmptyCopy}>Try another word, change the filter, or add a new item.</Text>
-          <Pressable accessibilityRole="button" onPress={() => router.push(text(props.emptyActionRoute, '/capture') as never)} style={styles.outcomePrimary}>
-            <Text style={styles.outcomePrimaryText}>{text(props.emptyActionLabel, 'Add item')}</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
+  );
+}
+
+function FloatingActionWidget({ element }: ComponentRenderProps<WidgetProps>) {
+  const router = useRouter();
+  const props = element.props ?? {};
+  if (!props.route) return null;
+  return (
+    <Pressable
+      accessibilityLabel={text(props.label, 'Add')}
+      accessibilityRole="button"
+      onPress={() => router.push(props.route as never)}
+      style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
+    >
+      <Text style={styles.fabPlus}>＋</Text>
+      <Text style={styles.fabLabel}>{text(props.label, 'Add')}</Text>
+    </Pressable>
   );
 }
 
@@ -2800,60 +3486,14 @@ function RecordDetailWidget({ element }: ComponentRenderProps<WidgetProps>) {
   );
 }
 
-function ScreenHeaderWidget({ element }: ComponentRenderProps<WidgetProps>) {
+function SearchableRecordListWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const props = element.props ?? {};
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)' as never);
-  };
   return (
-    <View style={[styles.screenHeader, { paddingTop: Math.max(insets.top + 6, 10) }]}>
-      <View style={styles.screenHeaderTitleRow}>
-        {props.showBack ? (
-          <Pressable
-            accessibilityLabel="Back"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={goBack}
-            style={styles.screenHeaderBack}
-          >
-            <Text style={styles.screenHeaderBackText}>‹</Text>
-          </Pressable>
-        ) : null}
-        <View style={styles.screenHeaderCopy}>
-          {props.eyebrow ? <Text style={styles.screenHeaderEyebrow}>{text(props.eyebrow)}</Text> : null}
-          <Text numberOfLines={1} style={styles.screenHeaderTitle}>{text(props.title, 'App')}</Text>
-        </View>
-        {props.actionLabel && props.actionRoute ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push(props.actionRoute as never)}
-            style={styles.screenHeaderAction}
-          >
-            <Text style={styles.screenHeaderActionText}>{text(props.actionLabel)}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function FloatingActionWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  if (!props.route) return null;
-  return (
-    <Pressable
-      accessibilityLabel={text(props.label, 'Add')}
-      accessibilityRole="button"
-      onPress={() => router.push(props.route as never)}
-      style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
-    >
-      <Text style={styles.fabPlus}>＋</Text>
-      <Text style={styles.fabLabel}>{text(props.label, 'Add')}</Text>
-    </Pressable>
+    <SearchableRecordListWidgetCore
+      element={element}
+      onOpenRecord={(recordId) => router.push(`/record/${encodeURIComponent(recordId)}` as never)}
+      onOpenActionRoute={(route) => router.push(route as never)}
+    />
   );
 }
 
@@ -2874,6 +3514,8 @@ export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
   FormCardWidget,
   ScientificCalculatorWidget,
   AudioLoopPlayerWidget,
+  StepFlowWidget,
+  DurationTimerWidget,
   FilePickerWidget,
   FileExportWidget,
   VideoPlayerWidget,

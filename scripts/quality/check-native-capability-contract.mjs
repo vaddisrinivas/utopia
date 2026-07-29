@@ -9,7 +9,8 @@ const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidMa
 const nativeKindContract = fs.readFileSync(path.join(root, 'packages/shared/contracts/native-capability-kinds.ts'), 'utf8');
 const food = readJson('packages/domain-config/domains/food.v1.json');
 const domainSchema = readJson('packages/domain-config/schemas/domain.v1.schema.json');
-const packageSchemaSource = fs.readFileSync(path.join(root, 'server/src/kernel/package-schema.ts'), 'utf8');
+const packageSchemaSource = fs.readFileSync(path.join(root, 'packages/schemas/src/app-package-schemas.ts'), 'utf8');
+const serverPackageSchemaSource = fs.readFileSync(path.join(root, 'server/src/kernel/package-schema.ts'), 'utf8');
 const evidencePath = path.join(root, 'app/build/evidence/native-capability-contract.json');
 
 const deps = { ...(packageJson.dependencies ?? {}), ...(packageJson.devDependencies ?? {}) };
@@ -20,6 +21,9 @@ const problems = [];
 const contractIntentKinds = extractNativeIntentKinds(nativeKindContract);
 const domainSchemaIntentKinds = new Set(domainSchema.$defs.native_intent.properties.kind.enum);
 const serverSchemaIntentKinds = extractServerPackageSchemaIntentKinds(packageSchemaSource);
+if (!/from ['"]@\/packages\/schemas\/src\/app-package-schemas['"]/.test(serverPackageSchemaSource)) {
+  problems.push('server package schema must re-export the shared schema authority');
+}
 
 for (const kind of new Set([...contractIntentKinds, ...domainSchemaIntentKinds, ...serverSchemaIntentKinds])) {
   if (!contractIntentKinds.has(kind)) problems.push(`${kind}: missing from shared native intent contract`);

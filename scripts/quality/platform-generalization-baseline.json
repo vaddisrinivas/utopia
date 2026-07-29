@@ -1,20 +1,39 @@
 {
   "schemaVersion": "utopia.platform-generalization-baseline.v1",
-  "minimumBundledApps": 4,
-  "minimumPurePackageApps": 1,
+  "minimumBundledApps": 8,
+  "minimumPurePackageApps": 5,
   "maximumDomainDebtApps": 1,
-  "maximumDomainSpecificWidgetReferences": 9,
+  "maximumDomainSpecificWidgetReferences": 8,
   "maximumSpecializedRuntimeWidgetsRequired": 3,
+  "excludedProbeApps": [],
+  "expectedAppClassifications": {
+    "audio-loop-108": "reusable_runtime_capability",
+    "expense-splitter": "pure_package",
+    "focus-intervals": "pure_package",
+    "food": "domain_specific_debt",
+    "habit-grid": "pure_package",
+    "scientific-calculator": "reusable_runtime_capability",
+    "split-rent": "pure_package",
+    "workout-logger": "pure_package"
+  },
   "perAppMaximumDomainSpecificWidgetReferences": {
     "audio-loop-108": 0,
-    "food": 9,
+    "expense-splitter": 0,
+    "focus-intervals": 0,
+    "food": 8,
     "habit-grid": 0,
-    "scientific-calculator": 0
+    "scientific-calculator": 0,
+    "split-rent": 0,
+    "workout-logger": 0
   },
   "perAppMaximumSpecializedRuntimeWidgetsRequired": {
     "audio-loop-108": 1,
+    "expense-splitter": 0,
+    "focus-intervals": 0,
     "food": 1,
     "habit-grid": 0,
-    "scientific-calculator": 1
+    "scientific-calculator": 1,
+    "split-rent": 0,
+    "workout-logger": 0
   }
 }

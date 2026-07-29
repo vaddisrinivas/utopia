@@ -267,7 +267,9 @@ export function buildPackageInstallPreview(
     screensIncluded: pkg ? screenIds(pkg) : [],
     dataCollections: pkg ? Object.keys(pkg.collections).sort() : [],
     providersRequested: pkg ? providerRequests(pkg) : [],
-    nativePermissionsRequested: pkg ? nativePermissionLabels(pkg) : [],
+    nativePermissionsRequested: pkg
+      ? nativePermissionLabels(pkg)
+      : candidateNativePermissionLabels(candidate),
     nativeCapabilitySupport,
     widgetsRequired: pkg ? widgetRequests(pkg) : [],
     pluginsRequired: pkg ? pluginRequests(pkg) : [],
@@ -527,6 +529,19 @@ function nativePermissionLabels(pkg: AppPackage): string[] {
   return uniqueStrings((pkg.nativeCapabilities.permissions ?? []).map((permission) => {
     if (typeof permission === 'string') return permission;
     return permission.permission;
+  }));
+}
+
+function candidateNativePermissionLabels(candidate: unknown): string[] {
+  if (!isRecord(candidate) || !isRecord(candidate.nativeCapabilities)) return [];
+  const permissions = candidate.nativeCapabilities.permissions;
+  if (!Array.isArray(permissions)) return [];
+  return uniqueStrings(permissions.flatMap((permission) => {
+    if (typeof permission === 'string' && permission.trim()) return [permission.trim()];
+    if (isRecord(permission) && typeof permission.permission === 'string' && permission.permission.trim()) {
+      return [permission.permission.trim()];
+    }
+    return [];
   }));
 }
 

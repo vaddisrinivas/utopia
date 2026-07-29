@@ -1,0 +1,598 @@
+{
+  "schemaVersion": "wonder.app-package.v3",
+  "id": "capability-lab",
+  "version": "0.1.0",
+  "collections": {
+    "capability": {
+      "id": "capability",
+      "fields": {
+        "collection": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "deviceProofRequired": {
+          "indexed": true,
+          "required": true,
+          "type": "boolean"
+        },
+        "id": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "platform": {
+          "indexed": true,
+          "type": "text"
+        },
+        "platformExportable": {
+          "indexed": true,
+          "required": true,
+          "type": "boolean"
+        },
+        "properties": {
+          "required": true,
+          "type": "json"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "indexed": true,
+          "type": "text"
+        },
+        "supportedContract": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "title": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "updated_at": {
+          "indexed": true,
+          "required": true,
+          "type": "timestamp"
+        }
+      }
+    }
+  },
+  "queries": {
+    "capabilities": {
+      "from": "capability",
+      "limit": 100
+    }
+  },
+  "views": {
+    "matrix": {
+      "id": "matrix",
+      "query": "capabilities",
+      "mode": "table",
+      "fields": [
+        "title",
+        "supportedContract",
+        "platformExportable",
+        "deviceProofRequired",
+        "platform",
+        "status",
+        "required"
+      ]
+    }
+  },
+  "presentation": {
+    "label": "Capability Lab",
+    "homeSurface": "matrix",
+    "surfaces": [
+      {
+        "id": "matrix",
+        "label": "Matrix",
+        "collections": [
+          "capability"
+        ],
+        "views": [
+          "matrix"
+        ]
+      }
+    ],
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "matrix",
+      "screens": {
+        "matrix": {
+          "title": "Matrix",
+          "subtitle": "One app grows with every platform capability slice.",
+          "components": [
+            {
+              "kind": "widget",
+              "props": {
+                "permissions": [
+                  {
+                    "deviceProofRequired": true,
+                    "id": "camera.scan",
+                    "platform": "expo",
+                    "platformExportable": true,
+                    "status": "awaiting_device_proof",
+                    "supportedContract": true
+                  },
+                  {
+                    "deviceProofRequired": true,
+                    "id": "document.pick",
+                    "platform": "expo",
+                    "platformExportable": true,
+                    "status": "awaiting_device_proof",
+                    "supportedContract": true
+                  },
+                  {
+                    "deviceProofRequired": true,
+                    "id": "health.steps",
+                    "platform": "android",
+                    "platformExportable": true,
+                    "status": "awaiting_device_proof",
+                    "supportedContract": true
+                  },
+                  {
+                    "deviceProofRequired": true,
+                    "id": "speech.speak",
+                    "platform": "expo",
+                    "platformExportable": true,
+                    "status": "awaiting_device_proof",
+                    "supportedContract": true
+                  },
+                  {
+                    "deviceProofRequired": true,
+                    "id": "contacts.pick-one",
+                    "platform": "expo",
+                    "platformExportable": true,
+                    "status": "awaiting_device_proof",
+                    "supportedContract": true
+                  },
+                  {
+                    "deviceProofRequired": false,
+                    "id": "contacts.bulk-import",
+                    "platform": "expo",
+                    "platformExportable": false,
+                    "reason": "Bulk contact import has no generic contract; single-contact selection is a separate supported capability.",
+                    "status": "blocked",
+                    "supportedContract": false
+                  }
+                ],
+                "subtitle": "Required capabilities block install when unsupported. Optional capabilities must render blocked states.",
+                "title": "Capability matrix"
+              },
+              "widget": "permissionCard"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "subtitle": "Chart contract surface exercised.",
+                "title": "Capability trend"
+              },
+              "widget": "chartBlock"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "subtitle": "Form contract surface exercised.",
+                "title": "Manual evidence form"
+              },
+              "widget": "formCard"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "autoStart": false,
+                "duration": 600,
+                "showControls": true,
+                "subtitle": "Timer contract surface exercised.",
+                "title": "Proof hold timer"
+              },
+              "widget": "durationTimer"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "columns": [
+                  "Capability",
+                  "Web",
+                  "Android",
+                  "iOS",
+                  "macOS"
+                ],
+                "title": "Runtime support"
+              },
+              "widget": "dataTable"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "subtitle": "Media contract surface exercised.",
+                "title": "Media block"
+              },
+              "widget": "mediaBlock"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "mimeTypes": [
+                  "text/*",
+                  "application/pdf"
+                ],
+                "multiple": false,
+                "subtitle": "Pick one local file without upload.",
+                "title": "File picker"
+              },
+              "widget": "filePicker"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "content": "Capability Lab export proof",
+                "cta": "Export proof",
+                "fileName": "capability-lab-proof.txt",
+                "mimeType": "text/plain",
+                "subtitle": "Create a local text file and open the share/download path.",
+                "title": "File export"
+              },
+              "widget": "fileExport"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "allowCapture": true,
+                "allowPick": true,
+                "contentFit": "contain",
+                "subtitle": "Play a package video or pick/record a local one.",
+                "title": "Video player"
+              },
+              "widget": "videoPlayer"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "barcodeTypes": [
+                  "qr",
+                  "code128"
+                ],
+                "title": "Camera scanner"
+              },
+              "widget": "cameraScanner"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "address": "1 Infinite Loop, Cupertino, CA",
+                "title": "Location map"
+              },
+              "widget": "locationMap"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "sensor": "accelerometer",
+                "title": "Sensor readout"
+              },
+              "widget": "sensorReadout"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "body": "Capability Lab reminder",
+                "seconds": 10,
+                "title": "Notification scheduler"
+              },
+              "widget": "notificationScheduler"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "title": "Contact picker"
+              },
+              "widget": "contactPicker"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "durationMinutes": 20,
+                "eventTitle": "Capability Lab event",
+                "startOffsetMinutes": 10,
+                "title": "Calendar event"
+              },
+              "widget": "calendarEvent"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "authPrompt": "Unlock Capability Lab",
+                "title": "Biometric gate"
+              },
+              "widget": "biometricGate"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "title": "Apple Health"
+              },
+              "widget": "healthKitStatus"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "speechText": "Capability Lab speech proof",
+                "title": "Speech tool"
+              },
+              "widget": "speechTool"
+            }
+          ]
+        }
+      }
+    },
+    "sourceSchemaVersion": "wonder.package-source.v1"
+  },
+  "rules": [],
+  "capabilities": [
+    "capability.matrix",
+    "records.read",
+    "records.write"
+  ],
+  "acceptanceTests": [
+    "capability-matrix-smoke"
+  ],
+  "dependencyPins": [
+    {
+      "package": "expo-document-picker",
+      "version": "57.0.1",
+      "source": "npm"
+    }
+  ],
+  "nativeCapabilities": {
+    "schemaVersion": "wonder.app-package-native-capabilities.v1",
+    "platform": "expo",
+    "packages": [
+      "expo-calendar",
+      "expo-camera",
+      "expo-contacts",
+      "expo-document-picker",
+      "expo-image-picker",
+      "expo-local-authentication",
+      "expo-location",
+      "expo-notifications",
+      "expo-sensors",
+      "expo-sharing",
+      "expo-speech",
+      "expo-task-manager",
+      "expo-video"
+    ],
+    "permissions": [
+      {
+        "id": "create-calendar-event",
+        "permission": "expo-calendar",
+        "platform": "expo",
+        "reason": "Create a reviewed local calendar event.",
+        "required": false
+      },
+      {
+        "id": "scan-camera",
+        "permission": "expo-camera",
+        "platform": "expo",
+        "reason": "Scan QR and barcodes.",
+        "required": false
+      },
+      {
+        "id": "pick-contacts",
+        "permission": "expo-contacts",
+        "platform": "expo",
+        "reason": "Pick one local contact.",
+        "required": false
+      },
+      {
+        "id": "pick-files",
+        "permission": "expo-document-picker",
+        "platform": "expo",
+        "reason": "Exercise file-pick capability in the test app.",
+        "required": false
+      },
+      {
+        "id": "record-video",
+        "permission": "expo-image-picker:camera",
+        "platform": "expo",
+        "reason": "Record local videos for playback.",
+        "required": false
+      },
+      {
+        "id": "pick-video",
+        "permission": "expo-image-picker:media-library",
+        "platform": "expo",
+        "reason": "Pick local videos for playback.",
+        "required": false
+      },
+      {
+        "id": "local-auth",
+        "permission": "expo-local-authentication",
+        "platform": "expo",
+        "reason": "Gate sensitive actions behind local authentication.",
+        "required": false
+      },
+      {
+        "id": "use-location",
+        "permission": "expo-location",
+        "platform": "expo",
+        "reason": "Request current location for map widgets.",
+        "required": false
+      },
+      {
+        "id": "schedule-notifications",
+        "permission": "expo-notifications",
+        "platform": "expo",
+        "reason": "Schedule local reminders.",
+        "required": false
+      },
+      {
+        "id": "read-sensors",
+        "permission": "expo-sensors",
+        "platform": "expo",
+        "reason": "Sample local device sensors.",
+        "required": false
+      },
+      {
+        "id": "share-files",
+        "permission": "expo-sharing",
+        "platform": "expo",
+        "reason": "Exercise file-export share/download capability in the test app.",
+        "required": false
+      },
+      {
+        "id": "speak-text",
+        "permission": "expo-speech",
+        "platform": "expo",
+        "reason": "Read package text aloud.",
+        "required": false
+      }
+    ],
+    "intents": [
+      {
+        "id": "open-capability-lab",
+        "kind": "deep_link",
+        "payload": {
+          "scheme": "utopia",
+          "target": "capability.lab"
+        },
+        "platform": "expo",
+        "reason": "Open the lab from release-smoke links.",
+        "required": false
+      }
+    ]
+  },
+  "contractLock": {
+    "schemaVersion": "wonder.package-contract-lock.v1",
+    "algorithm": "sha256",
+    "pinnedAt": "2026-07-28T00:00:00.000Z",
+    "dependencyPins": [
+      {
+        "package": "expo-document-picker",
+        "version": "57.0.1",
+        "source": "npm"
+      }
+    ],
+    "nativeCapabilities": {
+      "schemaVersion": "wonder.app-package-native-capabilities.v1",
+      "platform": "expo",
+      "packages": [
+        "expo-calendar",
+        "expo-camera",
+        "expo-contacts",
+        "expo-document-picker",
+        "expo-image-picker",
+        "expo-local-authentication",
+        "expo-location",
+        "expo-notifications",
+        "expo-sensors",
+        "expo-sharing",
+        "expo-speech",
+        "expo-task-manager",
+        "expo-video"
+      ],
+      "permissions": [
+        {
+          "id": "create-calendar-event",
+          "permission": "expo-calendar",
+          "platform": "expo",
+          "reason": "Create a reviewed local calendar event.",
+          "required": false
+        },
+        {
+          "id": "scan-camera",
+          "permission": "expo-camera",
+          "platform": "expo",
+          "reason": "Scan QR and barcodes.",
+          "required": false
+        },
+        {
+          "id": "pick-contacts",
+          "permission": "expo-contacts",
+          "platform": "expo",
+          "reason": "Pick one local contact.",
+          "required": false
+        },
+        {
+          "id": "pick-files",
+          "permission": "expo-document-picker",
+          "platform": "expo",
+          "reason": "Exercise file-pick capability in the test app.",
+          "required": false
+        },
+        {
+          "id": "record-video",
+          "permission": "expo-image-picker:camera",
+          "platform": "expo",
+          "reason": "Record local videos for playback.",
+          "required": false
+        },
+        {
+          "id": "pick-video",
+          "permission": "expo-image-picker:media-library",
+          "platform": "expo",
+          "reason": "Pick local videos for playback.",
+          "required": false
+        },
+        {
+          "id": "local-auth",
+          "permission": "expo-local-authentication",
+          "platform": "expo",
+          "reason": "Gate sensitive actions behind local authentication.",
+          "required": false
+        },
+        {
+          "id": "use-location",
+          "permission": "expo-location",
+          "platform": "expo",
+          "reason": "Request current location for map widgets.",
+          "required": false
+        },
+        {
+          "id": "schedule-notifications",
+          "permission": "expo-notifications",
+          "platform": "expo",
+          "reason": "Schedule local reminders.",
+          "required": false
+        },
+        {
+          "id": "read-sensors",
+          "permission": "expo-sensors",
+          "platform": "expo",
+          "reason": "Sample local device sensors.",
+          "required": false
+        },
+        {
+          "id": "share-files",
+          "permission": "expo-sharing",
+          "platform": "expo",
+          "reason": "Exercise file-export share/download capability in the test app.",
+          "required": false
+        },
+        {
+          "id": "speak-text",
+          "permission": "expo-speech",
+          "platform": "expo",
+          "reason": "Read package text aloud.",
+          "required": false
+        }
+      ],
+      "intents": [
+        {
+          "id": "open-capability-lab",
+          "kind": "deep_link",
+          "payload": {
+            "scheme": "utopia",
+            "target": "capability.lab"
+          },
+          "platform": "expo",
+          "reason": "Open the lab from release-smoke links.",
+          "required": false
+        }
+      ]
+    },
+    "checksum": "sha256:5d64df8431f164d4ed6ec167770a859ba2ac252744e0b0dfee72b5cdad90c4aa"
+  }
+}

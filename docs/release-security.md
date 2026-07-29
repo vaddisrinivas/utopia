@@ -13,6 +13,7 @@ Local export gates:
 
 - `npm run config:validate`
 - `npm run typecheck`
+- `npm test`
 - `npm run doctor`
 - `npm run export:web`
 - `npm run export:android`
@@ -24,7 +25,7 @@ Release proof gates:
 
 - `npm run release:proof:exports`: local web, Android, and iOS export proof. No signing claim.
 - `npm run release:proof:signed-android`: real release-signed APK plus signed AAB. Must block on debug/unsigned artifacts.
-- `npm run release:proof:physical-device`: real-device install, launch, and basic-flow proof. Must block until evidence exists.
+- `npm run release:proof:physical-device`: real-device install, launch, and basic-flow proof. No export or signing claim. Must block until evidence exists.
 - `npm run release:proof:all`: full proof chain. Expected to block until signed Android and physical-device evidence are real.
 
 Supply-chain evidence:

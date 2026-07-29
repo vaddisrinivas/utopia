@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { useUtopiaDatabase } from '@/src/db/provider';
 import { getProviderSyncSummary, type ProviderSyncSummary } from '@/src/db/provider-status';
 import { listRecordsForDomainAndInstallation } from '@/src/db/records';
-import { recordsToViews, type DomainRecordViewModel } from '@/src/domain/renderer';
+import type { DomainRecordViewModel } from '@/src/domain/renderer';
 import { useAppRuntime } from '@/src/domain/runtime-context';
+import { recordsToComputedViews } from '@/src/presentation/computed-records';
 import { JsonRenderSurface } from '@/src/presentation/json-render-surface';
 
 type JsonRenderRouteProps = {
@@ -68,7 +69,7 @@ export function JsonRenderRoute({
     }
     void listRecordsForDomainAndInstallation(db, installationId, domainId).then((items) => {
       if (!cancelled) {
-        const next = recordsToViews(items);
+        const next = recordsToComputedViews(items, activePackage);
         setRecords(next.filter((item) => {
           if (recordId && item.id !== recordId) return false;
           if (collectionIds?.length && !collectionIds.includes(item.collection)) return false;
@@ -83,7 +84,7 @@ export function JsonRenderRoute({
     return () => {
       cancelled = true;
     };
-  }, [activeManifest?.id, catalog?.activeDomainId, collectionIds?.join(','), db, installationId, recordId, recordMatch]);
+  }, [activeManifest?.id, activePackage, catalog?.activeDomainId, collectionIds?.join(','), db, installationId, recordId, recordMatch]);
 
   useEffect(() => {
     let cancelled = false;

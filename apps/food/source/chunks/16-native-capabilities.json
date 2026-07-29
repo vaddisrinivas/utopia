@@ -2,6 +2,7 @@
   "schemaVersion": "wonder.app-package-native-capabilities.v1",
   "platform": "expo",
   "packages": [
+    "expo-file-system",
     "expo-image-picker",
     "expo-sharing",
     "expo-linking",

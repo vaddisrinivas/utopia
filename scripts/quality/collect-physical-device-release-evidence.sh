@@ -11,6 +11,7 @@ evidence_dir="app/build/evidence"
 artifact_dir="$evidence_dir/physical-device-release"
 evidence="$evidence_dir/physical-device-release.json"
 package_name="app.utopia"
+artifact_evidence_path="${PHYSICAL_DEVICE_ARTIFACT_EVIDENCE:-app/build/evidence/android-release-artifacts.json}"
 activity="$package_name/.MainActivity"
 mkdir -p "$artifact_dir"
 
@@ -71,6 +72,7 @@ DEVICE_MANUFACTURER="$manufacturer" \
 DEVICE_MODEL="$model" \
 DEVICE_SDK="$sdk" \
 DEVICE_FINGERPRINT_HASH="$fingerprint_hash" \
+ARTIFACT_EVIDENCE_PATH="$artifact_evidence_path" \
 INSTALL_STATUS="$install_status" \
 node --input-type=module <<'NODE'
 import { writeFileSync } from 'node:fs';
@@ -87,11 +89,16 @@ const payload = buildPhysicalDeviceReleaseEvidence({
     sdk: env.DEVICE_SDK,
     buildFingerprintSha256: env.DEVICE_FINGERPRINT_HASH,
   },
+  artifactEvidence: env.ARTIFACT_EVIDENCE_PATH,
 });
 
 writeFileSync(evidencePath, `${JSON.stringify(payload, null, 2)}\n`);
 if (payload.status !== 'passed') {
-  console.error(`physical-device-release: BLOCKED (${JSON.stringify(payload.app)})`);
+  console.error(`physical-device-release: BLOCKED (${evidencePath})`);
+  console.error(`  status: ${payload.status}`);
+  console.error(`  app: ${JSON.stringify(payload.app)}`);
+  console.error(`  artifact: ${JSON.stringify(payload.artifact || null)}`);
+  console.error('  run npm run release:proof:physical-device for explicit blockers');
   process.exit(1);
 }
 console.log(`physical-device-release: PASS (${evidencePath})`);

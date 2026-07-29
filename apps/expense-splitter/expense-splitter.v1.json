@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "expense-splitter",
+  "version": "1.0.0",
+  "collections": {
+    "person": {
+      "id": "person",
+      "fields": {
+        "email": { "type": "text", "indexed": true },
+        "status": { "type": "text", "indexed": true }
+      }
+    },
+    "split": {
+      "id": "split",
+      "fields": {
+        "person_id": { "type": "text", "required": true, "indexed": true },
+        "expense_id": { "type": "text", "required": true, "indexed": true },
+        "paid_amount": { "type": "number", "required": true },
+        "share_amount": { "type": "number", "required": true }
+      }
+    },
+    "settlement_summary": {
+      "id": "settlement_summary",
+      "fields": {
+        "status": { "type": "text", "indexed": true }
+      }
+    }
+  },
+  "queries": {
+    "people": {
+      "from": "person",
+      "orderBy": [{ "field": "title", "direction": "asc" }],
+      "limit": 50
+    },
+    "splits": {
+      "from": "split",
+      "orderBy": [{ "field": "id", "direction": "asc" }],
+      "limit": 500
+    },
+    "summary": {
+      "from": "settlement_summary",
+      "orderBy": [{ "field": "id", "direction": "asc" }],
+      "limit": 1
+    }
+  },
+  "views": {
+    "people": {
+      "id": "people",
+      "query": "people",
+      "mode": "list",
+      "fields": ["title", "paid_total", "owed_total", "balance"]
+    },
+    "splits": {
+      "id": "splits",
+      "query": "splits",
+      "mode": "table",
+      "fields": ["title", "person_id", "expense_id", "paid_amount", "share_amount"]
+    },
+    "summary": {
+      "id": "summary",
+      "query": "summary",
+      "mode": "table",
+      "fields": ["title", "settlements"]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "paid_total",
+      "collection": "person",
+      "dependsOn": [],
+      "expression": {
+        "group_sum": {
+          "rows": { "var": "queries.splits.rows" },
+          "groupBy": "person_id",
+          "equals": { "var": "record.id" },
+          "value": "paid_amount"
+        }
+      }
+    },
+    {
+      "id": "owed_total",
+      "collection": "person",
+      "dependsOn": [],
+      "expression": {
+        "group_sum": {
+          "rows": { "var": "queries.splits.rows" },
+          "groupBy": "person_id",
+          "equals": { "var": "record.id" },
+          "value": "share_amount"
+        }
+      }
+    },
+    {
+      "id": "balance",
+      "collection": "person",
+      "dependsOn": ["paid_total", "owed_total"],
+      "expression": {
+        "-": [
+          { "var": "computed.paid_total" },
+          { "var": "computed.owed_total" }
+        ]
+      }
+    },
+    {
+      "id": "settlements",
+      "collection": "settlement_summary",
+      "dependsOn": [],
+      "expression": {
+        "balance_transfers": {
+          "rows": { "var": "queries.splits.rows" },
+          "participant": "person_id",
+          "paid": "paid_amount",
+          "owed": "share_amount"
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "grouped-person-balances",
+    "deterministic-minimized-settlements",
+    "package-only-expression-proof"
+  ],
+  "presentation": {
+    "label": "Expense Splitter",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Balances",
+        "collections": ["person", "split", "settlement_summary"],
+        "views": ["people", "summary"]
+      },
+      {
+        "id": "splits",
+        "label": "Split Lines",
+        "collections": ["split"],
+        "views": ["splits"]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "wallet",
+      "tone": "blue",
+      "accent": "#1F6FEB",
+      "canvas": "#F7F9FC"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Expense Splitter",
+          "subtitle": "Balances and who-pays-whom are computed locally.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Balances",
+              "query": { "collections": ["person"], "limit": 50 },
+              "props": {
+                "emptyText": "Add people and split lines to calculate balances.",
+                "subtitleFields": ["paid_total", "owed_total", "balance"]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Settle Up",
+              "query": { "collections": ["settlement_summary"], "limit": 1 },
+              "props": {
+                "itemsFromRecordField": "settlements",
+                "columns": [
+                  { "key": "from", "label": "From" },
+                  { "key": "to", "label": "To" },
+                  { "key": "amount", "label": "Amount" }
+                ]
+              }
+            }
+          ]
+        },
+        "splits": {
+          "title": "Split Lines",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Expenses by Person",
+              "query": { "collections": ["split"], "limit": 100 },
+              "props": {
+                "emptyText": "No split lines.",
+                "subtitleFields": ["person_id", "paid_amount", "share_amount"]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

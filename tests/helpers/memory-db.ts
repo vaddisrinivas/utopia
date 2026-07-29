@@ -209,6 +209,15 @@ export class MemoryDb {
       }
       return;
     }
+    if (compact === "UPDATE app_installations SET status = 'active', updated_at = $updated_at WHERE installation_id = $installation_id") {
+      const row = normalizeParams(params);
+      const current = this.appInstallations.get(row.$installation_id);
+      if (current) {
+        current.status = 'active';
+        current.updated_at = row.$updated_at;
+      }
+      return;
+    }
     if (compact.startsWith("UPDATE app_installations SET package_key = $package_key,")) {
       const row = normalizeParams(params);
       const current = this.appInstallations.get(row.$installation_id);

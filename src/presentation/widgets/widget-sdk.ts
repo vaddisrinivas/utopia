@@ -88,6 +88,8 @@ export type WidgetProps = {
   eventTitle?: string;
   startOffsetMinutes?: unknown;
   durationMinutes?: unknown;
+  durationSeconds?: unknown;
+  runId?: string;
   speechText?: string;
   authPrompt?: string;
 };

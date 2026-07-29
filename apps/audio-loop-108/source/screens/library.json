@@ -1,0 +1,8 @@
+{
+  "label": "Library",
+  "subtitle": "Saved loop sessions and audio entries.",
+  "collections": ["session"],
+  "query": "recent-sessions",
+  "mode": "list",
+  "fields": ["title", "file_name", "status", "target_plays", "completed_plays", "updated_at"]
+}

@@ -1,0 +1,226 @@
+{
+  "label": "Matrix",
+  "subtitle": "One app grows with every platform capability slice.",
+  "collections": ["capability"],
+  "query": "capabilities",
+  "mode": "table",
+  "fields": [
+    "title",
+    "supportedContract",
+    "platformExportable",
+    "deviceProofRequired",
+    "platform",
+    "status",
+    "required"
+  ],
+  "components": [
+    {
+      "kind": "widget",
+      "widget": "permissionCard",
+      "props": {
+        "title": "Capability matrix",
+        "subtitle": "Required capabilities block install when unsupported. Optional capabilities must render blocked states.",
+        "permissions": [
+          {
+            "id": "camera.scan",
+            "platform": "expo",
+            "supportedContract": true,
+            "platformExportable": true,
+            "deviceProofRequired": true,
+            "status": "awaiting_device_proof"
+          },
+          {
+            "id": "document.pick",
+            "platform": "expo",
+            "supportedContract": true,
+            "platformExportable": true,
+            "deviceProofRequired": true,
+            "status": "awaiting_device_proof"
+          },
+          {
+            "id": "health.steps",
+            "platform": "android",
+            "supportedContract": true,
+            "platformExportable": true,
+            "deviceProofRequired": true,
+            "status": "awaiting_device_proof"
+          },
+          {
+            "id": "speech.speak",
+            "platform": "expo",
+            "supportedContract": true,
+            "platformExportable": true,
+            "deviceProofRequired": true,
+            "status": "awaiting_device_proof"
+          },
+          {
+            "id": "contacts.pick-one",
+            "platform": "expo",
+            "supportedContract": true,
+            "platformExportable": true,
+            "deviceProofRequired": true,
+            "status": "awaiting_device_proof"
+          },
+          {
+            "id": "contacts.bulk-import",
+            "platform": "expo",
+            "supportedContract": false,
+            "platformExportable": false,
+            "deviceProofRequired": false,
+            "status": "blocked",
+            "reason": "Bulk contact import has no generic contract; single-contact selection is a separate supported capability."
+          }
+        ]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "chartBlock",
+      "props": {
+        "title": "Capability trend",
+        "subtitle": "Chart contract surface exercised."
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "formCard",
+      "props": {
+        "title": "Manual evidence form",
+        "subtitle": "Form contract surface exercised."
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "durationTimer",
+      "props": {
+        "title": "Proof hold timer",
+        "subtitle": "Timer contract surface exercised.",
+        "duration": 600,
+        "autoStart": false,
+        "showControls": true
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "dataTable",
+      "props": {
+        "title": "Runtime support",
+        "columns": ["Capability", "Web", "Android", "iOS", "macOS"]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "mediaBlock",
+      "props": {
+        "title": "Media block",
+        "subtitle": "Media contract surface exercised."
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "filePicker",
+      "props": {
+        "title": "File picker",
+        "subtitle": "Pick one local file without upload.",
+        "mimeTypes": ["text/*", "application/pdf"],
+        "multiple": false
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "fileExport",
+      "props": {
+        "title": "File export",
+        "subtitle": "Create a local text file and open the share/download path.",
+        "fileName": "capability-lab-proof.txt",
+        "mimeType": "text/plain",
+        "content": "Capability Lab export proof",
+        "cta": "Export proof"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "videoPlayer",
+      "props": {
+        "title": "Video player",
+        "subtitle": "Play a package video or pick/record a local one.",
+        "allowPick": true,
+        "allowCapture": true,
+        "contentFit": "contain"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "cameraScanner",
+      "props": {
+        "title": "Camera scanner",
+        "barcodeTypes": ["qr", "code128"]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "locationMap",
+      "props": {
+        "title": "Location map",
+        "address": "1 Infinite Loop, Cupertino, CA"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "sensorReadout",
+      "props": {
+        "title": "Sensor readout",
+        "sensor": "accelerometer"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "notificationScheduler",
+      "props": {
+        "title": "Notification scheduler",
+        "body": "Capability Lab reminder",
+        "seconds": 10
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "contactPicker",
+      "props": {
+        "title": "Contact picker"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "calendarEvent",
+      "props": {
+        "title": "Calendar event",
+        "eventTitle": "Capability Lab event",
+        "startOffsetMinutes": 10,
+        "durationMinutes": 20
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "biometricGate",
+      "props": {
+        "title": "Biometric gate",
+        "authPrompt": "Unlock Capability Lab"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "healthKitStatus",
+      "props": {
+        "title": "Apple Health"
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "speechTool",
+      "props": {
+        "title": "Speech tool",
+        "speechText": "Capability Lab speech proof"
+      }
+    }
+  ]
+}
