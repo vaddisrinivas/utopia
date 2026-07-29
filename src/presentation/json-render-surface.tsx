@@ -356,6 +356,7 @@ function addStandardDisplayWidget(
   add: ReturnType<typeof createBuilder>['add'],
   component: A2UiComponent,
   palette: Palette,
+  records: DomainRecordViewModel[] = [],
 ) {
   const props = component.props ?? {};
   switch (component.widget) {
@@ -523,14 +524,22 @@ function addStandardDisplayWidget(
       return addStandardWidgetCard(add, component, palette, [
         add('Row', { gap: 10, flexWrap: 'wrap' }, items.map((item, index) => {
           const imageUrl = widgetText(item.imageUrl, widgetText(item.url));
-          const tileChildren = imageUrl
-            ? [
-                add('Image', { src: imageUrl, alt: widgetLabel(item), height: 96, borderRadius: 12, resizeMode: 'cover' }),
-                add('Label', { text: widgetLabel(item), color: palette.ink, bold: true, size: 'sm' }),
-              ]
-            : [add('Chip', { label: `${widgetText(item.emoji, '◼︎')} ${widgetLabel(item)}`, backgroundColor: index % 2 === 0 ? palette.plumSoft : palette.blueSoft })];
+          const detail = widgetDetail(item);
+          const tileChildren = [
+            ...(imageUrl
+              ? [add('Image', { src: imageUrl, alt: widgetLabel(item), height: 96, borderRadius: 12, resizeMode: 'cover' })]
+              : [add('Label', { text: widgetText(item.emoji, 'Item'), color: palette.muted, bold: true, size: 'sm' })]),
+            add('Label', { text: widgetLabel(item), color: palette.ink, bold: true, size: 'sm' }),
+            ...(detail ? [add('Paragraph', { text: detail, color: palette.muted, fontSize: 13, numberOfLines: 3 })] : []),
+          ];
           const press = widgetPressBinding(item);
-          const tile = add('Container', { padding: 6, backgroundColor: palette.paper, borderRadius: 14 }, tileChildren);
+          const tile = add('Container', {
+            width: 148,
+            minHeight: 96,
+            padding: 10,
+            backgroundColor: index % 2 === 0 ? palette.plumSoft : palette.blueSoft,
+            borderRadius: 14,
+          }, tileChildren);
           return press ? add('Pressable', {}, [tile], { on: { press } }) : tile;
         })),
       ]);
@@ -544,7 +553,15 @@ function addStandardDisplayWidget(
         key: widgetText(column.key, widgetText(column.field, widgetText(column.id, widgetText(column.name, `column_${index}`)))).toLowerCase().replace(/[^a-z0-9]+/g, '_'),
         title: widgetLabel(column, `Column ${index + 1}`),
       }));
-      const items = (widgetRows(props.items).length ? widgetRows(props.items) : [{ name: 'Sample', status: 'Ready', owner: 'Team' }]).slice(0, 6);
+      const recordField = widgetText(props.itemsFromRecordField);
+      const boundItems = recordField
+        ? records.flatMap((record) => widgetRows(record.properties[recordField] ?? (record as unknown as Record<string, unknown>)[recordField]))
+        : [];
+      const items = (boundItems.length
+        ? boundItems
+        : widgetRows(props.items).length
+          ? widgetRows(props.items)
+          : [{ name: 'Sample', status: 'Ready', owner: 'Team' }]).slice(0, 20);
       const header = add('Row', { gap: 8 }, columns.map((column) => add('Container', { flex: 1 }, [
         add('Label', { text: column.title, color: palette.muted, bold: true, size: 'xs' }),
       ])));
@@ -753,7 +770,7 @@ function addSurfaceComponent(
       'themePreview',
     ]);
     if (component.widget && standardWidgetKinds.has(component.widget)) {
-      const rendered = addStandardDisplayWidget(add, component, palette);
+      const rendered = addStandardDisplayWidget(add, component, palette, queryRecords(records, component.query));
       if (rendered) return rendered;
     }
     const typeByWidget: Record<string, string> = {
@@ -782,6 +799,8 @@ function addSurfaceComponent(
       dataHomeSettings: 'DataHomeSettingsWidget',
       scientificCalculator: 'ScientificCalculatorWidget',
       audioLoopPlayer: 'AudioLoopPlayerWidget',
+      stepFlow: 'StepFlowWidget',
+      durationTimer: 'DurationTimerWidget',
       filePicker: 'FilePickerWidget',
       fileExport: 'FileExportWidget',
       foodHero: 'FoodHeroWidget',

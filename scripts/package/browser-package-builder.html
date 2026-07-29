@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Utopia Package Browser Builder</title>
+    <style>
+      :root {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f6f7fb;
+        color: #111827;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .card {
+        border: 1px solid #d2d7df;
+        border-radius: 12px;
+        background: #ffffff;
+        padding: 12px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin: 0 0 6px;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .row > * {
+        flex: 0 0 auto;
+      }
+
+      textarea,
+      input,
+      select,
+      button {
+        font: inherit;
+      }
+
+      textarea,
+      input,
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #c4ccd6;
+        border-radius: 8px;
+      }
+
+      textarea {
+        min-height: 200px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      }
+
+      button {
+        border: 1px solid #111827;
+        background: #111827;
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      pre {
+        margin: 8px 0 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 280px;
+        overflow: auto;
+        background: #0b1020;
+        color: #f9fafb;
+        padding: 10px;
+        border-radius: 8px;
+      }
+
+      .ok {
+        color: #166534;
+        font-weight: 700;
+      }
+
+      .warn {
+        color: #9a3412;
+        font-weight: 700;
+      }
+
+      .muted {
+        color: #6b7280;
+        font-size: 14px;
+      }
+
+      .editor-list {
+        margin-top: 8px;
+        border: 1px solid #d8deea;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 8px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .editor-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .editor-row > * {
+        flex: 0 0 auto;
+      }
+
+      .inline-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        font-size: 12px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        background: #eef2ff;
+      }
+
+      .small {
+        width: 150px;
+      }
+
+      .wide {
+        width: 220px;
+      }
+
+      .flex { display: flex; }
+
+      .capability-list {
+        margin-top: 8px;
+        border: 1px solid #d8deea;
+        border-radius: 8px;
+        padding: 8px;
+        background: #f8fafc;
+        display: grid;
+        gap: 6px;
+        max-height: 240px;
+        overflow: auto;
+      }
+
+      .capability-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .capability-meta {
+        font-size: 12px;
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Utopia Package Browser Builder</h1>
+        <p class="muted">Local editor with live compile feedback, package-source-focused UI mode, and raw JSON advanced mode.</p>
+        <div class="row">
+          <label for="starter" style="margin-right: 4px;">Starter</label>
+          <select id="starter"></select>
+          <label for="importSource" style="margin-left: 8px;">Import package JSON</label>
+          <input id="importSource" type="file" accept="application/json" />
+          <button id="exportSource">Export source JSON</button>
+          <button id="downloadPackage" disabled>Download compiled package</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Guided builder</h2>
+        <p class="muted">Fast source generation for common archetypes.</p>
+        <div class="row">
+          <input id="guidedAppName" class="wide" placeholder="App name" value="Guided app" />
+          <input id="guidedAppPurpose" class="wide" placeholder="App purpose" value="Keep daily work organized" />
+        </div>
+        <div class="row">
+          <label for="guidedScreenCount" style="margin-right: 4px;">Screen count</label>
+          <input id="guidedScreenCount" class="small" type="number" min="1" max="12" value="2" />
+          <label for="guidedArchetype" style="margin-left: 8px; margin-right: 4px;">Archetype</label>
+          <select id="guidedArchetype" class="wide"></select>
+        </div>
+        <div class="row">
+          <label for="guidedDemoData" style="margin-right: 6px;">Include demo data</label>
+          <input id="guidedDemoData" type="checkbox" checked />
+        </div>
+        <div class="row">
+          <label for="guidedDataHome" style="margin-right: 6px;">Preferred data home</label>
+          <input id="guidedDataHome" class="small" list="preferredDataHome" placeholder="sqlite" />
+          <datalist id="preferredDataHome">
+            <option value="sqlite"></option>
+            <option value="google_sheets"></option>
+            <option value="notion"></option>
+          </datalist>
+        </div>
+        <div class="row">
+          <span class="muted">Target platforms</span>
+          <span id="guidedTargetPlatforms" class="row"></span>
+        </div>
+        <h3 style="margin: 8px 0 6px;">Capabilities (select supported/exportable only)</h3>
+        <div id="guidedCapabilities" class="capability-list"></div>
+        <div class="row" style="margin-top: 8px;">
+          <button id="guidedGenerate">Generate guided source</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Metadata</h2>
+          <label for="appId">app.id</label>
+          <input id="appId" />
+
+          <label for="appLabel">app.label</label>
+          <input id="appLabel" />
+
+          <label for="appVersion">app.version</label>
+          <input id="appVersion" />
+
+          <label for="appHomeSurface">app.homeSurface</label>
+          <input id="appHomeSurface" />
+        </div>
+
+        <div class="card">
+          <h2>Collections (advanced JSON)</h2>
+          <textarea id="collections"></textarea>
+        </div>
+
+        <div class="card">
+          <h2>Queries (advanced JSON)</h2>
+          <textarea id="queries"></textarea>
+        </div>
+
+        <div class="card">
+          <h2>Screens (advanced JSON)</h2>
+          <textarea id="screens"></textarea>
+
+          <div class="row" style="margin-top: 10px;">
+            <select id="widgetScreen"></select>
+            <select id="widgetKind"></select>
+            <button id="appendWidget">Append widget component</button>
+          </div>
+          <p class="muted" id="widgetHelp">Widget helper works on selected screen.</p>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Screen editor (components)</h2>
+          <label for="screenEditor">Screen</label>
+          <select id="screenEditor"></select>
+
+          <div id="screenComponents" class="editor-list"></div>
+
+          <div class="row" style="margin-top: 8px;">
+            <select id="widgetKindEditor" class="wide"></select>
+            <button id="appendWidgetEditor">Append widget component</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Collection field editor</h2>
+          <label for="collectionEditor">Collection</label>
+          <select id="collectionEditor"></select>
+
+          <div id="collectionFields" class="editor-list"></div>
+
+          <div class="row" style="margin-top: 8px;">
+            <input id="newFieldName" class="wide" placeholder="field id" />
+            <select id="newFieldType" class="small">
+              <option value="text">text</option>
+              <option value="number">number</option>
+              <option value="boolean">boolean</option>
+              <option value="date">date</option>
+              <option value="record">record</option>
+              <option value="relation">relation</option>
+            </select>
+            <button id="addField">Add/replace field</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Optional sections</h2>
+          <label for="rules">rules (optional)</label>
+          <textarea id="rules"></textarea>
+
+          <label for="acceptance">acceptance (optional)</label>
+          <textarea id="acceptance"></textarea>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Live validation</h2>
+        <div id="validationStatus" class="muted">idle</div>
+        <pre id="validationOutput">No validation yet.</pre>
+      </section>
+
+      <section class="card">
+        <h2>Compile preview</h2>
+        <pre id="previewOutput">No compile result yet.</pre>
+      </section>
+    </main>
+
+    <script>
+      const elements = {
+        starterSelect: document.getElementById('starter'),
+        importSource: document.getElementById('importSource'),
+        exportSource: document.getElementById('exportSource'),
+        downloadPackage: document.getElementById('downloadPackage'),
+        guidedAppName: document.getElementById('guidedAppName'),
+        guidedAppPurpose: document.getElementById('guidedAppPurpose'),
+        guidedScreenCount: document.getElementById('guidedScreenCount'),
+        guidedArchetype: document.getElementById('guidedArchetype'),
+        guidedDataHome: document.getElementById('guidedDataHome'),
+        guidedDemoData: document.getElementById('guidedDemoData'),
+        guidedTargetPlatforms: document.getElementById('guidedTargetPlatforms'),
+        guidedCapabilities: document.getElementById('guidedCapabilities'),
+        guidedGenerate: document.getElementById('guidedGenerate'),
+        appId: document.getElementById('appId'),
+        appLabel: document.getElementById('appLabel'),
+        appVersion: document.getElementById('appVersion'),
+        appHomeSurface: document.getElementById('appHomeSurface'),
+        collections: document.getElementById('collections'),
+        queries: document.getElementById('queries'),
+        screens: document.getElementById('screens'),
+        rules: document.getElementById('rules'),
+        acceptance: document.getElementById('acceptance'),
+        widgetScreen: document.getElementById('widgetScreen'),
+        widgetKind: document.getElementById('widgetKind'),
+        appendWidget: document.getElementById('appendWidget'),
+        collectionEditor: document.getElementById('collectionEditor'),
+        collectionFields: document.getElementById('collectionFields'),
+        newFieldName: document.getElementById('newFieldName'),
+        newFieldType: document.getElementById('newFieldType'),
+        addField: document.getElementById('addField'),
+        screenEditor: document.getElementById('screenEditor'),
+        screenComponents: document.getElementById('screenComponents'),
+        widgetKindEditor: document.getElementById('widgetKindEditor'),
+        appendWidgetEditor: document.getElementById('appendWidgetEditor'),
+        validationStatus: document.getElementById('validationStatus'),
+        validationOutput: document.getElementById('validationOutput'),
+        previewOutput: document.getElementById('previewOutput'),
+      };
+
+      let compileTimer;
+      let lastCompiledPackage;
+      let lastCompileRequest = 0;
+
+      function isObject(value) {
+        return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+      }
+
+      function setStatus(text, kind = 'muted') {
+        elements.validationStatus.textContent = text;
+        elements.validationStatus.className = kind === 'ok' ? 'ok' : kind === 'warn' ? 'warn' : 'muted';
+      }
+
+      function safeJson(value, fallback) {
+        try {
+          const parsed = JSON.parse(value);
+          return [parsed, null];
+        } catch (error) {
+          return [fallback, error instanceof Error ? error.message : String(error)];
+        }
+      }
+
+      let builderInfo;
+
+      function renderCapMetadata(capability) {
+        return `supported: ${capability.supported ? 'yes' : 'no'} | exportable: ${capability.exportable ? 'yes' : 'no'} | device proof: ${capability.deviceProofRequired ? 'required' : 'no'}${capability.requiresNativeBridge ? ' | native bridge: required' : ''}`;
+      }
+
+      function getSelectedGuidedTargets() {
+        const selected = Array.from(elements.guidedTargetPlatforms.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
+        return selected.length > 0 ? selected : (builderInfo?.targetPlatforms || []);
+      }
+
+      function getArchetypeDefaultCapabilityIds(archetypeId) {
+        if (!builderInfo?.archetypes) {
+          return [];
+        }
+        const archetype = builderInfo.archetypes.find((entry) => entry.id === archetypeId);
+        return archetype?.defaultCapabilityIds || [];
+      }
+
+      async function refreshGuidedCapabilities() {
+        const archetypeId = elements.guidedArchetype.value;
+        if (!archetypeId) return;
+
+        const targetPlatforms = getSelectedGuidedTargets();
+        const response = await fetch('/api/archetype-capabilities', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ targetPlatforms }),
+        });
+        const result = await response.json();
+        const capabilities = Array.isArray(result?.capabilities) ? result.capabilities : [];
+
+        const defaults = getArchetypeDefaultCapabilityIds(archetypeId);
+        elements.guidedCapabilities.innerHTML = '';
+
+        if (!capabilities.length) {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'muted';
+          placeholder.textContent = 'No capabilities available for selected targets.';
+          elements.guidedCapabilities.appendChild(placeholder);
+          return;
+        }
+
+        capabilities.forEach((capability) => {
+          const row = document.createElement('div');
+          row.className = 'capability-row';
+
+          const toggle = document.createElement('input');
+          toggle.type = 'checkbox';
+          toggle.value = capability.id;
+          toggle.checked = defaults.includes(capability.id) && !capability.blocked;
+          toggle.disabled = capability.blocked;
+
+          const label = document.createElement('label');
+          label.className = 'inline-code';
+          label.textContent = `${capability.id} - ${capability.label}`;
+
+          const info = document.createElement('span');
+          info.className = 'capability-meta';
+          info.textContent = `${capability.blocked ? 'blocked | ' : ''}${renderCapMetadata(capability)}`;
+
+          if (capability.blocked) {
+            const warning = document.createElement('span');
+            warning.className = 'warn';
+            warning.textContent = 'unsupported for current targets';
+            row.append(toggle, label, info, warning);
+          } else {
+            row.append(toggle, label, info);
+          }
+
+          if (capability.requiresNativeBridge && !capability.blocked) {
+            const warning = document.createElement('span');
+            warning.className = 'warn';
+            warning.textContent = 'requires native bridge';
+            row.append(warning);
+          }
+
+          elements.guidedCapabilities.appendChild(row);
+        });
+      }
+
+      async function generateGuidedSource() {
+        const targetPlatforms = getSelectedGuidedTargets();
+        const selectedCapabilityIds = Array.from(elements.guidedCapabilities.querySelectorAll('input[type="checkbox"]:checked'))
+          .map((input) => input.value);
+        const appName = elements.guidedAppName.value.trim() || 'Guided app';
+
+        const response = await fetch('/api/archetype-generate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            appName,
+            appPurpose: elements.guidedAppPurpose.value,
+            screenCount: Number.parseInt(elements.guidedScreenCount.value, 10),
+            archetype: elements.guidedArchetype.value,
+            targetPlatforms,
+            demoData: elements.guidedDemoData.checked,
+            selectedCapabilityIds,
+            preferredDataHome: elements.guidedDataHome.value,
+          }),
+        });
+        const result = await response.json();
+        const warnings = Array.isArray(result?.warnings) ? result.warnings : [];
+
+        if (result.status !== 'ok') {
+          setStatus('guided generation blocked', 'warn');
+          elements.validationOutput.textContent = JSON.stringify(result, null, 2);
+          if (warnings.length > 0) {
+            elements.validationOutput.textContent = JSON.stringify({
+              ...result,
+              warnings,
+            }, null, 2);
+          }
+          return;
+        }
+
+        hydrateFromSource(result.source);
+        setStatus('guided source generated', 'ok');
+        elements.validationOutput.textContent = JSON.stringify({
+          status: result.status,
+          appId: result.source.app.id,
+          selectedCapabilities: result.selectedCapabilities,
+          ...(warnings.length > 0 ? { warnings } : {}),
+        }, null, 2);
+        queueValidation();
+      }
+
+      function collectSourceFromForm() {
+        const [collections, collectionsError] = safeJson(elements.collections.value, {});
+        const [queries, queriesError] = safeJson(elements.queries.value, {});
+        const [screens, screensError] = safeJson(elements.screens.value, {});
+        const [rules, rulesError] = safeJson(elements.rules.value, {});
+        const [acceptance, acceptanceError] = safeJson(elements.acceptance.value, {});
+
+        const errors = [
+          collectionsError ? `collections: ${collectionsError}` : null,
+          queriesError ? `queries: ${queriesError}` : null,
+          screensError ? `screens: ${screensError}` : null,
+          rulesError ? `rules: ${rulesError}` : null,
+          acceptanceError ? `acceptance: ${acceptanceError}` : null,
+        ].filter(Boolean);
+
+        if (errors.length > 0) {
+          return { error: errors.join('\n') };
+        }
+
+        return {
+          error: null,
+          source: {
+            app: {
+              schemaVersion: 'wonder.package-source.v1',
+              id: elements.appId.value.trim() || 'untitled-app',
+              version: elements.appVersion.value.trim() || '1.0.0',
+              label: elements.appLabel.value.trim() || 'Untitled App',
+              homeSurface: elements.appHomeSurface.value.trim() || undefined,
+            },
+            collections: collections || {},
+            queries: queries || {},
+            screens: screens || {},
+            rules: rules || {},
+            acceptance: acceptance || {},
+          },
+        };
+      }
+
+      function collectSourceFromFormOrThrow() {
+        const built = collectSourceFromForm();
+        if (built.error) {
+          throw new Error(built.error);
+        }
+        return built.source;
+      }
+
+      function hydrateFromSource(source) {
+        elements.appId.value = source.app?.id || '';
+        elements.appLabel.value = source.app?.label || '';
+        elements.appVersion.value = source.app?.version || '';
+        elements.appHomeSurface.value = source.app?.homeSurface || '';
+        const preferredDataHome = source.app?.providerTemplateFields?.preferredDataHome;
+        elements.guidedDataHome.value = typeof preferredDataHome === 'string' ? preferredDataHome : '';
+        elements.collections.value = JSON.stringify(source.collections ?? {}, null, 2);
+        elements.queries.value = JSON.stringify(source.queries ?? {}, null, 2);
+        elements.screens.value = JSON.stringify(source.screens ?? {}, null, 2);
+        elements.rules.value = JSON.stringify(source.rules ?? {}, null, 2);
+        elements.acceptance.value = JSON.stringify(source.acceptance ?? {}, null, 2);
+
+        updateEditorOptions(source);
+        renderCollectionFieldEditor();
+        renderScreenComponentEditor();
+      }
+
+      function updateScreenSelector(selectId, screens) {
+        const keys = Object.keys(screens || {});
+        const selector = selectId === 'widget' ? elements.widgetScreen : elements.screenEditor;
+        const current = selector.value;
+        selector.innerHTML = '';
+
+        keys.forEach((id) => {
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = id;
+          selector.appendChild(option);
+        });
+
+        if (keys.length === 0) {
+          selector.disabled = true;
+          return;
+        }
+
+        selector.disabled = false;
+        selector.value = keys.includes(current) ? current : keys[0];
+      }
+
+      function updateCollectionSelector(collections) {
+        const keys = Object.keys(collections || {});
+        const current = elements.collectionEditor.value;
+        elements.collectionEditor.innerHTML = '';
+
+        keys.forEach((id) => {
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = id;
+          elements.collectionEditor.appendChild(option);
+        });
+
+        if (keys.length === 0) {
+          elements.collectionEditor.disabled = true;
+          return;
+        }
+
+        elements.collectionEditor.disabled = false;
+        elements.collectionEditor.value = keys.includes(current) ? current : keys[0];
+      }
+
+      function updateEditorOptions(source) {
+        updateScreenSelector('widget', source.screens || {});
+        updateScreenSelector('editor', source.screens || {});
+        updateCollectionSelector(source.collections || {});
+      }
+
+      function swapObjectEntryOrder(base, fromIndex, toIndex) {
+        const entries = Object.entries(base);
+        if (fromIndex < 0 || toIndex < 0 || fromIndex >= entries.length || toIndex >= entries.length) {
+          return base;
+        }
+        const value = entries.splice(fromIndex, 1)[0];
+        entries.splice(toIndex, 0, value);
+        return Object.fromEntries(entries);
+      }
+
+      function renderCollectionFieldEditor() {
+        elements.collectionFields.innerHTML = '';
+
+        let source;
+        try {
+          source = collectSourceFromFormOrThrow();
+        } catch {
+          return;
+        }
+
+        if (!elements.collectionEditor.value || elements.collectionEditor.disabled) {
+          return;
+        }
+
+        const collectionId = elements.collectionEditor.value;
+        const collection = isObject(source.collections?.[collectionId]) ? source.collections[collectionId] : null;
+        const fields = isObject(collection?.fields) ? collection.fields : {};
+        const fieldEntries = Object.entries(fields);
+
+        if (fieldEntries.length === 0) {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'muted';
+          placeholder.textContent = 'No fields yet';
+          elements.collectionFields.appendChild(placeholder);
+          return;
+        }
+
+        fieldEntries.forEach(([fieldId, field], index) => {
+          const row = document.createElement('div');
+          row.className = 'editor-row';
+
+          const key = document.createElement('span');
+          key.className = 'inline-code';
+          key.textContent = fieldId;
+
+          const type = isObject(field) && typeof field.type === 'string' ? field.type : 'text';
+          const typeNode = document.createElement('span');
+          typeNode.className = 'muted';
+          typeNode.textContent = `type: ${type}`;
+
+          const up = document.createElement('button');
+          up.textContent = '↑';
+          up.disabled = index === 0;
+          up.addEventListener('click', () => {
+            try {
+              const current = collectSourceFromFormOrThrow();
+              const existing = current.collections[collectionId]?.fields;
+              if (!isObject(existing)) return;
+              const nextFields = swapObjectEntryOrder(existing, index, index - 1);
+              current.collections[collectionId].fields = nextFields;
+              hydrateFromSource(current);
+              queueValidation();
+            } catch {
+              // noop
+            }
+          });
+
+          const down = document.createElement('button');
+          down.textContent = '↓';
+          down.disabled = index === fieldEntries.length - 1;
+          down.addEventListener('click', () => {
+            try {
+              const current = collectSourceFromFormOrThrow();
+              const existing = current.collections[collectionId]?.fields;
+              if (!isObject(existing)) return;
+              const nextFields = swapObjectEntryOrder(existing, index, index + 1);
+              current.collections[collectionId].fields = nextFields;
+              hydrateFromSource(current);
+              queueValidation();
+            } catch {
+              // noop
+            }
+          });
+
+          const remove = document.createElement('button');
+          remove.textContent = 'Delete';
+          remove.addEventListener('click', () => {
+            try {
+              const current = collectSourceFromFormOrThrow();
+              const existing = current.collections[collectionId]?.fields;
+              if (!isObject(existing)) return;
+              const nextFields = Object.fromEntries(Object.entries(existing).filter(([key]) => key !== fieldId));
+              current.collections[collectionId].fields = nextFields;
+              hydrateFromSource(current);
+              queueValidation();
+            } catch {
+              // noop
+            }
+          });
+
+          row.append(key, typeNode, up, down, remove);
+          elements.collectionFields.appendChild(row);
+        });
+      }
+
+      function renderComponentSummary(component) {
+        if (!isObject(component)) return 'component';
+        if (component.kind === 'widget') {
+          return `widget:${String(component.widget || 'unknown')}`;
+        }
+        if (component.kind === 'action') {
+          return `action:${String(component.id || 'unnamed')}`;
+        }
+        if (component.kind) {
+          return `component:${String(component.kind)}`;
+        }
+        return 'component:unknown';
+      }
+
+      function renderScreenComponentEditor() {
+        elements.screenComponents.innerHTML = '';
+
+        let source;
+        try {
+          source = collectSourceFromFormOrThrow();
+        } catch {
+          return;
+        }
+
+        if (!elements.screenEditor.value || elements.screenEditor.disabled) {
+          return;
+        }
+
+        const screenId = elements.screenEditor.value;
+        const screen = source.screens?.[screenId];
+        const components = Array.isArray(screen?.components) ? screen.components : [];
+
+        if (components.length === 0) {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'muted';
+          placeholder.textContent = 'No components yet';
+          elements.screenComponents.appendChild(placeholder);
+          return;
+        }
+
+        components.forEach((component, index) => {
+          const row = document.createElement('div');
+          row.className = 'editor-row';
+
+          const label = document.createElement('span');
+          label.className = 'inline-code';
+          label.textContent = renderComponentSummary(component);
+
+          const up = document.createElement('button');
+          up.textContent = '↑';
+          up.disabled = index === 0;
+          up.addEventListener('click', () => {
+            try {
+              const current = collectSourceFromFormOrThrow();
+              const currentScreen = isObject(current.screens?.[screenId]) ? current.screens[screenId] : {};
+              const currentComponents = Array.isArray(currentScreen.components) ? [...currentScreen.components] : [];
+              const value = currentComponents.splice(index, 1)[0];
+              currentComponents.splice(index - 1, 0, value);
+              current.screens[screenId] = { ...currentScreen, components: currentComponents };
+              hydrateFromSource(current);
+              queueValidation();
+            } catch {
+              // noop
+            }
+          });
+
+          const down = document.createElement('button');
+          down.textContent = '↓';
+          down.disabled = index === components.length - 1;
+          down.addEventListener('click', () => {
+            try {
+              const current = collectSourceFromFormOrThrow();
+              const currentScreen = isObject(current.screens?.[screenId]) ? current.screens[screenId] : {};
+              const currentComponents = Array.isArray(currentScreen.components) ? [...currentScreen.components] : [];
+              const value = currentComponents.splice(index, 1)[0];
+              currentComponents.splice(index + 1, 0, value);
+              current.screens[screenId] = { ...currentScreen, components: currentComponents };
+              hydrateFromSource(current);
+              queueValidation();
+            } catch {
+              // noop
+            }
+          });
+
+          const remove = document.createElement('button');
+          remove.textContent = 'Delete';
+          remove.addEventListener('click', () => {
+            try {
+              const current = collectSourceFromFormOrThrow();
+              const currentScreen = isObject(current.screens?.[screenId]) ? current.screens[screenId] : {};
+              const currentComponents = Array.isArray(currentScreen.components) ? [...currentScreen.components] : [];
+              currentComponents.splice(index, 1);
+              current.screens[screenId] = { ...currentScreen, components: currentComponents };
+              hydrateFromSource(current);
+              queueValidation();
+            } catch {
+              // noop
+            }
+          });
+
+          row.append(label, up, down, remove);
+          elements.screenComponents.appendChild(row);
+        });
+      }
+
+      function queueValidation() {
+        renderCollectionFieldEditor();
+        renderScreenComponentEditor();
+        if (compileTimer) {
+          clearTimeout(compileTimer);
+        }
+        setStatus('validating...', 'muted');
+        elements.validationOutput.textContent = 'Waiting for edits to settle...';
+        compileTimer = setTimeout(() => {
+          void validateSource();
+        }, 300);
+      }
+
+      function buildDownload(name, payload) {
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = name;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function moveComponents(screenId, index, direction) {
+        const current = collectSourceFromFormOrThrow();
+        const currentScreen = isObject(current.screens?.[screenId]) ? current.screens[screenId] : {};
+        const list = Array.isArray(currentScreen.components) ? [...currentScreen.components] : [];
+        const target = index + direction;
+        if (target < 0 || target >= list.length) {
+          return;
+        }
+        const value = list.splice(index, 1)[0];
+        list.splice(target, 0, value);
+        current.screens[screenId] = { ...currentScreen, components: list };
+        hydrateFromSource(current);
+      }
+
+      async function validateSource() {
+        const built = collectSourceFromForm();
+        if (built.error) {
+          setStatus('invalid', 'warn');
+          elements.validationOutput.textContent = built.error;
+          elements.previewOutput.textContent = '';
+          elements.downloadPackage.disabled = true;
+          lastCompiledPackage = undefined;
+          return;
+        }
+
+        const requestId = ++lastCompileRequest;
+        const response = await fetch('/api/compile', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(built.source),
+        });
+
+        const result = await response.json();
+        if (requestId !== lastCompileRequest) {
+          return;
+        }
+
+        if (result.status === 'valid') {
+          setStatus('valid', 'ok');
+          lastCompiledPackage = result.package;
+          elements.downloadPackage.disabled = false;
+          elements.validationOutput.textContent = JSON.stringify({
+            checksum: result.checksum,
+            packageId: result.package.id,
+            packageVersion: result.package.version,
+            schemaVersion: result.preview.packageSchemaVersion,
+            homeSurface: result.preview.homeSurface,
+            widgets: result.preview.widgets,
+            sourceCounts: result.preview.sourceCounts,
+          }, null, 2);
+          elements.previewOutput.textContent = JSON.stringify(result.preview, null, 2);
+        } else {
+          setStatus('invalid', 'warn');
+          lastCompiledPackage = undefined;
+          elements.downloadPackage.disabled = true;
+          elements.validationOutput.textContent = JSON.stringify({
+            errors: result.errors,
+          }, null, 2);
+          elements.previewOutput.textContent = JSON.stringify(result.errors, null, 2);
+        }
+      }
+
+      function setWidgetKindOptions() {
+        elements.widgetKind.innerHTML = '';
+        elements.widgetKindEditor.innerHTML = '';
+
+        elements.widgetKind.value = '';
+        elements.widgetKindEditor.value = '';
+
+        fetch('/api/builder-info')
+          .then((response) => response.json())
+          .then((info) => {
+            info.widgetKinds.forEach((kind) => {
+              const option = document.createElement('option');
+              option.value = kind;
+              option.textContent = kind;
+              elements.widgetKind.appendChild(option);
+              const copy = option.cloneNode(true);
+              elements.widgetKindEditor.appendChild(copy);
+            });
+          })
+          .catch(() => {
+            // no-op; keep controls disabled on failure
+          });
+      }
+
+      async function applyAppendComponent(targetScreenId, componentKind = 'widget', widgetKind = 'button') {
+        try {
+          const source = collectSourceFromFormOrThrow();
+          const screen = isObject(source.screens?.[targetScreenId]) ? source.screens[targetScreenId] : null;
+          if (!screen) return;
+
+          const components = Array.isArray(screen.components) ? [...screen.components] : [];
+          const nextComponent = componentKind === 'widget'
+            ? { kind: 'widget', widget: widgetKind }
+            : { kind: componentKind };
+          components.push(nextComponent);
+          source.screens[targetScreenId] = { ...screen, components };
+          hydrateFromSource(source);
+          queueValidation();
+        } catch {
+          // noop
+        }
+      }
+
+      function registerListeners() {
+        [
+          elements.appId,
+          elements.appLabel,
+          elements.appVersion,
+          elements.appHomeSurface,
+          elements.collections,
+          elements.queries,
+          elements.screens,
+          elements.rules,
+          elements.acceptance,
+        ].forEach((node) => {
+          node.addEventListener('input', () => {
+            queueValidation();
+          });
+        });
+
+        elements.starterSelect.addEventListener('change', () => {
+          void loadStarter(elements.starterSelect.value);
+        });
+
+        elements.guidedArchetype.addEventListener('change', () => {
+          void refreshGuidedCapabilities();
+        });
+
+        elements.guidedTargetPlatforms.addEventListener('change', () => {
+          void refreshGuidedCapabilities();
+        });
+
+        elements.guidedGenerate.addEventListener('click', () => {
+          void generateGuidedSource();
+        });
+
+        elements.collectionEditor.addEventListener('change', () => {
+          renderCollectionFieldEditor();
+        });
+
+        elements.screenEditor.addEventListener('change', () => {
+          renderScreenComponentEditor();
+        });
+
+        elements.appendWidget.addEventListener('click', () => {
+          const screenId = elements.widgetScreen.value;
+          if (!screenId) return;
+          void applyAppendComponent(screenId, 'widget', elements.widgetKind.value);
+        });
+
+        elements.appendWidgetEditor.addEventListener('click', () => {
+          const screenId = elements.screenEditor.value;
+          if (!screenId) return;
+          void applyAppendComponent(screenId, 'widget', elements.widgetKindEditor.value);
+        });
+
+        elements.addField.addEventListener('click', () => {
+          const collectionId = elements.collectionEditor.value;
+          if (!collectionId) return;
+          const fieldId = elements.newFieldName.value.trim();
+          if (!fieldId) return;
+
+          try {
+            const source = collectSourceFromFormOrThrow();
+            const collection = isObject(source.collections?.[collectionId]) ? source.collections[collectionId] : { id: collectionId, fields: {} };
+            const existing = isObject(collection.fields) ? collection.fields : {};
+            const nextFields = {
+              ...existing,
+              [fieldId]: { ...(isObject(existing[fieldId]) ? existing[fieldId] : {}), type: elements.newFieldType.value },
+            };
+            source.collections[collectionId] = {
+              ...(collection || {}),
+              id: collectionId,
+              fields: nextFields,
+            };
+            hydrateFromSource(source);
+            queueValidation();
+            elements.newFieldName.value = '';
+          } catch {
+            // noop
+          }
+        });
+
+        elements.importSource.addEventListener('change', (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const payload = JSON.parse(String(reader.result));
+              const response = await fetch('/api/import', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              const result = await response.json();
+
+              if (result.status === 'source' || result.status === 'compiled') {
+                hydrateFromSource(result.source);
+                queueValidation();
+                setStatus(result.status === 'compiled' ? 'imported compiled package (lossless)' : 'imported source', 'ok');
+                elements.validationOutput.textContent = JSON.stringify(result, null, 2);
+                return;
+              }
+
+              setStatus('import unsupported', 'warn');
+              elements.validationOutput.textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+              setStatus('import failed', 'warn');
+              elements.validationOutput.textContent = error instanceof Error ? error.message : String(error);
+            }
+          };
+          reader.readAsText(file);
+        });
+
+        elements.exportSource.addEventListener('click', () => {
+          const built = collectSourceFromForm();
+          if (built.error) {
+            setStatus('cannot export', 'warn');
+            return;
+          }
+          const fileName = `${built.source.app.id || 'utopia-package-source'}-source.json`;
+          buildDownload(fileName, built.source);
+        });
+
+        elements.downloadPackage.addEventListener('click', () => {
+          if (!lastCompiledPackage) return;
+          const appId = lastCompiledPackage.id ?? 'utopia-package';
+          const version = lastCompiledPackage.version ?? '1.0.0';
+          buildDownload(`${appId}-${version}.package.json`, lastCompiledPackage);
+        });
+      }
+
+      async function loadStarter(id) {
+        const starter = await fetch(`/api/starter/${encodeURIComponent(id)}`);
+        const source = await starter.json();
+        hydrateFromSource(source);
+        queueValidation();
+      }
+
+      function registerUi(info) {
+        builderInfo = info;
+
+        info.starters.forEach((item) => {
+          const option = document.createElement('option');
+          option.value = item.id;
+          option.textContent = `${item.label} (${item.id})`;
+          elements.starterSelect.appendChild(option);
+        });
+
+        info.archetypes.forEach((archetype) => {
+          const option = document.createElement('option');
+          option.value = archetype.id;
+          option.textContent = `${archetype.label} (${archetype.id})`;
+          elements.guidedArchetype.appendChild(option);
+        });
+
+        elements.guidedTargetPlatforms.innerHTML = '';
+        info.targetPlatforms.forEach((platform) => {
+          const container = document.createElement('label');
+          container.className = 'row';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = platform;
+          checkbox.checked = true;
+          const text = document.createElement('span');
+          text.textContent = platform;
+
+          container.append(checkbox, text);
+          elements.guidedTargetPlatforms.appendChild(container);
+        });
+
+        elements.starterSelect.value = info.defaultStarter;
+        elements.guidedArchetype.value = info.archetypes[0]?.id || '';
+        void refreshGuidedCapabilities();
+      }
+
+      function init() {
+        setWidgetKindOptions();
+        fetch('/api/builder-info')
+          .then((response) => response.json())
+          .then((info) => {
+            registerUi(info);
+            return loadStarter(info.defaultStarter);
+          })
+          .then(() => {
+            registerListeners();
+          })
+          .catch((error) => {
+            setStatus('failed to boot', 'warn');
+            elements.validationOutput.textContent = error instanceof Error ? error.message : String(error);
+          });
+      }
+
+      init();
+    </script>
+  </body>
+</html>

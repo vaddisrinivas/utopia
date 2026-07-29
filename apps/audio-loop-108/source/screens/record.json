@@ -1,0 +1,8 @@
+{
+  "label": "Record",
+  "subtitle": "Replay or re-record loop sessions from local audio files.",
+  "collections": ["session"],
+  "query": "recent-sessions",
+  "mode": "list",
+  "fields": ["title", "file_name", "status", "target_plays", "completed_plays", "updated_at"]
+}

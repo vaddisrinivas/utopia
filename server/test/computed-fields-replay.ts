@@ -85,7 +85,7 @@ assert.deepEqual(replay, first);
 assert.deepEqual(first.order, ['open_count', 'remaining_pct', 'risk_label']);
 assert.deepEqual(first.values, {
   open_count: 2,
-  remaining_pct: 50,
+  remaining_pct: '50.00',
   risk_label: 'high',
 });
 assert.deepEqual(record, { id: 'project-1', collection: 'projects', title: 'Launch' });

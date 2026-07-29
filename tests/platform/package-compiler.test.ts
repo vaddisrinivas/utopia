@@ -6,9 +6,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   compileAppPackageSource,
+  compileAppPackageSourceFolder,
   readAppPackageSourceFolder,
   type AppPackageSourceFolder,
 } from '@/packages/app-compiler';
+import type { AppPackageV3, AppPackagePermissionDeclaration } from '@/packages/shared/contracts/package';
+import { buildPackageInstallPreview } from '@/packages/shared/contracts/package-install';
 
 const fixtureRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/package-source');
 const referenceFixtureDir = path.join(fixtureRoot, 'reference-app');
@@ -17,6 +20,8 @@ const tinyFixtureDirs = JSON.parse(readFileSync(path.join(fixtureRoot, 'manifest
   label: string;
   homeSurface: string;
 }>;
+const capabilityLabSourceDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../apps/capability-lab/source');
+const audioLoopSourceDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../apps/audio-loop-108/source');
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -131,6 +136,59 @@ describe('package compiler', () => {
     }));
   });
 
+  it('compiles capability-lab source with explicit truth matrix fields and blocked states', () => {
+    const compiled = compileAppPackageSourceFolder(capabilityLabSourceDir);
+    expect(compiled.valid).toBe(true);
+    if (!compiled.valid) throw new Error(compiled.errors.map((error) => error.message).join(', '));
+
+    expect(compiled.package.id).toBe('capability-lab');
+    expect(compiled.package.collections.capability.fields).toEqual(
+      expect.objectContaining({
+        supportedContract: expect.any(Object),
+        platformExportable: expect.any(Object),
+        deviceProofRequired: expect.any(Object),
+      }),
+    );
+    const matrixScreen = compiled.package.views.matrix;
+    expect(matrixScreen.fields).toEqual(
+      expect.arrayContaining([
+        'supportedContract',
+        'platformExportable',
+        'deviceProofRequired',
+      ]),
+    );
+    const permissionCard = compiled.package.presentation?.ui?.screens?.matrix?.components?.find(
+      (component) => component.kind === 'widget' && component.widget === 'permissionCard',
+    );
+    expect(permissionCard?.props?.permissions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'contacts.bulk-import',
+          supportedContract: false,
+          platformExportable: false,
+          deviceProofRequired: false,
+          status: 'blocked',
+        }),
+      ]),
+    );
+    const permissionRows = permissionCard?.props?.permissions as Array<Record<string, unknown>>;
+    expect(permissionRows.filter((row) => row.deviceProofRequired === true))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ status: 'awaiting_device_proof' }),
+      ]));
+    expect(permissionRows.some((row) => row.deviceProofRequired === true && row.status === 'available')).toBe(false);
+
+    expect(compiled.package.presentation?.surfaces.map((surface) => surface.id)).toEqual(['matrix']);
+    expect(compiled.preview.widgets).toEqual(expect.arrayContaining(['chartBlock', 'formCard', 'durationTimer', 'mediaBlock']));
+    const installPreview = buildPackageInstallPreview(compiled.package, {
+      sourceUrl: 'https://example.invalid/capability-lab.v1.json',
+      expectedChecksum: compiled.checksum,
+    });
+    expect(installPreview.status).toBe('ready_for_review');
+    const expectedBundled = JSON.parse(readFileSync(path.join(capabilityLabSourceDir, '..', 'capability-lab.v1.json'), 'utf8'));
+    expect(compiled.package).toEqual(expectedBundled);
+  });
+
   it('produces semantic diffs and preview metadata', () => {
     const source = loadReferenceSource();
     const baseline = compileAppPackageSource(source);
@@ -231,5 +289,88 @@ describe('package compiler', () => {
     if (compiled.package.schemaVersion !== 'wonder.app-package.v3') throw new Error('expected V3 package');
     expect(compiled.package.contractLock.checksum).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(compiled.preview.nativeCapabilities?.platform).toBe('android');
+  });
+
+  it('guards Audio Loop source native capabilities drift and compiles into nativeCapability contract', () => {
+    const source = readAppPackageSourceFolder(audioLoopSourceDir);
+    expect(source.app.id).toBe('audio-loop-108');
+    expect(source.app.label).toBe('Audio Loop');
+    expect(source.app.label).not.toContain('108');
+    const sourceSurfaceIds = Object.keys(source.screens ?? {});
+    expect(sourceSurfaceIds).toEqual(expect.arrayContaining(['home', 'history', 'library', 'playlist', 'record']));
+    expect(source.screens?.home?.components).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'widget', widget: 'audioLoopPlayer' }),
+    ]));
+    const sourceSurfaceValues = Object.values(source.screens ?? {});
+    expect(sourceSurfaceValues.length).toBeGreaterThanOrEqual(5);
+    expect(sourceSurfaceValues.every((surface) => !/tutorial|explanation/i.test(JSON.stringify(surface).toLowerCase()))).toBe(true);
+    const homeComponents = source.screens?.home?.components ?? [];
+    expect(homeComponents.length).toBeGreaterThan(0);
+    expect(homeComponents.every((component) => !/tutorial|explanation/i.test(JSON.stringify(component).toLowerCase()))).toBe(true);
+    const player = homeComponents.find((component) => (
+      component.kind === 'widget' && component.widget === 'audioLoopPlayer'
+    ));
+    expect(player?.subtitle ?? '').toMatch(/infinite/i);
+    expect(player?.props?.defaultPlays).toBe(1);
+    expect(player?.props?.maxPlays).toBeUndefined();
+    expect(player?.props?.defaultStartDelaySeconds).toBe(0);
+    expect((player?.props?.delayOptions as number[] | undefined)?.length).toBeGreaterThan(4);
+    const nativeCapabilities = source.capabilities?.native;
+    expect(nativeCapabilities?.schemaVersion).toBe('wonder.app-package-native-capabilities.v1');
+    expect(nativeCapabilities?.platform).toBe('android');
+    expect(nativeCapabilities?.packages).toEqual(['expo-audio', 'expo-document-picker']);
+    const permissions = (nativeCapabilities?.permissions ?? [])
+      .filter((permission): permission is AppPackagePermissionDeclaration => typeof permission !== 'string');
+    expect(permissions.map((permission) => permission.id)).toEqual([
+      'audio-loop-playback',
+      'audio-loop-file-picker',
+    ]);
+    expect((nativeCapabilities?.intents ?? []).map((intent) => intent.id)).toEqual([
+      'open-audio-loop',
+      'start-audio-loop-voice',
+    ]);
+    expect(permissions.map((permission) => permission.permission))
+      .toEqual(['expo-audio', 'expo-document-picker']);
+    expect(permissions.map((permission) => permission.platform)).toEqual(['expo', 'expo']);
+    expect((nativeCapabilities?.intents ?? []).map((intent) => intent.kind))
+      .toEqual(['deep_link', 'voice']);
+    expect(nativeCapabilities?.intents?.find((intent) => intent.id === 'start-audio-loop-voice')?.required).toBe(false);
+
+    const compiled = compileAppPackageSource({
+      ...source,
+      capabilities: {
+        ...source.capabilities,
+        pinnedAt: '2026-07-29T00:00:00.000Z',
+      },
+    });
+    expect(compiled.valid).toBe(true);
+    if (!compiled.valid) throw new Error(compiled.errors.map((error) => error.message).join(', '));
+
+    const compiledPackage = compiled.package as AppPackageV3;
+    expect(compiledPackage.schemaVersion).toBe('wonder.app-package.v3');
+    expect(compiledPackage.nativeCapabilities).toEqual({
+      ...nativeCapabilities,
+      permissions: nativeCapabilities?.permissions,
+      intents: nativeCapabilities?.intents,
+    });
+    expect(compiledPackage.contractLock.nativeCapabilities).toEqual(compiledPackage.nativeCapabilities);
+    expect(compiled.preview.nativeCapabilities?.permissions).toEqual(['expo:expo-audio', 'expo:expo-document-picker']);
+    expect(compiled.preview.nativeCapabilities?.intents).toEqual(['android:deep_link', 'android:voice']);
+    expect(compiled.preview.nativeCapabilities?.packages).toEqual(['expo-audio', 'expo-document-picker']);
+    expect(compiled.preview.surfaces.map((surface) => surface.id)).toEqual(
+      expect.arrayContaining(['home', 'history', 'library', 'playlist', 'record']),
+    );
+    const compiledPermissions = (compiledPackage.nativeCapabilities.permissions ?? [])
+      .filter((permission): permission is AppPackagePermissionDeclaration => typeof permission !== 'string');
+    expect(compiledPermissions).toHaveLength(2);
+    expect(compiledPermissions.map((permission) => permission.platform)).toEqual(['expo', 'expo']);
+    expect(compiledPermissions.some((permission) => permission.permission.includes('android.permission.RECORD_AUDIO'))).toBe(false);
+    expect(compiledPermissions.some((permission) => permission.permission.includes('microphone'))).toBe(false);
+    const grantedPackages = new Set(compiledPermissions.map((permission) => permission.permission));
+    expect(['expo-audio', 'expo-document-picker'].every((permission) => grantedPackages.has(permission))).toBe(true);
+    const declaredAudioFilePermissions = ['expo-audio', 'expo-document-picker'].filter((permission) => grantedPackages.has(permission));
+    const declaredAudioRecorderPermissions = ['expo-audio'].filter((permission) => grantedPackages.has(permission));
+    expect(declaredAudioFilePermissions).toEqual(['expo-audio', 'expo-document-picker']);
+    expect(declaredAudioRecorderPermissions).toEqual(['expo-audio']);
   });
 });

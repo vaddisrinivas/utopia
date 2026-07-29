@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "scorecard-dashboard-package",
+  "version": "1.0.0",
+  "collections": {
+    "scorecard_dashboard_package_item": {
+      "id": "scorecard_dashboard_package_item",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "priority": {
+          "type": "number",
+          "indexed": true
+        },
+        "owner": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "scorecard_dashboard_package_event": {
+      "id": "scorecard_dashboard_package_event",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "happened_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "value": {
+          "type": "number",
+          "indexed": true
+        },
+        "source": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    },
+    "scorecard_dashboard_package_result": {
+      "id": "scorecard_dashboard_package_result",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "score": {
+          "type": "number",
+          "indexed": true
+        },
+        "summary": {
+          "type": "text"
+        },
+        "missing_primitive": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "items": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "scorecard_dashboard_package_item"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "events": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "scorecard_dashboard_package_event"
+      },
+      "orderBy": [
+        {
+          "field": "happened_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "results": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "scorecard_dashboard_package_result"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    }
+  },
+  "views": {
+    "items": {
+      "id": "items",
+      "query": "items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "status",
+        "priority",
+        "owner"
+      ]
+    },
+    "events": {
+      "id": "events",
+      "query": "events",
+      "mode": "table",
+      "fields": [
+        "title",
+        "happened_at",
+        "value",
+        "source",
+        "status"
+      ]
+    },
+    "results": {
+      "id": "results",
+      "query": "results",
+      "mode": "table",
+      "fields": [
+        "title",
+        "score",
+        "summary",
+        "missing_primitive",
+        "status"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "id": "review-new-test-event",
+      "trigger": {
+        "kind": "query_transition",
+        "query": "events",
+        "transition": "enter"
+      },
+      "when": {
+        ">": [
+          {
+            "var": "query.after.total"
+          },
+          {
+            "var": "query.before.total"
+          }
+        ]
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": "review_adversarial_fixture"
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [],
+  "acceptanceTests": [
+    "adversarial-50-self_hosting"
+  ],
+  "presentation": {
+    "label": "Dashboard of the scorecard",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Probe",
+        "collections": [
+          "scorecard_dashboard_package_item",
+          "scorecard_dashboard_package_event",
+          "scorecard_dashboard_package_result"
+        ],
+        "views": [
+          "items",
+          "results"
+        ]
+      },
+      {
+        "id": "events",
+        "label": "Events",
+        "collections": [
+          "scorecard_dashboard_package_event"
+        ],
+        "views": [
+          "events"
+        ]
+      },
+      {
+        "id": "boundary",
+        "label": "Boundary",
+        "collections": [
+          "scorecard_dashboard_package_result"
+        ],
+        "views": [
+          "results"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#525252",
+      "canvas": "#FAFAFA",
+      "icon": "settings",
+      "tone": "neutral"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Dashboard of the scorecard",
+          "subtitle": "Adversarial fixture #50: Reads repo generalization metrics and charts them as a package.",
+          "components": [
+            {
+              "kind": "metric",
+              "title": "Runtime Axis",
+              "subtitle": "self hosting",
+              "query": {
+                "collections": [
+                  "scorecard_dashboard_package_result"
+                ],
+                "limit": 20
+              },
+              "tone": "neutral"
+            },
+            {
+              "kind": "recordList",
+              "title": "Fixture Items",
+              "subtitle": "Generic records prove the data shell can host the app shape.",
+              "query": {
+                "collections": [
+                  "scorecard_dashboard_package_item"
+                ],
+                "limit": 20
+              },
+              "props": {
+                "emptyText": "No fixture items yet.",
+                "subtitleFields": [
+                  "status",
+                  "priority",
+                  "owner"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs repo/file data provider and package-visible evidence ingestion.",
+              "tone": "neutral",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "self hosting"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "repoEvidenceProvider"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Boundary expected"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "events": {
+          "title": "Dashboard of the scorecard Events",
+          "subtitle": "Event rows for imports, taps, scans, timers, edits, or generated transitions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Events",
+              "subtitle": "Newest first.",
+              "query": {
+                "collections": [
+                  "scorecard_dashboard_package_event"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "emptyText": "No events yet.",
+                "subtitleFields": [
+                  "happened_at",
+                  "value",
+                  "source",
+                  "status"
+                ]
+              }
+            }
+          ]
+        },
+        "boundary": {
+          "title": "Boundary",
+          "subtitle": "What this JSON package proves and what the runtime still lacks.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs repo/file data provider and package-visible evidence ingestion.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "self hosting"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "repoEvidenceProvider"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Boundary expected"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

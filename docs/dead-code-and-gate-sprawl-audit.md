@@ -11,7 +11,8 @@ Scope:
 
 ## Method
 
-- Read `package.json`, `docs/gates.md`, `docs/release-security.md`, and `CODEBASE_FILE_BY_FILE_REVIEW.md`.
+- Read `package.json`, `docs/gates.md`, `docs/release-security.md`, and
+  `docs/archive/CODEBASE_FILE_BY_FILE_REVIEW.md`.
 - Clustered npm scripts by purpose and duplicate command text.
 - Tried `npx --yes knip --version` as a low-risk dead-code probe.
 
@@ -110,4 +111,4 @@ Keep these as historical unless they are explicitly promoted:
 - `package.json:67-195`
 - `docs/gates.md:3-11`
 - `docs/release-security.md:12-20`
-- `CODEBASE_FILE_BY_FILE_REVIEW.md:21-24`
+- `docs/archive/CODEBASE_FILE_BY_FILE_REVIEW.md:21-24`

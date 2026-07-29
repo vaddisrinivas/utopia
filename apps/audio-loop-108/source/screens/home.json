@@ -1,6 +1,6 @@
 {
   "label": "Loop",
-  "subtitle": "Local audio loop player with play count, start delay, and delay between repeats.",
+  "subtitle": "Loop a local audio file with count or infinite mode, plus optional pauses.",
   "collections": ["session"],
   "query": "recent-sessions",
   "mode": "list",
@@ -9,21 +9,18 @@
     {
       "kind": "widget",
       "widget": "audioLoopPlayer",
-      "title": "Audio Loop 108",
-      "subtitle": "Choose an audio file, set how many times to play it, then run a controlled loop.",
+      "title": "Audio Loop",
+      "subtitle": "Choose, start, pause, resume, or stop loop playback with count or infinite mode.",
       "tone": "moss",
       "props": {
-        "defaultPlays": 108,
-        "maxPlays": 108,
+        "defaultPlays": 1,
         "defaultDelaySeconds": 0,
         "defaultStartDelaySeconds": 0,
         "delayOptions": [0, 5, 15, 30, 60, 108, 300],
         "startDelayOptions": [0, 10, 30, 60, 108],
         "countSkippedAsCompleted": true,
         "presets": [
-          { "label": "108 straight", "plays": 108, "delaySeconds": 0, "startDelaySeconds": 0 },
-          { "label": "Gentle 27", "plays": 27, "delaySeconds": 15, "startDelaySeconds": 10 },
-          { "label": "Focus 54", "plays": 54, "delaySeconds": 30, "startDelaySeconds": 30 }
+          { "label": "108 straight", "plays": 108, "delaySeconds": 0, "startDelaySeconds": 0 }
         ],
         "nativeUnavailableCopy": "This package is JSON-owned. The shared Expo runtime plays local audio on iOS, Android, and web; the macOS shell uses its native package player."
       }
@@ -32,7 +29,7 @@
       "kind": "widget",
       "widget": "dataTable",
       "title": "Session Controls",
-      "subtitle": "The JSON app configures the runtime player.",
+      "subtitle": "Core playback controls.",
       "tone": "blue",
       "props": {
         "columns": [
@@ -42,8 +39,9 @@
         "items": [
           { "control": "Choose", "behavior": "Pick a local audio file without uploading it." },
           { "control": "Start", "behavior": "Reset count and begin the loop." },
-          { "control": "Pause/Resume", "behavior": "Pause track playback or a between-play delay." },
-          { "control": "Skip", "behavior": "Finish the current play and move to the next loop." },
+          { "control": "Pause", "behavior": "Pause track playback." },
+          { "control": "Resume", "behavior": "Continue the loop after a pause." },
+          { "control": "Skip", "behavior": "Finish current play and move to next." },
           { "control": "Stop", "behavior": "Stop playback and keep the selected file ready." }
         ]
       }

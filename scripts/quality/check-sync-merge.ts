@@ -8,6 +8,10 @@ import { listSyncConflicts, mergeRemoteRecord, resolveSyncConflict } from '../..
 
 type Row = Record<string, any>;
 
+function recordKey(appInstallationId: string, id: string) {
+  return `${appInstallationId}:${id}`;
+}
+
 class MemoryDb {
   records = new Map<string, Row>();
   recordRelations: Row[] = [];
@@ -24,28 +28,28 @@ class MemoryDb {
   async runAsync(sql: string, params: any[] = []) {
     const compact = sql.replace(/\s+/g, ' ').trim();
     if (compact.startsWith('INSERT INTO records')) {
-      const [id, domain, collection, title, properties, source_provider, source_external_id, source_url, source_observed_at, source_content_hash, archived_at, created_at, updated_at, revision, schema_version, deleted, privacy, provenance_json] = params;
-      this.records.set(id, { id, domain, collection, title, properties, source_provider, source_external_id, source_url, source_observed_at, source_content_hash, archived_at, created_at, updated_at, revision, schema_version, deleted, privacy, provenance_json });
+      const [app_installation_id, id, domain, collection, title, properties, source_provider, source_external_id, source_url, source_observed_at, source_content_hash, archived_at, created_at, updated_at, revision, schema_version, deleted, privacy, provenance_json] = params;
+      this.records.set(recordKey(app_installation_id, id), { app_installation_id, id, domain, collection, title, properties, source_provider, source_external_id, source_url, source_observed_at, source_content_hash, archived_at, created_at, updated_at, revision, schema_version, deleted, privacy, provenance_json });
       return;
     }
-    if (compact === 'DELETE FROM record_relations WHERE from_id = ?') {
-      this.recordRelations = this.recordRelations.filter((row) => row.from_id !== params[0]);
+    if (compact === 'DELETE FROM record_relations WHERE app_installation_id = ? AND from_id = ?') {
+      this.recordRelations = this.recordRelations.filter((row) => !(row.app_installation_id === params[0] && row.from_id === params[1]));
       return;
     }
     if (compact.startsWith('INSERT INTO record_relations')) {
-      const [from_id, collection, name, target_id, target_domain, target_collection, created_at] = params;
-      this.recordRelations = this.recordRelations.filter((row) => !(row.from_id === from_id && row.name === name && row.target_id === target_id));
-      this.recordRelations.push({ from_id, collection, name, target_id, target_domain, target_collection, created_at });
+      const [app_installation_id, from_id, collection, name, target_id, target_domain, target_collection, created_at] = params;
+      this.recordRelations = this.recordRelations.filter((row) => !(row.app_installation_id === app_installation_id && row.from_id === from_id && row.name === name && row.target_id === target_id));
+      this.recordRelations.push({ app_installation_id, from_id, collection, name, target_id, target_domain, target_collection, created_at });
       return;
     }
     if (compact.startsWith('INSERT INTO operations')) {
-      const [op_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at] = params;
-      this.operations.set(op_id, { op_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at });
+      const [op_id, app_installation_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at] = params;
+      this.operations.set(op_id, { op_id, app_installation_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at });
       return;
     }
     if (compact.startsWith('INSERT INTO outbox_events')) {
-      const [id, action_key, domain, payload_json, status, created_at, updated_at] = params;
-      this.outbox.set(id, { id, action_key, domain, payload_json, status, attempts: 0, last_error: null, created_at, updated_at });
+      const [id, app_installation_id, action_key, domain, payload_json, status, created_at, updated_at] = params;
+      this.outbox.set(id, { id, app_installation_id, action_key, domain, payload_json, status, attempts: 0, last_error: null, created_at, updated_at });
       return;
     }
     if (compact.startsWith('INSERT INTO sync_conflicts')) {
@@ -68,13 +72,16 @@ class MemoryDb {
 
   async getFirstAsync<T>(sql: string, params: any[] = []): Promise<T | null> {
     const compact = sql.replace(/\s+/g, ' ').trim();
-    if (compact === 'SELECT * FROM records WHERE id = ?') return (this.records.get(params[0]) ?? null) as T | null;
-    if (compact === 'SELECT op_id, after_json, status FROM operations WHERE idempotency_key = ?') {
-      const row = Array.from(this.operations.values()).find((item) => item.idempotency_key === params[0]);
-      return (row ? { op_id: row.op_id, after_json: row.after_json, status: row.status } : null) as T | null;
+    if (compact === 'SELECT * FROM records WHERE app_installation_id = ? AND id = ?') {
+      return (this.records.get(recordKey(params[0], params[1])) ?? null) as T | null;
     }
-    if (compact === 'SELECT * FROM operations WHERE op_id = ?') {
-      return (this.operations.get(params[0]) ?? null) as T | null;
+    if (compact === 'SELECT op_id, app_installation_id, after_json, status FROM operations WHERE app_installation_id = ? AND idempotency_key = ?') {
+      const row = Array.from(this.operations.values()).find((item) => item.app_installation_id === params[0] && item.idempotency_key === params[1]);
+      return (row ? { op_id: row.op_id, app_installation_id: row.app_installation_id, after_json: row.after_json, status: row.status } : null) as T | null;
+    }
+    if (compact === 'SELECT * FROM operations WHERE app_installation_id = ? AND op_id = ?') {
+      const row = this.operations.get(params[1]);
+      return (row?.app_installation_id === params[0] ? row : null) as T | null;
     }
     if (compact === 'SELECT * FROM sync_conflicts WHERE id = ?') {
       return (this.conflicts.get(params[0]) ?? null) as T | null;
@@ -84,8 +91,10 @@ class MemoryDb {
 
   async getAllAsync<T>(sql: string, params: any[] = []): Promise<T[]> {
     const compact = sql.replace(/\s+/g, ' ').trim();
-    if (compact === 'SELECT name, target_id FROM record_relations WHERE from_id = ?') {
-      return this.recordRelations.filter((row) => row.from_id === params[0]).map((row) => ({ name: row.name, target_id: row.target_id })) as T[];
+    if (compact === 'SELECT name, target_id FROM record_relations WHERE app_installation_id = ? AND from_id = ?') {
+      return this.recordRelations
+        .filter((row) => row.app_installation_id === params[0] && row.from_id === params[1])
+        .map((row) => ({ name: row.name, target_id: row.target_id })) as T[];
     }
     if (compact === 'SELECT * FROM sync_conflicts WHERE status = ? ORDER BY created_at DESC') {
       return Array.from(this.conflicts.values())

@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "focus-intervals",
+  "version": "1.0.0",
+  "collections": {
+    "focus_session": {
+      "id": "focus_session",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "status": { "type": "text", "indexed": true },
+        "started_at": { "type": "timestamp", "indexed": true },
+        "finished_at": { "type": "timestamp", "indexed": true },
+        "current_step": { "type": "number", "indexed": true }
+      }
+    },
+    "focus_interval": {
+      "id": "focus_interval",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "session_id": { "type": "text", "indexed": true },
+        "sequence": { "type": "number", "indexed": true },
+        "kind": { "type": "text", "indexed": true },
+        "duration_seconds": { "type": "number" },
+        "status": { "type": "text", "indexed": true }
+      }
+    },
+    "focus_note": {
+      "id": "focus_note",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "session_id": { "type": "text", "indexed": true },
+        "body": { "type": "text" },
+        "status": { "type": "text", "indexed": true }
+      }
+    }
+  },
+  "queries": {
+    "active-sessions": {
+      "from": "focus_session",
+      "where": { "field": "status", "op": "eq", "value": "active" },
+      "orderBy": [{ "field": "started_at", "direction": "desc" }],
+      "limit": 20
+    },
+    "intervals": {
+      "from": "focus_interval",
+      "orderBy": [{ "field": "sequence", "direction": "asc" }],
+      "limit": 100
+    },
+    "notes": {
+      "from": "focus_note",
+      "orderBy": [{ "field": "updated_at", "direction": "desc" }],
+      "limit": 100
+    }
+  },
+  "views": {
+    "active": {
+      "id": "active",
+      "query": "active-sessions",
+      "mode": "list",
+      "fields": ["title", "status", "started_at", "current_step"]
+    },
+    "intervals": {
+      "id": "intervals",
+      "query": "intervals",
+      "mode": "timeline",
+      "fields": ["title", "sequence", "kind", "duration_seconds", "status"]
+    },
+    "notes": {
+      "id": "notes",
+      "query": "notes",
+      "mode": "table",
+      "fields": ["title", "session_id", "body", "status"]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "generic-step-flow-contract",
+    "generic-duration-timer-contract",
+    "persisted-flow-kernel-reuse"
+  ],
+  "presentation": {
+    "label": "Focus Intervals",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Focus",
+        "collections": ["focus_session", "focus_interval"],
+        "views": ["active", "intervals"]
+      },
+      {
+        "id": "notes",
+        "label": "Notes",
+        "collections": ["focus_note"],
+        "views": ["notes"]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "sparkles",
+      "tone": "blue",
+      "accent": "#216B8E",
+      "canvas": "#F6FAFC"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Focus Intervals",
+          "subtitle": "A bundled timed-flow app built on the shared step-flow and timer widgets.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Active Sessions",
+              "query": { "collections": ["focus_session"], "match": "active", "limit": 5 },
+              "props": {
+                "emptyText": "Start a focus session to see it here.",
+                "subtitleFields": ["status", "started_at", "current_step"]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "stepFlow",
+              "title": "Focus Cycle",
+              "subtitle": "Shared persisted flow kernel, no app-specific widget.",
+              "props": {
+                "steps": [
+                  { "id": "deep-work", "title": "Deep Work", "durationSeconds": 1500 },
+                  { "id": "short-break", "title": "Short Break", "durationSeconds": 300 },
+                  { "id": "deep-work-2", "title": "Deep Work", "durationSeconds": 1500 },
+                  { "id": "long-break", "title": "Long Break", "durationSeconds": 900 }
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "durationTimer",
+              "title": "Current Sprint",
+              "subtitle": "A single generic timer for the active block.",
+              "props": {
+                "durationSeconds": 1500,
+                "label": "Focus Sprint"
+              }
+            }
+          ]
+        },
+        "notes": {
+          "title": "Focus Notes",
+          "subtitle": "Short notes and interruptions stay in package data, not custom runtime ops.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Notes",
+              "query": { "collections": ["focus_note"], "limit": 20 },
+              "props": {
+                "emptyText": "Add a note after a sprint.",
+                "subtitleFields": ["session_id", "status"]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

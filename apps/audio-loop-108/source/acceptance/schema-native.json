@@ -1,9 +1,11 @@
 {
-  "goal": "Audio Loop 108 installs from JSON and renders a runtime audio loop player.",
+  "goal": "Audio Loop installs from JSON and renders a runtime audio loop player.",
   "checks": [
     "Package compiles from wonder.package-source.v1 source.",
     "Compiled package declares the audioLoopPlayer widget.",
     "iOS, Android, and web runtimes can select a local audio file and loop playback without upload.",
-    "macOS shell lists and opens the package with a native audio player."
+    "macOS shell lists and opens the package with a native audio player.",
+    "Android deep-link/voice intent entry is recognized as a no-op route stub with explicit user confirmation required before playback.",
+    "No audio playback or microphone recording starts automatically on intent entry."
   ]
 }

@@ -3,7 +3,7 @@ import { DEFAULT_APP_INSTALLATION_ID, DEFAULT_WORKSPACE_ID } from '@/packages/sh
 import { loadCatalog } from '@/src/domain/catalog';
 
 export const DATABASE_NAME = 'utopia.db';
-export const DATABASE_VERSION = 12;
+export const DATABASE_VERSION = 13;
 
 const TABLES = {
   meta: 'meta',
@@ -931,6 +931,37 @@ const MIGRATIONS: Migration[] = [
       await db.execAsync(`DROP TABLE IF EXISTS ${TABLES.cloud_devices}`);
       await db.execAsync(`DROP TABLE IF EXISTS ${TABLES.cloud_accounts}`);
       await db.execAsync(`PRAGMA user_version = 11`);
+    },
+  },
+  {
+    version: 13,
+    up: async (db) => {
+      const addColumn = async (table: string, columnSql: string) => {
+        const columnName = columnSql.trim().split(/\s+/, 1)[0];
+        const columns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+        if (columns.some((column) => column.name === columnName)) return;
+        await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${columnSql}`);
+      };
+      await addColumn(
+        TABLES.app_installations,
+        `data_home_provider TEXT NOT NULL DEFAULT 'sqlite'`,
+      );
+      await addColumn(
+        TABLES.app_installations,
+        `data_home_external_id TEXT`,
+      );
+      await addColumn(
+        TABLES.app_installations,
+        `data_home_status TEXT NOT NULL DEFAULT 'local'`,
+      );
+      await addColumn(
+        TABLES.app_installations,
+        `data_home_updated_at TEXT`,
+      );
+      await db.execAsync(`PRAGMA user_version = 13`);
+    },
+    down: async (db) => {
+      await db.execAsync(`PRAGMA user_version = 12`);
     },
   },
 ];

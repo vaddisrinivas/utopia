@@ -11,6 +11,7 @@ run_gate() {
 
 run_gate npm run config:validate
 run_gate npx --yes -p typescript tsc --noEmit
+run_gate npm test
 run_gate npx --yes expo-doctor
 run_gate npx --yes expo export --platform web --output-dir dist/web
 run_gate npx --yes expo export --platform android --output-dir dist/android

@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "music-practice-sheet-regions",
+  "version": "1.0.0",
+  "collections": {
+    "music_practice_sheet_regions_item": {
+      "id": "music_practice_sheet_regions_item",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "priority": {
+          "type": "number",
+          "indexed": true
+        },
+        "owner": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "music_practice_sheet_regions_event": {
+      "id": "music_practice_sheet_regions_event",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "happened_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "value": {
+          "type": "number",
+          "indexed": true
+        },
+        "source": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    },
+    "music_practice_sheet_regions_result": {
+      "id": "music_practice_sheet_regions_result",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "score": {
+          "type": "number",
+          "indexed": true
+        },
+        "summary": {
+          "type": "text"
+        },
+        "missing_primitive": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "items": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "music_practice_sheet_regions_item"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "events": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "music_practice_sheet_regions_event"
+      },
+      "orderBy": [
+        {
+          "field": "happened_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "results": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "music_practice_sheet_regions_result"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    }
+  },
+  "views": {
+    "items": {
+      "id": "items",
+      "query": "items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "status",
+        "priority",
+        "owner"
+      ]
+    },
+    "events": {
+      "id": "events",
+      "query": "events",
+      "mode": "table",
+      "fields": [
+        "title",
+        "happened_at",
+        "value",
+        "source",
+        "status"
+      ]
+    },
+    "results": {
+      "id": "results",
+      "query": "results",
+      "mode": "table",
+      "fields": [
+        "title",
+        "score",
+        "summary",
+        "missing_primitive",
+        "status"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "id": "review-new-test-event",
+      "trigger": {
+        "kind": "query_transition",
+        "query": "events",
+        "transition": "enter"
+      },
+      "when": {
+        ">": [
+          {
+            "var": "query.after.total"
+          },
+          {
+            "var": "query.before.total"
+          }
+        ]
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": "review_adversarial_fixture"
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [],
+  "acceptanceTests": [
+    "adversarial-46-weird_shape"
+  ],
+  "presentation": {
+    "label": "Music practice log with sheet regions",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Probe",
+        "collections": [
+          "music_practice_sheet_regions_item",
+          "music_practice_sheet_regions_event",
+          "music_practice_sheet_regions_result"
+        ],
+        "views": [
+          "items",
+          "results"
+        ]
+      },
+      {
+        "id": "events",
+        "label": "Events",
+        "collections": [
+          "music_practice_sheet_regions_event"
+        ],
+        "views": [
+          "events"
+        ]
+      },
+      {
+        "id": "boundary",
+        "label": "Boundary",
+        "collections": [
+          "music_practice_sheet_regions_result"
+        ],
+        "views": [
+          "results"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#0F766E",
+      "canvas": "#F3FBFA",
+      "icon": "grid",
+      "tone": "teal"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Music practice log with sheet regions",
+          "subtitle": "Adversarial fixture #46: Annotations anchored to media positions.",
+          "components": [
+            {
+              "kind": "metric",
+              "title": "Runtime Axis",
+              "subtitle": "weird shape",
+              "query": {
+                "collections": [
+                  "music_practice_sheet_regions_result"
+                ],
+                "limit": 20
+              },
+              "tone": "teal"
+            },
+            {
+              "kind": "recordList",
+              "title": "Fixture Items",
+              "subtitle": "Generic records prove the data shell can host the app shape.",
+              "query": {
+                "collections": [
+                  "music_practice_sheet_regions_item"
+                ],
+                "limit": 20
+              },
+              "props": {
+                "emptyText": "No fixture items yet.",
+                "subtitleFields": [
+                  "status",
+                  "priority",
+                  "owner"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs media annotation anchors.",
+              "tone": "teal",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "weird shape"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "mediaAnnotation"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Partial fixture"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "events": {
+          "title": "Music practice log with sheet regions Events",
+          "subtitle": "Event rows for imports, taps, scans, timers, edits, or generated transitions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Events",
+              "subtitle": "Newest first.",
+              "query": {
+                "collections": [
+                  "music_practice_sheet_regions_event"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "emptyText": "No events yet.",
+                "subtitleFields": [
+                  "happened_at",
+                  "value",
+                  "source",
+                  "status"
+                ]
+              }
+            }
+          ]
+        },
+        "boundary": {
+          "title": "Boundary",
+          "subtitle": "What this JSON package proves and what the runtime still lacks.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs media annotation anchors.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "weird shape"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "mediaAnnotation"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Partial fixture"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

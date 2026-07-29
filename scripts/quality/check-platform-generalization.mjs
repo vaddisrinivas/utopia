@@ -23,9 +23,27 @@ const specializedRuntimeWidgets = new Set([
   'healthConnect',
 ]);
 
-const appFiles = findBundledAppPackages();
-const apps = appFiles.map((file) => inspectAppPackage(file));
 const baseline = readBaseline();
+const appFiles = findBundledAppPackages();
+const allApps = appFiles.map((file) => inspectAppPackage(file));
+const excludedProbeIds = new Set(baseline?.excludedProbeApps ?? []);
+const apps = allApps
+  .filter((app) => !excludedProbeIds.has(app.id))
+  .map((app) => ({
+    ...app,
+    ratchet: {
+      expectedClassification: baseline?.expectedAppClassifications?.[app.id] ?? null,
+      domainSpecificWidgetReferenceDelta:
+        app.domainSpecificWidgetReferences.length
+        - (baseline?.perAppMaximumDomainSpecificWidgetReferences?.[app.id]
+          ?? app.domainSpecificWidgetReferences.length),
+      specializedRuntimeWidgetDelta:
+        app.specializedRuntimeWidgetsRequired.length
+        - (baseline?.perAppMaximumSpecializedRuntimeWidgetsRequired?.[app.id]
+          ?? app.specializedRuntimeWidgetsRequired.length),
+    },
+  }));
+const probes = allApps.filter((app) => excludedProbeIds.has(app.id));
 const totals = {
   apps: apps.length,
   purePackageApps: apps.filter((app) => app.classification === 'pure_package').length,
@@ -46,6 +64,7 @@ const evidence = {
   } : null,
   totals,
   apps,
+  probes,
   thresholds: {
     minimumBundledApps: 3,
     maximumAllowedMissingPackages: 0,
@@ -53,10 +72,23 @@ const evidence = {
 };
 
 const problems = [];
+for (const probeId of excludedProbeIds) {
+  if (!allApps.some((app) => app.id === probeId)) {
+    problems.push(`excluded probe is missing from apps/: ${probeId}`);
+  }
+}
 if (apps.length < evidence.thresholds.minimumBundledApps) {
   problems.push(`expected at least ${evidence.thresholds.minimumBundledApps} bundled apps, found ${apps.length}`);
 }
 if (baseline) {
+  for (const [appId, expectedClassification] of Object.entries(baseline.expectedAppClassifications ?? {})) {
+    const app = apps.find((candidate) => candidate.id === appId);
+    if (!app) {
+      problems.push(`required sentinel app is missing: ${appId}`);
+    } else if (app.classification !== expectedClassification) {
+      problems.push(`${appId}: expected ${expectedClassification}, found ${app.classification}`);
+    }
+  }
   if (totals.apps < baseline.minimumBundledApps) {
     problems.push(`bundled app count regressed: expected at least ${baseline.minimumBundledApps}, found ${totals.apps}`);
   }
@@ -186,6 +218,23 @@ function readBaseline() {
   ]) {
     if (!Number.isInteger(baseline[key]) || baseline[key] < 0) {
       throw new Error(`platform_generalization_baseline_${key}_invalid`);
+    }
+  }
+  if (baseline.excludedProbeApps !== undefined) {
+    if (!Array.isArray(baseline.excludedProbeApps) || baseline.excludedProbeApps.some((id) => typeof id !== 'string')) {
+      throw new Error('platform_generalization_baseline_excludedProbeApps_invalid');
+    }
+  }
+  if (baseline.expectedAppClassifications !== undefined) {
+    const valid = new Set(['pure_package', 'reusable_runtime_capability', 'domain_specific_debt']);
+    if (
+      !baseline.expectedAppClassifications
+      || typeof baseline.expectedAppClassifications !== 'object'
+      || Array.isArray(baseline.expectedAppClassifications)
+      || Object.entries(baseline.expectedAppClassifications)
+        .some(([id, classification]) => !id || !valid.has(classification))
+    ) {
+      throw new Error('platform_generalization_baseline_expectedAppClassifications_invalid');
     }
   }
   return baseline;

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "recurring-bills",
+  "version": "1.0.0",
+  "collections": {
+    "bill": {
+      "id": "bill",
+      "fields": {
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "status": { "type": "text", "indexed": true },
+        "due_amount": { "type": "number", "indexed": true },
+        "as_of": { "type": "timestamp", "indexed": true },
+        "schedule": { "type": "json", "required": true },
+        "notes": { "type": "text" }
+      }
+    }
+  },
+  "queries": {
+    "bills": {
+      "from": "bill",
+      "orderBy": [{ "field": "title", "direction": "asc" }],
+      "limit": 50
+    }
+  },
+  "views": {
+    "bills": {
+      "id": "bills",
+      "query": "bills",
+      "mode": "table",
+      "fields": ["title", "due_amount", "status", "next_due", "upcoming_due_dates"]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "next_due",
+      "collection": "bill",
+      "dependsOn": [],
+      "expression": {
+        "recurrence_next": {
+          "schedule": { "var": "record.schedule" },
+          "after": { "var": "record.as_of" },
+          "budget": {
+            "maxOccurrences": 1,
+            "maxIterations": 16,
+            "maxRuleEvaluations": 32,
+            "maxLookaheadDays": 1500,
+            "maxExclusions": 16,
+            "maxOverrides": 16
+          }
+        }
+      }
+    },
+    {
+      "id": "upcoming_due_dates",
+      "collection": "bill",
+      "dependsOn": ["next_due"],
+      "expression": {
+        "recurrence_expand": {
+          "schedule": { "var": "record.schedule" },
+          "after": { "var": "record.as_of" },
+          "limit": 4,
+          "budget": {
+            "maxOccurrences": 4,
+            "maxIterations": 32,
+            "maxRuleEvaluations": 64,
+            "maxLookaheadDays": 1500,
+            "maxExclusions": 16,
+            "maxOverrides": 16
+          }
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "recurrence-engine-monthly-bills",
+    "recurrence-engine-leap-day-bills",
+    "package-only-recurrence-proof"
+  ],
+  "presentation": {
+    "label": "Recurring Bills",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Bills",
+        "collections": ["bill"],
+        "views": ["bills"]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "sync",
+      "tone": "amber",
+      "accent": "#B36A1E",
+      "canvas": "#FCF8F2"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Recurring Bills",
+          "subtitle": "Timezone-explicit recurrence with exclusions and overrides.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Bills",
+              "query": { "collections": ["bill"], "limit": 50 },
+              "props": {
+                "emptyText": "Add a bill schedule.",
+                "columns": [
+                  { "key": "title", "label": "Bill" },
+                  { "key": "due_amount", "label": "Amount" },
+                  { "key": "status", "label": "Status" },
+                  { "key": "next_due", "label": "Next due" },
+                  { "key": "upcoming_due_dates", "label": "Upcoming" }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

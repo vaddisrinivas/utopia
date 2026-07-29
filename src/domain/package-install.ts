@@ -11,12 +11,24 @@ import {
 } from '@/packages/shared/contracts/package-install';
 import { resolveRegistrySignatureTrust, type UtopiaTrustPolicy } from '@/packages/shared/contracts/package-trust';
 import { canonicalJson, sha256Canonical } from '@/packages/shared/contracts/canonical-json';
+import type { AppInstallation } from '@/packages/shared/contracts/app-installation';
+import type { PublisherTrustStore } from './publisher-trust-store';
 import bundledCalculatorPackageJson from '@/apps/scientific-calculator/scientific-calculator.v1.json';
 import bundledAudioLoopPackageJson from '@/apps/audio-loop-108/audio-loop-108.v1.json';
+import bundledHabitGridPackageJson from '@/apps/habit-grid/habit-grid.v1.json';
+import bundledExpenseSplitterPackageJson from '@/apps/expense-splitter/expense-splitter.v1.json';
+import bundledSplitRentPackageJson from '@/apps/split-rent/split-rent.v1.json';
+import bundledWorkoutLoggerPackageJson from '@/apps/workout-logger/workout-logger.v1.json';
+import bundledFocusIntervalsPackageJson from '@/apps/focus-intervals/focus-intervals.v1.json';
 
 export const BUNDLED_UTOPIA_REGISTRY_URL = 'https://wonder.app/registry/bundled.json';
 export const BUNDLED_DEMO_PACKAGE_URL = 'https://wonder.app/bundled/scientific-calculator.package.json';
 export const BUNDLED_AUDIO_LOOP_PACKAGE_URL = 'https://wonder.app/bundled/audio-loop-108.package.json';
+export const BUNDLED_HABIT_GRID_PACKAGE_URL = 'https://wonder.app/bundled/habit-grid.package.json';
+export const BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL = 'https://wonder.app/bundled/expense-splitter.package.json';
+export const BUNDLED_SPLIT_RENT_PACKAGE_URL = 'https://wonder.app/bundled/split-rent.package.json';
+export const BUNDLED_WORKOUT_LOGGER_PACKAGE_URL = 'https://wonder.app/bundled/workout-logger.package.json';
+export const BUNDLED_FOCUS_INTERVALS_PACKAGE_URL = 'https://wonder.app/bundled/focus-intervals.package.json';
 
 export type PackageInstallFetchResponse = Readonly<{
   ok: boolean;
@@ -51,6 +63,45 @@ export type PackageInstallTrustSummary = Readonly<{
   approvalLabel: 'Review required' | 'Install blocked';
 }>;
 
+export type PackageInstallCapabilityRow = Readonly<{
+  label: string;
+  value: string;
+  tone: 'verified' | 'unknown' | 'blocked';
+}>;
+
+export type PackageInstallReviewViewModel = Readonly<{
+  title: string;
+  identityRows: readonly PackageInstallPreviewRow[];
+  trustSummary: PackageInstallTrustSummary;
+  capabilityRows: readonly PackageInstallCapabilityRow[];
+  blockingReasons: readonly string[];
+  previewRows: readonly PackageInstallPreviewRow[];
+  primaryActionLabel: string;
+}>;
+
+export type AppInstallationLifecycleViewModel = Readonly<{
+  statusLabel: string;
+  statusTone: 'verified' | 'unknown' | 'blocked';
+  packageIdLabel: string;
+  versionLabel: string;
+  sourceLabel: string;
+  checksumLabel: string;
+  approvalLabel: string;
+  packageKeyLabel: string;
+  launchPathLabel: string;
+  actionLabel: string;
+  actionHint: string;
+  canOpen: boolean;
+  canRestore: boolean;
+}>;
+
+export type LifecycleConfirmation = Readonly<{
+  title: string;
+  message: string;
+  confirmLabel: string;
+  destructive?: boolean;
+}>;
+
 export function packageInstallPreviewRows(preview: PackageInstallPreview): PackageInstallPreviewRow[] {
   return [
     { label: 'Screens', values: preview.screensIncluded },
@@ -61,6 +112,132 @@ export function packageInstallPreviewRows(preview: PackageInstallPreview): Packa
     { label: 'Plugins', values: preview.pluginsRequired },
     { label: 'Fallbacks', values: preview.fallbacks },
   ];
+}
+
+export function packageInstallIdentityRows(preview: PackageInstallPreview): PackageInstallPreviewRow[] {
+  return [
+    { label: 'Package ID', values: [preview.packageId ?? 'Unknown'] },
+    { label: 'Version', values: [preview.version ?? 'Unknown'] },
+    { label: 'Source', values: [preview.sourceUrl] },
+  ];
+}
+
+export function packageInstallBlockingReasons(preview: PackageInstallPreview): string[] {
+  if (preview.status !== 'blocked') return [];
+  return [...new Set(
+    [...preview.validationErrors, ...preview.runtimeCompatibility.reasons]
+      .map((reason) => reason.trim())
+      .filter(Boolean),
+  )];
+}
+
+export function packageInstallCapabilityRows(preview: PackageInstallPreview): PackageInstallCapabilityRow[] {
+  const supportRows = preview.nativeCapabilitySupport.map<PackageInstallCapabilityRow>((finding) => ({
+    label: `${finding.required ? 'Required' : 'Optional'} ${finding.kind}`,
+    value: `${finding.id} - ${finding.message}`,
+    tone: finding.required ? 'blocked' : 'unknown',
+  }));
+  const covered = new Set(preview.nativeCapabilitySupport.map((finding) => finding.id));
+  const requestedRows = preview.nativePermissionsRequested
+    .filter((permission) => !covered.has(permission))
+    .map((permission) => {
+      const blockingReason = preview.validationErrors.find((reason) => reason.includes(permission));
+      return {
+        label: 'Requested permission',
+        value: blockingReason ? `${permission} - ${blockingReason}` : permission,
+        tone: blockingReason ? 'blocked' as const : 'unknown' as const,
+      };
+    });
+  return [...supportRows, ...requestedRows];
+}
+
+export function buildPackageInstallReviewViewModel(preview: PackageInstallPreview): PackageInstallReviewViewModel {
+  return {
+    title: preview.appName,
+    identityRows: packageInstallIdentityRows(preview),
+    trustSummary: packageInstallTrustSummary(preview),
+    capabilityRows: packageInstallCapabilityRows(preview),
+    blockingReasons: packageInstallBlockingReasons(preview),
+    previewRows: packageInstallPreviewRows(preview),
+    primaryActionLabel: preview.status === 'ready_for_review' ? 'Install app' : 'Install blocked',
+  };
+}
+
+export function buildAppInstallationLifecycleViewModel(installation: AppInstallation): AppInstallationLifecycleViewModel {
+  const packageBinding = installation.packageBinding;
+  const statusLabel = installation.status === 'active'
+    ? 'Active'
+    : installation.status === 'archived'
+      ? 'Uninstalled'
+      : 'Disabled';
+  const statusTone = installation.status === 'active'
+    ? 'verified'
+    : installation.status === 'archived'
+      ? 'unknown'
+      : 'blocked';
+
+  return {
+    statusLabel,
+    statusTone,
+    packageIdLabel: packageBinding?.packageId ?? 'No package bound',
+    versionLabel: packageBinding?.version ?? 'No version recorded',
+    sourceLabel: packageBinding?.sourceUrl ?? 'No source recorded',
+    checksumLabel: packageBinding?.checksum ?? 'No checksum recorded',
+    approvalLabel: installation.approval?.approvedBy
+      ? `Approved by ${installation.approval.approvedBy}`
+      : 'No approval recorded',
+    packageKeyLabel: packageBinding?.packageKey ?? 'No package key recorded',
+    launchPathLabel: installation.activation?.launchPath ?? `/apps/${installation.id}`,
+    actionLabel: installation.status === 'archived'
+      ? 'Restore app'
+      : installation.status === 'active'
+        ? 'Uninstall app'
+        : 'Review required',
+    actionHint: installation.status === 'archived'
+      ? 'Bring the app back without deleting its saved data.'
+      : installation.status === 'active'
+        ? 'Remove the app from use while keeping its data and install history.'
+        : 'This app cannot be restored until the disabling reason is resolved.',
+    canOpen: installation.status === 'active',
+    canRestore: installation.status === 'archived',
+  };
+}
+
+export function buildAppLifecycleConfirmation(
+  action: 'delete-data' | 'restore' | 'uninstall' | 'update',
+  label: string,
+  options: { version?: string | null; nextVersion?: string | null } = {},
+): LifecycleConfirmation {
+  if (action === 'delete-data') {
+    return {
+      title: 'Delete app and data?',
+      message: `This permanently removes ${label}, its local records, provider links, queued writes, source snapshots, workflows, and install state.`,
+      confirmLabel: 'Delete data',
+      destructive: true,
+    };
+  }
+  if (action === 'restore') {
+    return {
+      title: 'Restore app?',
+      message: `This brings ${label} back without deleting its saved data.`,
+      confirmLabel: 'Restore app',
+    };
+  }
+  if (action === 'update') {
+    const fromVersion = options.version ? ` from ${options.version}` : '';
+    const toVersion = options.nextVersion ? ` to ${options.nextVersion}` : '';
+    return {
+      title: 'Update app?',
+      message: `This replaces ${label}${fromVersion}${toVersion} after a fresh review and keeps the app data in place.`,
+      confirmLabel: 'Update app',
+    };
+  }
+  return {
+    title: 'Uninstall app?',
+    message: `This stops ${label} from running but keeps its data, approval history, and package receipts.`,
+    confirmLabel: 'Uninstall app',
+    destructive: true,
+  };
 }
 
 export function packageInstallTrustLabel(preview: PackageInstallPreview): string {
@@ -142,6 +319,26 @@ export function getBundledAudioLoopPackage(): unknown {
   return bundledAudioLoopPackageJson;
 }
 
+export function getBundledHabitGridPackage(): unknown {
+  return bundledHabitGridPackageJson;
+}
+
+export function getBundledExpenseSplitterPackage(): unknown {
+  return bundledExpenseSplitterPackageJson;
+}
+
+export function getBundledSplitRentPackage(): unknown {
+  return bundledSplitRentPackageJson;
+}
+
+export function getBundledWorkoutLoggerPackage(): unknown {
+  return bundledWorkoutLoggerPackageJson;
+}
+
+export function getBundledFocusIntervalsPackage(): unknown {
+  return bundledFocusIntervalsPackageJson;
+}
+
 function getBundledPackages(): Array<{ packageJson: { id: string; version: string; presentation?: { label?: string } }; url: string; description: string }> {
   return [
     {
@@ -154,6 +351,31 @@ function getBundledPackages(): Array<{ packageJson: { id: string; version: strin
       url: BUNDLED_AUDIO_LOOP_PACKAGE_URL,
       description: 'Local bundled audio loop app.',
     },
+    {
+      packageJson: getBundledHabitGridPackage() as { id: string; version: string; presentation?: { label?: string } },
+      url: BUNDLED_HABIT_GRID_PACKAGE_URL,
+      description: 'Local bundled habit grid app.',
+    },
+    {
+      packageJson: getBundledExpenseSplitterPackage() as { id: string; version: string; presentation?: { label?: string } },
+      url: BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL,
+      description: 'Local bundled expense splitter app.',
+    },
+    {
+      packageJson: getBundledSplitRentPackage() as { id: string; version: string; presentation?: { label?: string } },
+      url: BUNDLED_SPLIT_RENT_PACKAGE_URL,
+      description: 'Local bundled weighted rent allocation app.',
+    },
+    {
+      packageJson: getBundledWorkoutLoggerPackage() as { id: string; version: string; presentation?: { label?: string } },
+      url: BUNDLED_WORKOUT_LOGGER_PACKAGE_URL,
+      description: 'Local bundled persisted workout flow app.',
+    },
+    {
+      packageJson: getBundledFocusIntervalsPackage() as { id: string; version: string; presentation?: { label?: string } },
+      url: BUNDLED_FOCUS_INTERVALS_PACKAGE_URL,
+      description: 'Local bundled focus interval flow app.',
+    },
   ];
 }
 
@@ -164,6 +386,7 @@ export async function buildPackageInstallPreviewWithSignatureVerification(
     registryPackage?: UtopiaRegistryPackage;
     expectedChecksum?: string;
     trustPolicy?: UtopiaTrustPolicy;
+    publisherTrustStore?: PublisherTrustStore;
   },
 ): Promise<PackageInstallPreview> {
   const signature = options.registryPackage?.signature;
@@ -173,18 +396,35 @@ export async function buildPackageInstallPreviewWithSignatureVerification(
 
   const canonicalPackage = canonicalJson(packageJson);
   const computedChecksum = sha256Canonical(packageJson);
-  const trustedSignature = options.trustPolicy && options.registryPackage
+  const publisherTrustDecision = options.publisherTrustStore && options.registryPackage
+    ? options.publisherTrustStore.resolvePackageSignatureDecision({
+      signature,
+      publisher: options.registryPackage.publisher,
+    })
+    : null;
+  const trustedSignature = options.trustPolicy && !options.publisherTrustStore && options.registryPackage
     ? resolveRegistrySignatureTrust({ policy: options.trustPolicy, registryPackage: options.registryPackage })
     : null;
+
+  if (publisherTrustDecision?.status === 'rejected') {
+    return buildPackageInstallPreview(packageJson, {
+      ...options,
+      signatureVerifier: () => ({ verified: false, error: publisherTrustDecision.details }),
+    });
+  }
   if (trustedSignature && !trustedSignature.trusted) {
     return buildPackageInstallPreview(packageJson, {
       ...options,
       signatureVerifier: () => ({ verified: false, error: trustedSignature.error ?? 'signature trust policy failed' }),
     });
   }
+
+  const trustedPublicKey = publisherTrustDecision?.status === 'trusted'
+    ? publisherTrustDecision.publicKey
+    : trustedSignature?.publicKey;
   const verification = await verifyPackageRegistrySignature({
     canonicalPackage,
-    signature: trustedSignature?.publicKey ? { ...signature, publicKey: trustedSignature.publicKey } : signature,
+    signature: trustedPublicKey ? { ...signature, publicKey: trustedPublicKey } : signature,
   });
 
   return buildPackageInstallPreview(packageJson, {
@@ -253,12 +493,8 @@ export function createPackageInstallFetcher(remoteFetch: PackageInstallFetcher =
     if (normalized === BUNDLED_UTOPIA_REGISTRY_URL) {
       return jsonResponse(getBundledRegistryManifest());
     }
-    if (normalized === BUNDLED_DEMO_PACKAGE_URL) {
-      return jsonResponse(getBundledDemoPackage());
-    }
-    if (normalized === BUNDLED_AUDIO_LOOP_PACKAGE_URL) {
-      return jsonResponse(getBundledAudioLoopPackage());
-    }
+    const bundled = getBundledPackages().find((candidate) => candidate.url === normalized);
+    if (bundled) return jsonResponse(bundled.packageJson);
     return remoteFetch(normalized);
   };
 }

@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "shift-roster-rotating-patterns",
+  "version": "1.0.0",
+  "collections": {
+    "shift_roster_rotating_patterns_item": {
+      "id": "shift_roster_rotating_patterns_item",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "priority": {
+          "type": "number",
+          "indexed": true
+        },
+        "owner": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "shift_roster_rotating_patterns_event": {
+      "id": "shift_roster_rotating_patterns_event",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "happened_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "value": {
+          "type": "number",
+          "indexed": true
+        },
+        "source": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    },
+    "shift_roster_rotating_patterns_result": {
+      "id": "shift_roster_rotating_patterns_result",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "score": {
+          "type": "number",
+          "indexed": true
+        },
+        "summary": {
+          "type": "text"
+        },
+        "missing_primitive": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "items": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "shift_roster_rotating_patterns_item"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "events": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "shift_roster_rotating_patterns_event"
+      },
+      "orderBy": [
+        {
+          "field": "happened_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "results": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "shift_roster_rotating_patterns_result"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    }
+  },
+  "views": {
+    "items": {
+      "id": "items",
+      "query": "items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "status",
+        "priority",
+        "owner"
+      ]
+    },
+    "events": {
+      "id": "events",
+      "query": "events",
+      "mode": "table",
+      "fields": [
+        "title",
+        "happened_at",
+        "value",
+        "source",
+        "status"
+      ]
+    },
+    "results": {
+      "id": "results",
+      "query": "results",
+      "mode": "table",
+      "fields": [
+        "title",
+        "score",
+        "summary",
+        "missing_primitive",
+        "status"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "id": "review-new-test-event",
+      "trigger": {
+        "kind": "query_transition",
+        "query": "events",
+        "transition": "enter"
+      },
+      "when": {
+        ">": [
+          {
+            "var": "query.after.total"
+          },
+          {
+            "var": "query.before.total"
+          }
+        ]
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": "review_adversarial_fixture"
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [],
+  "acceptanceTests": [
+    "adversarial-19-temporal_rules"
+  ],
+  "presentation": {
+    "label": "Shift roster with rotating patterns",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Probe",
+        "collections": [
+          "shift_roster_rotating_patterns_item",
+          "shift_roster_rotating_patterns_event",
+          "shift_roster_rotating_patterns_result"
+        ],
+        "views": [
+          "items",
+          "results"
+        ]
+      },
+      {
+        "id": "events",
+        "label": "Events",
+        "collections": [
+          "shift_roster_rotating_patterns_event"
+        ],
+        "views": [
+          "events"
+        ]
+      },
+      {
+        "id": "boundary",
+        "label": "Boundary",
+        "collections": [
+          "shift_roster_rotating_patterns_result"
+        ],
+        "views": [
+          "results"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#8A5A00",
+      "canvas": "#FFF9EE",
+      "icon": "calendar",
+      "tone": "amber"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Shift roster with rotating patterns",
+          "subtitle": "Adversarial fixture #19: 4-on-4-off rotations, offsets, exceptions.",
+          "components": [
+            {
+              "kind": "metric",
+              "title": "Runtime Axis",
+              "subtitle": "temporal rules",
+              "query": {
+                "collections": [
+                  "shift_roster_rotating_patterns_result"
+                ],
+                "limit": 20
+              },
+              "tone": "amber"
+            },
+            {
+              "kind": "recordList",
+              "title": "Fixture Items",
+              "subtitle": "Generic records prove the data shell can host the app shape.",
+              "query": {
+                "collections": [
+                  "shift_roster_rotating_patterns_item"
+                ],
+                "limit": 20
+              },
+              "props": {
+                "emptyText": "No fixture items yet.",
+                "subtitleFields": [
+                  "status",
+                  "priority",
+                  "owner"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs recurrence engine with exceptions.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "temporal rules"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "recurrenceEngine"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Partial fixture"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "events": {
+          "title": "Shift roster with rotating patterns Events",
+          "subtitle": "Event rows for imports, taps, scans, timers, edits, or generated transitions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Events",
+              "subtitle": "Newest first.",
+              "query": {
+                "collections": [
+                  "shift_roster_rotating_patterns_event"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "emptyText": "No events yet.",
+                "subtitleFields": [
+                  "happened_at",
+                  "value",
+                  "source",
+                  "status"
+                ]
+              }
+            }
+          ]
+        },
+        "boundary": {
+          "title": "Boundary",
+          "subtitle": "What this JSON package proves and what the runtime still lacks.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs recurrence engine with exceptions.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "temporal rules"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "recurrenceEngine"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Partial fixture"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

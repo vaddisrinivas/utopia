@@ -38,6 +38,8 @@ export const APP_PACKAGE_WIDGET_KINDS = [
   'dataHomeSettings',
   'scientificCalculator',
   'audioLoopPlayer',
+  'stepFlow',
+  'durationTimer',
   'foodHero',
   'useFirstCarousel',
   'mealTimeline',

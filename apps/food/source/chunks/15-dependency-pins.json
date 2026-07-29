@@ -5,6 +5,11 @@
     "source": "npm"
   },
   {
+    "package": "expo-file-system",
+    "version": "~57.0.1",
+    "source": "npm"
+  },
+  {
     "package": "expo-sharing",
     "version": "~57.0.7",
     "source": "npm"

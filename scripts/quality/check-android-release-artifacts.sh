@@ -18,24 +18,14 @@ fail() {
 if [[ "${BUILD_RELEASE_ARTIFACTS:-0}" == "1" ]]; then
   WF_ANDROID_BUILD_COMMAND="android/gradlew :app:assembleRelease :app:bundleRelease" \
     bash -c 'cd android && ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease'
-  if [[ ! -f "$signed_apk" && -f "$unsigned_apk" ]]; then
-    debug_keystore="${ANDROID_DEBUG_KEYSTORE:-$HOME/.android/debug.keystore}"
-    apksigner_for_debug="$(find "${ANDROID_HOME:-$HOME/Library/Android/sdk}/build-tools" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
-    if [[ -x "$apksigner_for_debug" && -f "$debug_keystore" ]]; then
-      cp "$unsigned_apk" "$signed_apk"
-      "$apksigner_for_debug" sign \
-        --ks "$debug_keystore" \
-        --ks-key-alias androiddebugkey \
-        --ks-pass pass:android \
-        --key-pass pass:android \
-        "$signed_apk"
-    fi
-  fi
 fi
 
 apk="$signed_apk"
-if [[ ! -f "$apk" && -f "$unsigned_apk" ]]; then
-  apk="$unsigned_apk"
+if [[ ! -f "$apk" ]]; then
+  if [[ -f "$unsigned_apk" ]]; then
+    fail "signed APK missing: $apk (found unsigned candidate: $unsigned_apk; run release signing build)"
+  fi
+  fail "release APK missing: $apk"
 fi
 
 if [[ "${BUILD_RELEASE_ARTIFACTS:-0}" == "1" ]]; then
@@ -48,6 +38,7 @@ fi
 
 aapt_path="${ANDROID_BUILD_TOOLS_AAPT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}/build-tools/36.0.0/aapt}"
 [[ -x "$aapt_path" ]] || fail "aapt not found at $aapt_path"
+receipt_remediation_command="BUILD_RELEASE_ARTIFACTS=1 npm run release:proof:signed-android"
 
 badging="$("$aapt_path" dump badging "$apk")"
 grep -q "package: name='app.utopia'" <<<"$badging" || fail "APK package mismatch"
@@ -83,13 +74,14 @@ fi
 
 aab_signed="true"
 aab_signing="$(jarsigner -verify -verbose -certs "$aab" 2>&1 || true)"
-if grep -q 'jar is unsigned' <<<"$aab_signing"; then
+if ! grep -q 'jar verified\.' <<<"$aab_signing"; then
   aab_signed="false"
 fi
 
 if [[ "${REQUIRE_RELEASE_SIGNING:-0}" == "1" ]]; then
-  [[ "$apk_signing_kind" == "release" ]] || fail "APK is debug-signed"
-  [[ "$aab_signed" == "true" ]] || fail "AAB is unsigned"
+  [[ "$apk_signing_kind" == "release" ]] || fail "APK signing is not release (actual: $apk_signing_kind)"
+  [[ -n "$apk_cert_sha256" ]] || fail "APK release certificate digest missing"
+  [[ "$aab_signed" == "true" ]] || fail "AAB signature verification failed"
 fi
 
 apk_sha="$(shasum -a 256 "$apk" | awk '{print $1}')"
@@ -128,7 +120,9 @@ const issues = validateSourceArtifactReceipt(process.cwd(), receipt, {
 console.log(issues.join('\n'));
 NODE
 )"
-[[ -z "$build_receipt_issues" ]] || fail "build receipt does not prove current artifacts: ${build_receipt_issues//$'\n'/, }"
+if [[ -n "$build_receipt_issues" ]]; then
+  fail "build receipt does not prove current artifacts (${build_receipt_issues//$'\n'/, }). Action required: rerun \"$receipt_remediation_command\". This evidence is not signed-release proof until refreshed."
+fi
 git_head="$(git -C "$root_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 git_tree="$(git -C "$root_dir" rev-parse HEAD^{tree} 2>/dev/null || echo unknown)"
 git_branch="$(git -C "$root_dir" branch --show-current 2>/dev/null || echo unknown)"

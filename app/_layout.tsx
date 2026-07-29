@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { UtopiaDatabaseProvider } from '@/src/db/provider';
 import { setActiveDomainOverride } from '@/src/domain/catalog';
+import { parseAudioLoopIncomingIntent } from '@/src/platform/incoming-audio-loop';
 import { useIncomingShareSafe } from '@/src/platform/incoming-share';
 import { loadUtopiaSettings, subscribeUtopiaSettings } from '@/src/settings/utopia-settings';
 
@@ -16,18 +17,30 @@ LogBox.ignoreLogs([
 function IncomingShareRouter() {
   const router = useRouter();
   const incomingShare = useIncomingShareSafe();
+  const handleIncomingUrl = (url: string) => {
+    if (parseAudioLoopIncomingIntent(url)) {
+      return;
+    }
+
+    try {
+      if (new URL(url).hostname !== 'expo-sharing') return;
+      incomingShare.refreshSharePayloads();
+      setTimeout(() => {
+        router.push('/capture?incomingShare=1');
+      }, 0);
+    } catch {
+      // Ignore unrelated or malformed links.
+    }
+  };
 
   useEffect(() => {
+    void Linking.getInitialURL().then((url) => {
+      if (!url) return;
+      handleIncomingUrl(url);
+    }).catch(() => {});
+
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      try {
-        if (new URL(url).hostname !== 'expo-sharing') return;
-        incomingShare.refreshSharePayloads();
-        setTimeout(() => {
-          router.push('/capture?incomingShare=1');
-        }, 0);
-      } catch {
-        // Ignore unrelated or malformed links.
-      }
+      handleIncomingUrl(url);
     });
     return () => subscription.remove();
   }, [incomingShare.refreshSharePayloads, router]);

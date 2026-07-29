@@ -7,6 +7,7 @@ export * from './package-change';
 export * from './package-authoring';
 export * from './package-install';
 export * from './package-trust';
+export * from './extension-trust';
 export {
   DEFAULT_APP_INSTALLATION_ID,
   DEFAULT_WORKSPACE_ID,
@@ -27,5 +28,6 @@ export * from './ui-widgets';
 export * from './native-capability-kinds';
 export * from './native-capabilities';
 export * from './rules';
+export * from './recurrence';
 export * from './receipts';
 export * from './workflow';
