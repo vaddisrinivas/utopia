@@ -22,8 +22,8 @@ npm run check:platform-generalization
 
 Current source scan:
 
-- 8 proven/reference bundled apps
-- 5 package-only apps
+- 11 bundled apps
+- 8 package-only apps
 - 2 reusable runtime-capability apps
 - 1 domain-debt app
 - 8 domain-specific widget references
@@ -35,16 +35,20 @@ Current source scan:
 | Food | domain-specific debt | Deep reference app and real data/workflow surface | Uses 8 Food-shaped widget references plus `healthConnect`; Food widgets must be generalized or isolated |
 | Scientific Calculator | reusable runtime capability | Non-Food tool app; not just CRUD | Uses `scientificCalculator` |
 | Audio Loop | reusable runtime capability | Non-Food media/timer app | Uses `audioLoopPlayer` and native media capability |
+| Capability Lab | pure package | Capability matrix/reference app for runtime permissions | No app-specific renderer work |
 | Habit Grid | pure package | First package-only app; records, chart, checklist, and table with zero new widgets | No app-specific renderer work |
 | Expense Splitter | pure package | Grouped balances and deterministic minimized transfers | Shared expression kernel; no new widget |
 | Split Rent | pure package | Exact weighted allocation with stable remainder handling | Shared expression kernel; no new widget |
+| Recurring Bills | pure package | Recurrence projection and due-state reference app | Shared recurrence kernel; no new widget |
+| Spaced Repetition | pure package | Algorithmic review scheduling reference app | Shared recurrence/scheduling primitives; no new widget |
 | Workout Logger | pure package | Persisted multi-step timers and restart recovery | Generic `stepFlow` and `durationTimer`; no app-specific widget |
 | Focus Intervals | pure package | Second-domain interval cycle and persisted progression | Reuses `stepFlow` and `durationTimer`; no new runtime primitive |
 
 The adversarial fixtures are test inputs, not app proofs. Expense Splitter and
 Split Rent have separate bundled product proofs. Workout Logger passes the
 persisted flow/timer restart scenarios, and Focus Intervals provides the
-unrelated second-app validation.
+unrelated second-app validation. The explicit verdict sheet is
+`docs/platform-proof-verdicts.md`.
 
 ## App Admission Rule
 
@@ -60,7 +64,7 @@ Every new reference app should record:
 
 ## Hard Tests
 
-1. Rebuild Food pantry surfaces from generic list/grid/timeline primitives.
+1. Rebuild Food pantry surfaces from generic list/grid/timeline primitives. Current verdict: BOUNDARY, because Food still has `pantryShelf` references and remains `domain_specific_debt`.
 2. Build Chores, Expense Splitter, Habit Graph, and a small game without app-named renderer widgets.
 3. If a new widget is required, name it by capability, not domain.
 4. Block third-party registry trust until permissions are enforced by package capability, not just copy.

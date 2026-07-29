@@ -53,6 +53,8 @@ After Wave 5:
 ```text
 8 proven/reference bundled apps
 5 package-only apps
+11 bundled apps
+8 package-only apps
 50 adversarial fixtures excluded
 Workout Logger admitted as a package-only proof
 Focus Intervals admitted as the unrelated timed-flow proof
@@ -77,3 +79,4 @@ local (deterministic) and does not claim live multi-device service proof.
 Next design targets:
 
 - app quality evals that score whether the app is usable, not merely package-only.
+- pantry-from-primitives rewrite or explicit first-party extension boundary.
