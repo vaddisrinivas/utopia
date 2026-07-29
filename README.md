@@ -4,7 +4,7 @@ Utopia is a package-driven app platform for personal software.
 
 The core idea is simple: a small native shell runs many useful apps from validated JSON packages. Data, screens, widgets, actions, permissions, provider connections, and AI behavior are described by app config instead of scattered bespoke screens.
 
-Utopia is for one person, a family, a group, or a small company that wants software shaped exactly around how they live and work.
+Utopia is for one person first, then families, groups, and small companies as sync, sharing, roles, and recovery harden.
 
 ## License
 
@@ -28,11 +28,11 @@ Utopia aims for a third shape:
 - let AI help change the package safely;
 - keep the native shell boring, stable, and reusable.
 
-The long-term target is a platform that can produce hundreds of distinct, useful apps without rebuilding the mobile app for each one.
+The long-term target is a platform where each new app package makes the shell more reusable, not more bespoke. The measured goal is simple: more apps should ship as package-only JSON, and any shell growth should become a reusable runtime capability.
 
 ## What it can build
 
-Utopia is strongest for structured personal and small-group apps:
+Utopia is strongest today for structured personal database and workflow apps:
 
 - food, pantry, recipes, meal planning, shopping;
 - home inventory;
@@ -45,7 +45,15 @@ Utopia is strongest for structured personal and small-group apps:
 - collections, wishlists, reviews;
 - routines, checklists, logs, calendars, feeds, boards, charts.
 
-The first bundled app is Food.
+It is expanding into tool-shaped apps and lightweight interactive widgets, but “any app” is not proven yet.
+
+Bundled app packages:
+
+- [apps/food/food.v1.json](./apps/food/food.v1.json) — Food reference app.
+- [apps/scientific-calculator/scientific-calculator.v1.json](./apps/scientific-calculator/scientific-calculator.v1.json) — calculator tool app.
+- [apps/audio-loop-108/audio-loop-108.v1.json](./apps/audio-loop-108/audio-loop-108.v1.json) — local audio loop tool app.
+
+The platform generalization scorecard tracks whether new apps need domain-specific renderer work or reusable shell capabilities: [docs/platform-generalization-scorecard.md](./docs/platform-generalization-scorecard.md).
 
 ## The model
 
@@ -82,6 +90,8 @@ flowchart LR
 ### App JSON
 
 - [apps/food/food.v1.json](./apps/food/food.v1.json) — first app package/domain.
+- [apps/scientific-calculator/scientific-calculator.v1.json](./apps/scientific-calculator/scientific-calculator.v1.json) — non-Food tool package.
+- [apps/audio-loop-108/audio-loop-108.v1.json](./apps/audio-loop-108/audio-loop-108.v1.json) — non-Food media tool package.
 - [packages/domain-config/domain-catalog.v1.json](./packages/domain-config/domain-catalog.v1.json) — active catalog and shell tabs.
 - [packages/domain-config/domains/food.v1.json](./packages/domain-config/domains/food.v1.json) — bundled Food domain config.
 - [packages/domain-config/domains/health.v1.json](./packages/domain-config/domains/health.v1.json) — Health preview.
@@ -128,16 +138,12 @@ It is intended to feel like a focused AI-native kitchen system:
 
 ## Widget surface
 
-The renderer supports a growing generic widget catalog. Current package-level widgets include:
+The renderer supports a growing widget catalog. The product goal is not “more widgets forever”; it is fewer domain-specific widgets, stronger generic primitives, and explicit reusable runtime capabilities when JSON alone is not enough.
+
+Current generic/package-level widgets include:
 
 - assistant chat;
-- food hero;
-- pantry shelf;
-- use-first carousel;
-- meal timeline;
 - calendar block;
-- recipe card;
-- receipt review;
 - smart capture;
 - provider status;
 - data home settings;
@@ -163,6 +169,12 @@ The renderer supports a growing generic widget catalog. Current package-level wi
 - biometric gate;
 - health status;
 - speech tool.
+
+Known renderer debt:
+
+- Food still uses domain-shaped widgets: `foodHero`, `pantryShelf`, `useFirstCarousel`, `mealTimeline`, `recipeCard`, `receiptReviewCard`.
+- Calculator and Audio Loop prove non-Food apps, but each uses a specialized reusable runtime widget: `scientificCalculator`, `audioLoopPlayer`.
+- The scorecard must trend toward package-only apps and reusable capabilities, not app-specific shell growth.
 
 Rule of thumb: JSON can configure any capability the renderer already exposes. New behavior belongs in generic widgets, not one-off app screens.
 
@@ -270,6 +282,7 @@ Useful focused gates:
 
 ```bash
 npm run check:widget-catalog
+npm run check:platform-generalization
 npm run check:native-capability-contract
 npm run check:package-owned-routes
 npm run check:food-app-vibe
@@ -304,8 +317,11 @@ Still needed:
 - richer App Library UX;
 - stronger package authoring flow;
 - better visual editor / AI package editor;
-- larger widget catalog;
+- stronger generic widgets and less domain-specific renderer code;
 - declarative native permission flows per package;
+- enforced package capability boundary for untrusted registries;
+- generated-app quality evals beyond schema validity;
+- family/group sync, sharing, roles, recovery, and conflict UX proof;
 - polished provider connection UX;
 - production dependency/security cleanup;
 - physical-device release proof;

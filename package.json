@@ -89,6 +89,7 @@
     "config:validate": "node scripts/validate-domain-config.mjs && node scripts/quality/check-no-spike-artifacts.mjs && node scripts/quality/check-widget-catalog.mjs && node scripts/quality/check-native-capability-contract.mjs && node scripts/quality/check-package-owned-routes.mjs && node scripts/quality/check-food-app-vibe.mjs",
     "check:no-spike-artifacts": "node scripts/quality/check-no-spike-artifacts.mjs",
     "check:widget-catalog": "node scripts/quality/check-widget-catalog.mjs",
+    "check:platform-generalization": "node scripts/quality/check-platform-generalization.mjs",
     "check:native-capability-contract": "node scripts/quality/check-native-capability-contract.mjs",
     "check:cloud-portability": "node scripts/quality/check-cloud-portability.mjs",
     "check:account-auth": "npx --yes vitest run tests/domain/account-cloud.test.ts tests/db/cloud-account-foundation.test.ts",
