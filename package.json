@@ -86,7 +86,7 @@
     "test:server:direct": "for test_file in server/test/*.ts; do ./server/node_modules/.bin/tsx \"$test_file\" || exit 1; done",
     "typecheck": "tsc --noEmit",
     "audit:production": "npm audit --omit=dev --json",
-    "config:validate": "node scripts/validate-domain-config.mjs && node scripts/quality/check-no-spike-artifacts.mjs && node scripts/quality/check-widget-catalog.mjs && node scripts/quality/check-native-capability-contract.mjs && node scripts/quality/check-package-owned-routes.mjs && node scripts/quality/check-food-app-vibe.mjs",
+    "config:validate": "node scripts/validate-domain-config.mjs && node scripts/quality/check-no-spike-artifacts.mjs && node scripts/quality/check-widget-catalog.mjs && node scripts/quality/check-platform-generalization.mjs && node scripts/quality/check-native-capability-contract.mjs && node scripts/quality/check-package-owned-routes.mjs && node scripts/quality/check-food-app-vibe.mjs",
     "check:no-spike-artifacts": "node scripts/quality/check-no-spike-artifacts.mjs",
     "check:widget-catalog": "node scripts/quality/check-widget-catalog.mjs",
     "check:platform-generalization": "node scripts/quality/check-platform-generalization.mjs",

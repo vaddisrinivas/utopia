@@ -37,7 +37,7 @@ Utopia is strongest today for structured personal database and workflow apps:
 - food, pantry, recipes, meal planning, shopping;
 - home inventory;
 - plant care;
-- family chores;
+- personal chores;
 - habit tracking;
 - trip planning;
 - small-team operating dashboards;
@@ -52,6 +52,7 @@ Bundled app packages:
 - [apps/food/food.v1.json](./apps/food/food.v1.json) — Food reference app.
 - [apps/scientific-calculator/scientific-calculator.v1.json](./apps/scientific-calculator/scientific-calculator.v1.json) — calculator tool app.
 - [apps/audio-loop-108/audio-loop-108.v1.json](./apps/audio-loop-108/audio-loop-108.v1.json) — local audio loop tool app.
+- [apps/habit-grid/habit-grid.v1.json](./apps/habit-grid/habit-grid.v1.json) — package-only habit tracker.
 
 The platform generalization scorecard tracks whether new apps need domain-specific renderer work or reusable shell capabilities: [docs/platform-generalization-scorecard.md](./docs/platform-generalization-scorecard.md).
 
@@ -92,6 +93,7 @@ flowchart LR
 - [apps/food/food.v1.json](./apps/food/food.v1.json) — first app package/domain.
 - [apps/scientific-calculator/scientific-calculator.v1.json](./apps/scientific-calculator/scientific-calculator.v1.json) — non-Food tool package.
 - [apps/audio-loop-108/audio-loop-108.v1.json](./apps/audio-loop-108/audio-loop-108.v1.json) — non-Food media tool package.
+- [apps/habit-grid/habit-grid.v1.json](./apps/habit-grid/habit-grid.v1.json) — first package-only proof app.
 - [packages/domain-config/domain-catalog.v1.json](./packages/domain-config/domain-catalog.v1.json) — active catalog and shell tabs.
 - [packages/domain-config/domains/food.v1.json](./packages/domain-config/domains/food.v1.json) — bundled Food domain config.
 - [packages/domain-config/domains/health.v1.json](./packages/domain-config/domains/health.v1.json) — Health preview.
@@ -174,6 +176,7 @@ Known renderer debt:
 
 - Food still uses domain-shaped widgets: `foodHero`, `pantryShelf`, `useFirstCarousel`, `mealTimeline`, `recipeCard`, `receiptReviewCard`.
 - Calculator and Audio Loop prove non-Food apps, but each uses a specialized reusable runtime widget: `scientificCalculator`, `audioLoopPlayer`.
+- Habit Grid is the first package-only proof app: it uses existing `chartBlock`, `checklistCard`, `dataTable`, and `recordList` primitives.
 - The scorecard must trend toward package-only apps and reusable capabilities, not app-specific shell growth.
 
 Rule of thumb: JSON can configure any capability the renderer already exposes. New behavior belongs in generic widgets, not one-off app screens.
@@ -310,7 +313,7 @@ npm run quality
 
 ## What is not done
 
-Utopia is not yet a finished “500 app” factory.
+Utopia is not yet a finished app factory.
 
 Still needed:
 

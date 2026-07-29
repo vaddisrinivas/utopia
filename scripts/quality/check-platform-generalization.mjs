@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const appsRoot = path.join(root, 'apps');
+const baselinePath = path.join(root, 'scripts/quality/platform-generalization-baseline.json');
 const evidencePath = path.join(root, 'app/build/evidence/platform-generalization.json');
 
 const domainSpecificWidgets = new Set([
@@ -24,6 +25,7 @@ const specializedRuntimeWidgets = new Set([
 
 const appFiles = findBundledAppPackages();
 const apps = appFiles.map((file) => inspectAppPackage(file));
+const baseline = readBaseline();
 const totals = {
   apps: apps.length,
   purePackageApps: apps.filter((app) => app.classification === 'pure_package').length,
@@ -38,6 +40,10 @@ const evidence = {
   commit: currentCommit(),
   checkedAt: new Date().toISOString(),
   thesis: 'New app packages should trend toward zero domain-specific widgets and explicit reusable runtime capabilities.',
+  baseline: baseline ? {
+    path: path.relative(root, baselinePath),
+    ...baseline,
+  } : null,
   totals,
   apps,
   thresholds: {
@@ -49,6 +55,33 @@ const evidence = {
 const problems = [];
 if (apps.length < evidence.thresholds.minimumBundledApps) {
   problems.push(`expected at least ${evidence.thresholds.minimumBundledApps} bundled apps, found ${apps.length}`);
+}
+if (baseline) {
+  if (totals.apps < baseline.minimumBundledApps) {
+    problems.push(`bundled app count regressed: expected at least ${baseline.minimumBundledApps}, found ${totals.apps}`);
+  }
+  if (totals.purePackageApps < baseline.minimumPurePackageApps) {
+    problems.push(`package-only app count regressed: expected at least ${baseline.minimumPurePackageApps}, found ${totals.purePackageApps}`);
+  }
+  if (totals.domainDebtApps > baseline.maximumDomainDebtApps) {
+    problems.push(`domain-debt app count increased: max ${baseline.maximumDomainDebtApps}, found ${totals.domainDebtApps}`);
+  }
+  if (totals.domainSpecificWidgetReferences > baseline.maximumDomainSpecificWidgetReferences) {
+    problems.push(`domain-specific widget references increased: max ${baseline.maximumDomainSpecificWidgetReferences}, found ${totals.domainSpecificWidgetReferences}`);
+  }
+  if (totals.specializedRuntimeWidgetsRequired > baseline.maximumSpecializedRuntimeWidgetsRequired) {
+    problems.push(`specialized runtime widgets increased: max ${baseline.maximumSpecializedRuntimeWidgetsRequired}, found ${totals.specializedRuntimeWidgetsRequired}`);
+  }
+  for (const app of apps) {
+    const maxDomainRefs = baseline.perAppMaximumDomainSpecificWidgetReferences?.[app.id];
+    if (maxDomainRefs !== undefined && app.domainSpecificWidgetReferences.length > maxDomainRefs) {
+      problems.push(`${app.id}: domain-specific widget references increased: max ${maxDomainRefs}, found ${app.domainSpecificWidgetReferences.length}`);
+    }
+    const maxRuntimeWidgets = baseline.perAppMaximumSpecializedRuntimeWidgetsRequired?.[app.id];
+    if (maxRuntimeWidgets !== undefined && app.specializedRuntimeWidgetsRequired.length > maxRuntimeWidgets) {
+      problems.push(`${app.id}: specialized runtime widgets increased: max ${maxRuntimeWidgets}, found ${app.specializedRuntimeWidgetsRequired.length}`);
+    }
+  }
 }
 
 fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
@@ -136,6 +169,26 @@ function walk(value, visit) {
 
 function unique(values) {
   return [...new Set(values)].sort();
+}
+
+function readBaseline() {
+  if (!fs.existsSync(baselinePath)) return null;
+  const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+  if (baseline.schemaVersion !== 'utopia.platform-generalization-baseline.v1') {
+    throw new Error('platform_generalization_baseline_schema_invalid');
+  }
+  for (const key of [
+    'minimumBundledApps',
+    'minimumPurePackageApps',
+    'maximumDomainDebtApps',
+    'maximumDomainSpecificWidgetReferences',
+    'maximumSpecializedRuntimeWidgetsRequired',
+  ]) {
+    if (!Number.isInteger(baseline[key]) || baseline[key] < 0) {
+      throw new Error(`platform_generalization_baseline_${key}_invalid`);
+    }
+  }
+  return baseline;
 }
 
 function currentCommit() {

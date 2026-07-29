@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "utopia.platform-generalization-baseline.v1",
+  "minimumBundledApps": 4,
+  "minimumPurePackageApps": 1,
+  "maximumDomainDebtApps": 1,
+  "maximumDomainSpecificWidgetReferences": 9,
+  "maximumSpecializedRuntimeWidgetsRequired": 3,
+  "perAppMaximumDomainSpecificWidgetReferences": {
+    "audio-loop-108": 0,
+    "food": 9,
+    "habit-grid": 0,
+    "scientific-calculator": 0
+  },
+  "perAppMaximumSpecializedRuntimeWidgetsRequired": {
+    "audio-loop-108": 1,
+    "food": 1,
+    "habit-grid": 0,
+    "scientific-calculator": 1
+  }
+}

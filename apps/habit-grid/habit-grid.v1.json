@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "habit-grid",
+  "version": "1.0.0",
+  "collections": {
+    "habit": {
+      "id": "habit",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "status": { "type": "text", "indexed": true },
+        "cadence": { "type": "text", "indexed": true },
+        "current_streak": { "type": "number", "indexed": true },
+        "target_per_week": { "type": "number" },
+        "last_completed_at": { "type": "timestamp", "indexed": true },
+        "notes": { "type": "text" }
+      }
+    },
+    "habit_checkin": {
+      "id": "habit_checkin",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "habit_id": { "type": "text", "indexed": true },
+        "checked_at": { "type": "timestamp", "indexed": true },
+        "value": { "type": "number" },
+        "mood": { "type": "text" },
+        "notes": { "type": "text" }
+      }
+    }
+  },
+  "queries": {
+    "active-habits": {
+      "from": "records",
+      "where": { "field": "collection", "op": "eq", "value": "habit" },
+      "orderBy": [{ "field": "updated_at", "direction": "desc" }],
+      "limit": 30
+    },
+    "recent-checkins": {
+      "from": "records",
+      "where": { "field": "collection", "op": "eq", "value": "habit_checkin" },
+      "orderBy": [{ "field": "checked_at", "direction": "desc" }],
+      "limit": 60
+    }
+  },
+  "views": {
+    "habits": {
+      "id": "habits",
+      "query": "active-habits",
+      "mode": "list",
+      "fields": ["title", "status", "cadence", "current_streak", "target_per_week", "last_completed_at"]
+    },
+    "checkins": {
+      "id": "checkins",
+      "query": "recent-checkins",
+      "mode": "table",
+      "fields": ["title", "habit_id", "checked_at", "value", "mood", "notes"]
+    }
+  },
+  "presentation": {
+    "label": "Habit Grid",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Today",
+        "collections": ["habit", "habit_checkin"],
+        "views": ["habits"]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "collections": ["habit_checkin"],
+        "views": ["checkins"]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#2F7448",
+      "canvas": "#F7FAF4",
+      "icon": "check",
+      "tone": "moss"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Habit Grid",
+          "subtitle": "A package-only habit tracker using existing list, chart, table, and checklist primitives.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Week Shape",
+              "subtitle": "Static demo data proves graph-like habit progress without a new widget.",
+              "tone": "moss",
+              "props": {
+                "type": "bar",
+                "items": [
+                  { "label": "Mon", "value": 3 },
+                  { "label": "Tue", "value": 2 },
+                  { "label": "Wed", "value": 4 },
+                  { "label": "Thu", "value": 1 },
+                  { "label": "Fri", "value": 3 },
+                  { "label": "Sat", "value": 5 },
+                  { "label": "Sun", "value": 2 }
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "checklistCard",
+              "title": "Today",
+              "subtitle": "Package-authored checklist, no app-specific renderer.",
+              "tone": "blue",
+              "props": {
+                "items": [
+                  { "label": "Walk", "checked": true },
+                  { "label": "Read", "checked": false },
+                  { "label": "Stretch", "checked": false }
+                ]
+              }
+            },
+            {
+              "kind": "recordList",
+              "title": "Active Habits",
+              "subtitle": "Records render through the existing list primitive.",
+              "query": { "collections": ["habit"], "limit": 12 },
+              "props": {
+                "emptyText": "No habits yet.",
+                "subtitleFields": ["cadence", "current_streak", "target_per_week", "status"]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Habit Fields",
+              "subtitle": "What this package stores.",
+              "tone": "neutral",
+              "props": {
+                "columns": [
+                  { "key": "field", "label": "Field" },
+                  { "key": "meaning", "label": "Meaning" }
+                ],
+                "items": [
+                  { "field": "cadence", "meaning": "Daily, weekly, or flexible" },
+                  { "field": "current_streak", "meaning": "Current run count" },
+                  { "field": "target_per_week", "meaning": "Planned weekly goal" }
+                ]
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "Check-ins",
+          "subtitle": "Recent habit completions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Check-ins",
+              "subtitle": "Newest first.",
+              "query": { "collections": ["habit_checkin"], "limit": 30 },
+              "props": {
+                "emptyText": "No check-ins yet.",
+                "subtitleFields": ["habit_id", "checked_at", "value", "mood"]
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "rules": []
+}

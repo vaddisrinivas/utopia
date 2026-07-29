@@ -10,7 +10,7 @@ For each bundled app, track:
 - reusable runtime capability: app needs a new shell widget or native bridge that can serve many future apps;
 - domain-specific debt: app needs renderer code named after one domain.
 
-The desired trend is more package-only apps, fewer domain-specific widgets, and any new shell code framed as a reusable runtime capability.
+The desired trend is more package-only apps, fewer domain-specific widgets, and any new shell code framed as a reusable runtime capability. The check has a ratchet baseline in `scripts/quality/platform-generalization-baseline.json`; counts can improve freely, but increases fail until the baseline is deliberately updated.
 
 ## Current Baseline
 
@@ -22,8 +22,8 @@ npm run check:platform-generalization
 
 Current source scan:
 
-- 3 bundled apps
-- 0 package-only apps
+- 4 bundled apps
+- 1 package-only app
 - 2 reusable runtime-capability apps
 - 1 domain-debt app
 - 9 domain-specific widget references
@@ -34,8 +34,9 @@ Current source scan:
 | Food | domain-specific debt | Deep reference app and real data/workflow surface | Uses 9 Food-shaped widget references plus `healthConnect`; Food widgets must be generalized or isolated |
 | Scientific Calculator | reusable runtime capability | Non-Food tool app; not just CRUD | Uses `scientificCalculator` |
 | Audio Loop 108 | reusable runtime capability | Non-Food media/timer app | Uses `audioLoopPlayer` and native media capability |
+| Habit Grid | pure package | First package-only app; records, chart, checklist, and table with zero new widgets | No app-specific renderer work |
 
-This is better than a one-app platform claim, but it does not prove “500 apps for free.” It proves Utopia can host different app shapes when the shell exposes the right reusable capability. The next proof target is at least one useful bundled app that ships with zero new widget kinds.
+This is better than a one-app platform claim, but it does not prove “500 apps for free.” It proves Utopia can host different app shapes when the shell exposes the right reusable capability, and now has one useful package-only app as the next baseline.
 
 ## App Admission Rule
 
@@ -44,6 +45,7 @@ Every new reference app should record:
 - new widget kinds added;
 - new native capabilities added;
 - domain-specific widget references;
+- package-only classification;
 - whether existing widgets were enough;
 - whether the app is installable from registry preview;
 - whether it has at least one product-quality smoke path.
