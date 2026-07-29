@@ -8,6 +8,10 @@ import {
   appPackageSchemaV3,
 } from '@/packages/schemas/src';
 import { APP_PACKAGE_BASE_REQUIRED_FIELDS } from '@/packages/shared/contracts/package';
+import {
+  appPackageSchemaV2 as serverAppPackageSchemaV2,
+  appPackageSchemaV3 as serverAppPackageSchemaV3,
+} from '@/server/src/kernel/package-schema';
 
 describe('schema registry', () => {
   it('is internally consistent', () => {
@@ -28,5 +32,10 @@ describe('schema registry', () => {
       'nativeCapabilities',
       'contractLock',
     ]);
+  });
+
+  it('re-exports the shared schema authority on the server side', () => {
+    expect(serverAppPackageSchemaV2).toBe(appPackageSchemaV2);
+    expect(serverAppPackageSchemaV3).toBe(appPackageSchemaV3);
   });
 });

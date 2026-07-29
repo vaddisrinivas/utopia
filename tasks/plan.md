@@ -1,380 +1,582 @@
-# Implementation Plan: Cross-Platform Capability Runtime
+# Implementation Plan: Prove the Utopia Runtime
 
-## Overview
-Add every missing non-payment capability needed for JSON apps to work across iOS, Android, web, and macOS. The main architecture rule is: JSON packages declare intent and configuration; platform runtimes provide capability adapters with identical behavior, preview/fallback states, permissions, and validation.
+## Objective
 
-Payments/IAP are explicitly excluded.
+In four weeks, produce the primary proof for two core platform claims, with a
+fifth validation week when the second timed-flow app is required:
 
-## Architecture Decisions
-- Keep app packages JSON-only: capabilities are referenced by widget/native capability declarations, not custom package code.
-- Build a capability matrix first, then implement adapters one vertical slice at a time.
-- Make macOS a first-class runtime by moving it toward generic JSON rendering instead of one-off package screens.
-- Every capability gets a contract, renderer support, install-preview safety, focused tests, and platform export/build proof.
-- Required capabilities block install when unsupported. Optional capabilities may install, but must render a disabled/fallback state and show support findings.
-- Unknown capabilities always fail closed, even when marked optional.
+1. Utopia packages can express real derived computation without app-specific
+   widgets.
+2. Utopia packages can express persisted multi-step timed flows that survive
+   process death.
 
-## Phase 1: Capability Contract Foundation
+The proof apps are Expense Splitter and Workout Logger. Everything downstream
+stays parked until both pass.
 
-### Task 1: Add Capability Matrix
-Create a source-of-truth matrix for supported capabilities by platform.
+## Why This Plan Is Narrow
 
-Acceptance criteria:
-- Matrix lists iOS, Android, web, macOS support for each capability.
-- Install preview can report unsupported platform reasons.
-- Required vs optional capability policy is enforced.
-- Unknown capability declarations fail closed.
-- Existing Audio Loop capability is represented.
+The expression and flow contracts do not exist yet. Capability brokering,
+authoring, data-home UX, sync productization, extensions, and visual builders all
+consume those contracts. Running five implementation lanes now would create
+waiting and rework, not useful parallelism.
 
-Verification:
-- `npm run typecheck`
-- `npm run config:validate`
-- focused package install tests
+This iteration uses:
 
-Files likely touched:
-- `packages/shared/contracts/native-capabilities.ts`
-- `packages/shared/contracts/native-capability-kinds.ts`
-- `packages/shared/contracts/package-install.ts`
-- `tests/domain/package-install.test.ts`
+- one critical-path GPT-5.4 runtime worker;
+- one independent GPT-5.4 evidence worker during Wave 0 only;
+- one GPT-5.4 coordinator;
+- two isolated worktrees;
+- one compact coordinator check every 15 minutes.
 
-Estimated scope: M
+No additional strategy document is created during this iteration.
 
-### Task 2: Capability Test App Skeleton
-Create one package-source fixture that grows with every capability slice.
+## Current Blockers
 
-Acceptance criteria:
-- Capability Lab fixture compiles as a package.
-- It declares optional file/deep-link/planned speech capabilities.
-- It includes matrix and permission widgets as the release-smoke home.
+### Gate -1A: Dirty-tree provenance
 
-Verification:
-- `npm run check:package-compiler`
-- focused package compiler tests
+The current checkout contains tracked scorecard edits and 51 untracked app
+directories: 50 matrix-backed adversarial entries plus a separate Workout Logger
+proof seed. Before any worker starts, record:
 
-Files likely touched:
-- `tests/fixtures/package-source/capability-lab/**`
-- `tests/fixtures/package-source/manifest.json`
+- branch and HEAD;
+- `git status --short`;
+- tracked diff summary;
+- untracked app inventory;
+- which paths are user work, generated fixtures, or disposable output.
 
-Estimated scope: S
+Do not stash, delete, stage, commit, or move this work without user approval.
 
-### Task 3: Normalize Capability Permissions
-Expand permission declarations beyond camera/photos/share/health/audio.
+Recommended decision:
 
-Acceptance criteria:
-- Supported permissions include microphone, notifications, location, contacts, calendar, biometrics, file access, speech, sensors where applicable.
-- Unsafe permissions still fail closed.
-- Permission card renders declared capability permissions consistently.
+- relocate all 50 matrix-backed adversarial app directories to
+  `tests/fixtures/adversarial-apps/`;
+- preserve every JSON file unchanged;
+- delete no app content;
+- stop the product scorecard from counting these fixtures;
+- keep `apps/workout-logger/` as an unproven Wave 3 proof seed, excluded from
+  proven-app counts until Wave 3 passes;
+- preserve proven bundled apps under `apps/`;
+- leave any path that is not generated by the adversarial materializer untouched.
 
-Verification:
-- `npm run check:native-capability-contract`
-- `npm run typecheck`
-
-Files likely touched:
-- `packages/shared/contracts/native-capabilities.ts`
-- `scripts/quality/check-native-capability-contract.mjs`
-- `src/presentation/json-render-widgets.tsx`
+The user can approve or reject this recommendation as one decision. No relocation
+occurs before approval.
 
-Estimated scope: M
+### Gate -1B: Scope authorization
 
-## Phase 2: macOS Generic Runtime
+Current `AGENTS.md` forbids Expo UI edits. Expense Splitter, Workout Logger, and
+the pantry spike require generic renderer work.
+
+Implementation stops until the user explicitly authorizes and persists a scope
+amendment covering:
 
-### Task 4: Generic Mac JSON Renderer
-Replace hard-coded Mac package screens with a renderer that can display package surfaces/components from bundled JSON.
+- generic Expo renderer primitives;
+- package expression presentation;
+- `stepFlow` and `durationTimer`;
+- focused presentation tests.
 
-Acceptance criteria:
-- Calculator and Audio Loop render from package JSON.
-- Unknown widgets show a capability-aware install/runtime message.
-- Food is not default; app picker remains default.
+`packages/domain-shared` remains forbidden unless separately approved. Secrets,
+tokens, signing keys, and device identifiers must never be logged or committed.
 
-Verification:
-- `npx tsc --noEmit` in `macos`
-- `npm run macos:build`
-- screenshot proof from `/Applications/UtopiaMac.app`
+## Worktree Topology
 
-Files likely touched:
-- `macos/App.tsx`
-- `macos/app-packages/*.json`
+After both gates:
 
-Estimated scope: L, split if needed
+| Role | Branch | Worktree | Scope |
+|---|---|---|---|
+| Integration | `codex/utopia-proof-integration` | `../utopia-wt/integration` | review and integration only |
+| Runtime | `codex/utopia-proof-runtime` | `../utopia-wt/runtime` | pantry, expressions, flows, timers |
+| Evidence | `codex/utopia-proof-evidence` | `../utopia-wt/evidence` | Wave 0 cleanup, scorecard, regression gates |
 
-### Task 5: Mac Capability Bridge Registry
-Create one Mac native bridge registry instead of ad hoc modules.
+Rules:
 
-Acceptance criteria:
-- Audio, file picker, share, open URL, and future modules expose one typed JS boundary.
-- Missing native modules report structured errors.
-- Existing Audio Loop uses the registry.
+- All worktrees start from one approved baseline commit.
+- Workers do not edit the main checkout.
+- Workers do not merge, rebase, push, or edit another worktree.
+- Runtime owns shared UI/expression/flow contracts during this iteration.
+- Evidence never edits runtime behavior to make a gate pass.
+- The coordinator cherry-picks only reviewed local commits.
+- No push occurs unless the user explicitly requests it.
 
-Verification:
-- `npx tsc --noEmit` in `macos`
-- `npm run macos:build`
-
-Files likely touched:
-- `macos/App.tsx`
-- `macos/macos/UtopiaMac-macOS/*`
+## Four-Week Sequence and Validation Week
 
-Estimated scope: M
+```text
+Week 1
+  Wave -1 gates
+  Wave 0 truth cleanup          [Evidence worker]
+  Wave 1 pantry spike           [Runtime worker, two days]
+
+Weeks 2-3
+  Wave 2 expression layer
+  Expense Splitter proof
+
+Week 4
+  Wave 3 flow and timer runtime
+  Workout Logger proof
+
+Week 5, when needed
+  Second unrelated timed-flow app
+  n=2 flow-contract validation
+
+End
+  integrate
+  run gates
+  classify outcomes
+  reassess downstream roadmap
+```
+
+Only Wave 0 and Wave 1 may run in parallel. Wave 2, Wave 3, and the validation
+week are sequential.
+
+## Wave 0: Restore Repository Truth
+
+### Owner
 
-## Phase 3: Files And Media
+Evidence worker.
 
-### Task 6: Generic File Picker/Open/Save
-Add a package-declared file capability for importing/exporting documents.
+### Tasks
 
-Progress:
-- Expo `filePicker` widget now picks local files by MIME type, renders file metadata, and keeps selection local-only.
-- Expo `fileExport` widget now writes local text content and uses download/share paths where available.
-- Capability Lab includes the widget and compiler coverage.
-- Mac native bridge now supports generic file pick and text-file save dialogs for JSON packages.
+1. Make `npm run check:sync-merge` pass or record the exact real blocker.
+2. After user approval, relocate adversarial stubs from `apps/` to a fixture
+   namespace.
+3. Classify every remaining entry as:
+   - `proven`;
+   - `reference`;
+   - `fixture`;
+   - `probe`;
+   - `expected-boundary`.
+4. Make the scorecard count only `proven` bundled apps as products.
+5. Ratchet:
+   - package-only app count;
+   - domain-named widget references;
+   - specialized runtime widgets;
+   - per-app runtime delta.
+6. Move the 211 KB `CODEBASE_FILE_BY_FILE_REVIEW.md` out of active root
+   documentation into an approved archive location without losing history.
+7. Preserve Habit Grid and Audio Loop as named regression sentinels.
 
-Acceptance criteria:
-- JSON apps can request file pick by MIME type.
-- Web/iOS/Android/macOS can pick files.
-- Export/share path works for generated files.
+### Acceptance
 
-Verification:
-- `npm run typecheck`
-- `npm run export:web`
-- `npm run export:ios`
-- `npm run export:android`
-- `npm run macos:build`
+- Generated fixtures cannot inflate bundled-app counts.
+- Expected-boundary probes explain their missing capability.
+- `apps/` contains only deliberate bundled or reference apps.
+- Scorecard baselines match the actual tree.
+- `check:sync-merge`, scorecard checks, and `git diff --check` pass.
+- If `check:sync-merge` cannot run, the result is `BLOCKED`, not `PASS`.
+- A blocked sync check receives a named Evidence-worker follow-up task, exact
+  reproducer, and revisit checkpoint after Wave 2. It cannot become an ownerless
+  permanent exception.
 
-Files likely touched:
-- `src/presentation/json-render-widgets.tsx`
-- `packages/shared/contracts/native-capabilities.ts`
-- `macos/macos/UtopiaMac-macOS/*`
+### Stop conditions
 
-Estimated scope: M
+- User has not approved moving untracked apps.
+- Cleanup would delete user-authored work.
+- A scorecard change hides rather than classifies a failure.
 
-### Task 7: Video Player And Capture
-Add video playback and optional video capture.
+## Wave 1: Two-Day Generic Pantry Spike
 
-Progress:
-- Added `expo-video` and a declarative `videoPlayer` widget with native controls.
-- Widget can play package/local URI sources and choose or record videos through Expo Image Picker.
-- Capability Lab declares the widget plus optional camera/media-library capabilities.
-- macOS has a native pick/open bridge that launches the selected video in the system player.
+### Owner
 
-Acceptance criteria:
-- JSON app can render video player for local/remote source.
-- Video capture is gated by camera/mic permissions.
-- Unsupported source types are blocked with clear validation.
+Runtime worker.
 
-Verification:
-- platform exports
-- focused widget test
-- macOS build
+### Time box
 
-Files likely touched:
-- `package.json`
-- `app.json`
-- `src/presentation/json-render-widgets.tsx`
-- `packages/shared/contracts/ui-widgets.ts`
-- `macos/*`
+Two working days. Stop when the time box expires.
 
-Estimated scope: L
+### Question
 
-### Task 8: Camera Scanner
-Add barcode/QR/document scanning as a native widget.
+Can one Food pantry screen be composed from generic primitives without preserving
+Food assumptions under renamed types?
 
-Progress:
-- Added `cameraScanner` widget using Expo Camera barcode scanning.
-- Capability Lab declares camera scanner coverage.
+### Allowed work
 
-Acceptance criteria:
-- JSON can declare scanner mode: qr, barcode, document.
-- Permission preview shows camera requirement.
-- Results return to package-defined action/record flow.
+- generic list/grid composition;
+- grouping and sorting;
+- status and progress display;
+- media;
+- generic actions;
+- bounded renderer extraction needed for the spike;
+- focused presentation tests.
 
-Verification:
-- platform exports
-- Android/iOS native smoke where available
+### Forbidden work
 
-Estimated scope: L
+- new Food-named widgets or props;
+- renaming `pantryShelf` while retaining pantry-shaped behavior;
+- introducing a nominally generic primitive whose props encode pantry behavior,
+  such as expiry highlighting, use-first ordering, or shelf zones;
+- broad renderer rewrite;
+- weakening the generalization ratchet;
+- degrading the Food screen and calling it generalized.
 
-## Phase 4: Location, Maps, Sensors
+### Acceptance
 
-### Task 9: Location And Map Runtime
-Upgrade `mapBlock` from display-only to real maps/location.
+- The same composition represents one unrelated inventory or collection screen.
+- Every primitive introduced by the spike is demonstrated on that unrelated
+  screen during the same two-day spike. A promise of later reuse does not count.
+- Before/after domain-reference counts are recorded.
+- Food source round-trip remains exact.
+- Habit Grid remains package-only.
+- Audio Loop remains functional.
 
-Progress:
-- Added `locationMap` widget with foreground location request and system map open path.
+### Required outcome
 
-Acceptance criteria:
-- JSON apps can show coordinates, request current location, and pick/search a place where supported.
-- Permission preview shows location permission.
-- macOS/web have usable map fallback or supported map renderer.
+Classify the spike:
 
-Verification:
-- `npm run typecheck`
-- platform exports
-- focused map/location tests
+- `PASS`: generic composition is credible;
+- `REVISE`: a bounded primitive redesign is justified;
+- `EXTENSION`: the irreducible behavior belongs behind a signed extension;
+- `BOUNDARY`: Utopia does not claim this interaction class;
+- `ABANDON`: revert the spike.
 
-Estimated scope: L
+No ambiguous success.
 
-### Task 10: Sensors Capability
-Add optional sensor widgets for motion/orientation/light where available.
+## Wave 2: Deterministic Expressions
 
-Progress:
-- Added `sensorReadout` widget for accelerometer, gyroscope, and magnetometer samples.
+### Owner
 
-Acceptance criteria:
-- JSON declares sensor type and sampling mode.
-- Unsupported platforms are blocked before install or show non-recording preview.
-- Battery/permission constraints are visible.
+Runtime worker after Wave 1 classification.
 
-Verification:
-- platform exports
-- capability matrix tests
+### Goal
 
-Estimated scope: M
+Expense Splitter computes real balances and settlements using generic package
+semantics, with zero expense-specific widgets or runtime modules.
 
-## Phase 5: System Services
+### First artifact: shared fixture corpus
 
-### Task 11: Notifications, Timers, Background
-Add local notifications, keep-awake/session timer, and background task primitives.
+Before implementing the evaluator, create a canonical JSON fixture corpus used
+unchanged by client and server tests.
 
-Progress:
-- Added `notificationScheduler` widget for reviewed local notification scheduling/cancel.
-- Added Expo notifications/task-manager capability declarations.
+The corpus defines:
 
-Acceptance criteria:
-- JSON apps can schedule/cancel local notifications.
-- Audio Loop can optionally notify on completion.
-- Background support is platform-scoped and accurately previewed.
+- decimal inputs and canonical decimal-string outputs;
+- rounding mode and precision;
+- null, missing-field, and invalid-type behavior;
+- ordering and tie-breaking;
+- aggregate accumulation order;
+- relation traversal;
+- allocation examples;
+- exceeded-budget and cycle errors;
+- canonical serialization.
 
-Verification:
-- platform exports
-- permission contract tests
-- native smoke where possible
+Client and server equivalence means byte-for-byte equality of canonical fixture
+results. Locale-specific UI formatting is tested separately and is not part of
+the evaluator result.
 
-Estimated scope: L
+### Contract
 
-### Task 12: Contacts And Calendar
-Add contact picker and calendar/reminder event creation.
+Implement the smallest bounded expression/query model discovered by building the
+app. Candidate operations:
 
-Progress:
-- Added `contactPicker` widget using one-contact picker, not bulk import.
-- Added `calendarEvent` widget for one reviewed local calendar event.
+- field and relation references;
+- arithmetic and comparison;
+- conditionals;
+- grouping;
+- sum, count, min, and max;
+- sorting;
+- bounded allocation/reduction required for matching debtors and creditors;
+- deterministic formatting.
 
-Acceptance criteria:
-- JSON apps can pick contacts without bulk leaking data.
-- JSON apps can propose calendar/reminder writes before execution.
-- Permissions and write operations are review-gated.
+Explicitly forbidden:
 
-Verification:
-- typecheck
-- platform exports
-- package install safety tests
+- arbitrary JavaScript;
+- network, native, clock, randomness, or filesystem access;
+- unbounded recursion or iteration;
+- dynamic property execution;
+- `settlementCalculator`;
+- expense-named runtime operations.
 
-Estimated scope: L
+### Safety budgets
 
-### Task 13: Biometrics And Secure Actions
-Add Face ID/Touch ID/local auth capability.
+Define and test:
 
-Progress:
-- Added `biometricGate` widget using Expo Local Authentication.
+- maximum expression depth;
+- maximum traversed records and relations;
+- maximum operation count;
+- cycle handling;
+- numeric limits;
+- deterministic structured errors.
 
-Acceptance criteria:
-- JSON apps can require local auth before sensitive action.
-- SecureStore-backed settings remain separate from package secrets.
-- macOS uses local authentication where available.
+### Proof apps
 
-Verification:
-- typecheck
-- platform exports
-- auth fallback tests
+1. Expense Splitter:
+   - records participants, expenses, payers, and shares;
+   - computes each participant's paid, owed, and net balance;
+   - produces a deterministic valid settlement plan;
+   - updates when source records change.
+2. Split Rent:
+   - reuses the same arithmetic/allocation primitives;
+   - performs weighted allocation by room size and income.
 
-Estimated scope: M
+### Acceptance
 
-## Phase 6: Health And Voice
+- Both apps are package-only.
+- No app-named renderer, evaluator, or widget is added.
+- Invalid types, missing fields, cycles, divide-by-zero, and exceeded budgets fail
+  predictably.
+- Client and server results are byte-for-byte equivalent for shared fixtures.
+- Existing package versions still compile.
+- Habit Grid and Audio Loop regressions pass.
 
-### Task 14: Apple Health
-Add iOS Apple Health parity for Health Connect-backed package flows.
+### Rollback
 
-Progress:
-- Added `healthKitStatus` package widget as an honest iOS bridge/entitlement placeholder.
-- Live Apple Health reads remain blocked on native HealthKit entitlement and module choice.
+- `REVISE` if the model cannot express both proof apps without special cases.
+- `EXTENSION` if bounded deterministic allocation is unsuitable for Level 0.
+- `BOUNDARY` if the platform cannot honestly claim derived relational apps.
+- Revert unused contract surface before proceeding.
 
-Acceptance criteria:
-- Health capability matrix distinguishes Android Health Connect and iOS HealthKit.
-- Food/health package views can read supported Apple Health metrics.
-- Permission preview is platform-specific.
+Wave 3 does not start until this wave is integrated and green.
 
-Verification:
-- iOS export/build
-- health contract tests
+## Wave 3: Persisted Flows and Timers
 
-Estimated scope: L
+### Owner
 
-### Task 15: Speech
-Add speech-to-text and text-to-speech primitives.
+Runtime worker.
 
-Progress:
-- Added `speechTool` widget using Expo Speech text-to-speech.
-- Speech-to-text remains a planned native permission path.
+### Goal
 
-Acceptance criteria:
-- JSON apps can dictate text into fields/actions.
-- JSON apps can speak text content.
-- Mic/speech permissions are declared and previewed.
+Workout Logger executes a multi-step workout and survives backgrounding, process
+death, device restart, and clock changes without a workout-specific runtime.
 
-Verification:
-- platform exports
-- capability tests
+### Flow contract
 
-Estimated scope: L
+Support:
 
-## Phase 7: Polish And Release Gate
+- ordered steps;
+- explicit transitions;
+- persisted cursor and step state;
+- pause, resume, cancel, retry, and complete;
+- reviewed actions;
+- idempotent transition receipts;
+- explicit confirmation checkpoints.
 
-### Task 16: Cross-Platform Capability Test App
-Promote the Capability Lab fixture into a bundled JSON app that exercises all non-payment capabilities.
+Do not expose arbitrary XState execution. Compatibility adapters are downstream
+work after this bounded contract passes.
 
-Acceptance criteria:
-- One app shows every capability with pass/fail state.
-- Works as a release smoke test.
-- Every unsupported platform state is intentional and documented.
+### Timer policy
 
-Verification:
-- `npm run typecheck`
-- `npm run config:validate`
-- `npm run doctor`
-- `npm run export:web`
-- `npm run export:ios`
-- `npm run export:android`
-- `npm run macos:build`
+- Persist UTC deadline, duration, session state, and last transition.
+- Use monotonic time while the process is alive.
+- Reconcile from UTC after restart.
+- If a 90-second rest expires during a four-hour absence, mark it elapsed and
+  resume at an explicit "rest completed while away" checkpoint.
+- Never auto-run unseen later steps.
+- Detect clock rollback and implausible forward jumps.
+- Use UTC instants so DST does not alter deadlines.
+- Require confirmation when elapsed-time integrity is uncertain.
 
-Estimated scope: M
+### Test scenarios
 
-## Checkpoints
+1. Background and foreground during an active timer.
+2. Process kill before timer expiry.
+3. Process kill followed by reopening four hours later.
+4. Device restart.
+5. Manual clock rollback.
+6. Large clock jump forward.
+7. DST boundary.
+8. Cancel and retry race.
+9. Duplicate resume request.
+10. App update with an active session.
 
-### Checkpoint A: Contract Safe
-- Capability matrix exists.
-- Install preview blocks unsupported capabilities.
-- Existing apps still install.
+### Week 4 proof app
 
-### Checkpoint B: Mac Real Runtime
-- Mac can render generic JSON app surfaces.
-- Calculator and Audio Loop still work.
+Workout Logger:
 
-### Checkpoint C: Core Device IO
-- Files, media, camera scanner, maps/location work across target platforms.
+- multi-step workout;
+- work/rest intervals;
+- persisted progress;
+- explicit resume after absence.
 
-### Checkpoint D: System Services
-- Notifications, contacts/calendar, biometrics, health, speech are integrated and gated.
+Workout Logger is the Week 4 acceptance target. The contract is not called
+generally validated from this single app.
 
-### Checkpoint E: Release Proof
-- Capability test app passes all configured platform gates.
+### Week 5 validation app
 
-## Risks And Mitigations
+Build one non-fitness flow, such as cooking, meditation, or physiotherapy, that
+reuses the same flow and timer contracts without adding new runtime semantics.
 
-| Risk | Impact | Mitigation |
+### Acceptance
+
+- Workout Logger is package-only.
+- No `workoutTimer` or fitness-named runtime module exists.
+- All ten scenarios have deterministic tests.
+- Transition writes and receipts are idempotent.
+- Existing workflow resume/cancel tests remain green.
+- Habit Grid, Audio Loop, Expense Splitter, and Food round-trip regressions pass.
+
+Week 5 validation acceptance:
+
+- the unrelated flow app is package-only;
+- no new timer or flow semantic is needed solely for it;
+- if it exposes a missing generic semantic, classify the contract `REVISE` rather
+  than claiming n=2 validation.
+
+### Rollback
+
+- `REVISE` if process-death semantics are ambiguous.
+- `EXTENSION` if sub-second precision is required outside Level 1 guarantees.
+- `BOUNDARY` if the runtime cannot safely promise long-lived timed flows.
+- Do not silently weaken restart behavior to pass tests.
+
+## Real Parallelism
+
+| Work | Parallel? | Reason |
 |---|---|---|
-| macOS Expo parity is limited | High | Keep explicit React Native macOS native bridge registry. |
-| Platform APIs differ deeply | High | Capability matrix drives install compatibility per platform. |
-| Permissions become too broad | High | Fail closed and require per-capability allowlist/tests. |
-| Background behavior varies | Medium | Mark background support per platform and test foreground path separately. |
-| Capability widgets sprawl | Medium | One typed runtime adapter boundary, JSON config only. |
+| Wave 0 evidence cleanup and Wave 1 pantry spike | Yes | Disjoint paths and semantics |
+| Expression implementation and authoring UI | No | Editor would target a moving contract |
+| Expression implementation and capability broker | No | Broker action/result semantics may consume expression outputs |
+| Flow implementation and sync product work | No | Persisted lifecycle semantics are not stable |
+| Runtime worker and coordinator review | Yes | Review does not modify worker files |
+| Focused regression execution | Yes, after a commit | Read-only evidence |
 
-## Open Questions
-- Should unsupported platform capability block install, or allow install with disabled widget?
-- Should each capability be a widget, an action, or both?
-- Which platform is release-critical first after Mac: iPhone physical device or Android physical device?
+No four- or five-worker implementation fan-out occurs during this iteration.
+
+## Fifteen-Minute Coordinator Loop
+
+Every 15 minutes while a worker is active:
+
+1. Read compact status using the latest cursor.
+2. Check new commits, current diff summary, running tests, and blockers.
+3. Do not interrupt work that is progressing.
+4. Do not duplicate the worker's implementation.
+5. Inspect completed commits before integration.
+6. Run only relevant focused checks, not the full suite.
+7. Notify the user only for:
+   - a newly failed gate;
+   - a completed wave;
+   - a scope or dirty-tree conflict;
+   - a required product decision;
+   - external evidence requiring hardware, credentials, or approval.
+
+Stagnation:
+
+- one unchanged loop: no action;
+- two unchanged loops: request a short status;
+- three unchanged loops: preserve the diff, stop, and split or reassign;
+- repeated failure: reduce to the smallest reproducer.
+
+The monitor is deleted after the iteration completes or becomes blocked.
+
+## Integration Protocol
+
+For every local worker commit:
+
+1. Inspect full diff and changed paths.
+2. Reject forbidden files, unrelated cleanup, secrets, and generated churn.
+3. Run focused tests in the worker worktree.
+4. Cherry-pick into the integration worktree.
+5. Run shared regressions.
+6. Record one outcome:
+   - `PASS`;
+   - `REVISE`;
+   - `EXTENSION`;
+   - `BOUNDARY`;
+   - `ABANDON`;
+   - `BLOCKED`.
+7. Never push, merge to main, or squash without user instruction.
+
+## Required Checks
+
+Wave 0:
+
+```bash
+npm run check:sync-merge
+npm run check:platform-generalization
+npm run check:adversarial-app-matrix
+npm run config:validate
+git diff --check
+```
+
+Waves 1-3:
+
+```bash
+npm run check:schema-registry
+npm run check:package-compiler
+npm run check:food-source-roundtrip
+npm run check:platform-generalization
+npm run config:validate
+npm run typecheck
+npm run doctor
+npm run export:web
+npm run export:android
+npm run phase3:check:chat-send
+npm run phase3:check:chat-rollback-idempotency
+git diff --check
+```
+
+Focused tests for the new expression, flow, timer, and presentation contracts are
+mandatory in addition to these commands.
+
+A command that cannot execute because dependencies, hardware, credentials, or
+services are unavailable is `BLOCKED`, not passing.
+
+## Definition of Done
+
+The four-week primary iteration ends when:
+
+- dirty-tree provenance and UI scope are resolved;
+- repository app/fixture counts are honest;
+- `check:sync-merge` passes or has a real classified blocker;
+- pantry composition has an explicit outcome;
+- Expense Splitter and Split Rent are package-only;
+- Workout Logger is package-only and all restart scenarios pass;
+- no expense-, workout-, or Food-specific primitive was introduced;
+- Habit Grid and Audio Loop remain green;
+- required checks pass;
+- the integration diff is reviewed;
+- residual work is reassessed from working contracts, not speculation.
+
+General flow validation ends after Week 5 when one unrelated timed-flow app is
+also package-only without app-specific runtime semantics.
+
+## Parked Until Reassessment
+
+Do not start these during this iteration:
+
+- capability broker migration;
+- signed extension ABI;
+- App Library lifecycle expansion;
+- schema-driven or visual builder;
+- self-hosted package editor;
+- per-app data-home UX;
+- provider OAuth;
+- PowerSync/Electric comparison;
+- multi-device shared app;
+- shared workspace collections with per-installation grants;
+- broad CI restructuring;
+- cross-platform release closure.
+
+These remain roadmap candidates. Expense Splitter and Workout Logger determine
+their actual interfaces and priority.
+
+### Shared Workspace Collections Parking Note
+
+North-star: Utopia apps become lenses over one personal operating database, not
+isolated mini-databases forever.
+
+Do not build this in the current iteration. Park it until these contracts are
+proven:
+
+- package computation and cross-collection query scope;
+- persisted flow/runtime restart behavior;
+- capability broker enforcement and audit trail;
+- data-home policy;
+- sync, roles, revocation, and offline stale-grant semantics.
+
+Target model:
+
+- one workspace database;
+- app-private collections remain scoped by installation;
+- small frozen shared core starts with `people`, `events`, `media`, and `tags`;
+- domain-shaped data such as meals, workouts, and body metrics starts as
+  namespaced extensions until independent apps prove a shared schema;
+- package installs request table-level grants: `read`, `append`, `own-writes`,
+  or `write`;
+- grants are enforced at the DB/store layer, not only renderer or query layer;
+- uninstall deletes app-private data only; shared data survives unless the user
+  separately deletes it.
+
+First proof after blockers clear:
+
+- Food writes meal-like data through an approved shared/extension grant.
+- Workout Logger writes workout-like data through an approved shared/extension
+  grant.
+- A dashboard reads both through explicit grants and no broad database access.

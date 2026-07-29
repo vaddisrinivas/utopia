@@ -26,6 +26,7 @@ This document defines the shared release flow and the evidence folders that back
 
 - `npm run config:validate`
 - `npm run typecheck`
+- `npm test`
 - `npm run doctor`
 - `npm run phase3:check:chat-send`
 - `npm run phase3:check:chat-rollback-idempotency`
@@ -49,6 +50,8 @@ This document defines the shared release flow and the evidence folders that back
   - `app/build/evidence/cross-platform-behavior-parity.json`
 - Signed release proof: `npm run release:proof:signed-android`
 - Signed release rule: this gate must fail until the APK is release-signed and the AAB is signed. Debug signing is not release proof.
+- Signed artifact receipt requirement: missing or stale `app/build/evidence/android-release-build-receipt.json` must block this gate with an explicit remediation to run `BUILD_RELEASE_ARTIFACTS=1 npm run release:proof:signed-android`.
+- Signed gate scope: both `app/build/evidence/android-release-artifacts.json` and `app/build/evidence/android-release-build-receipt.json` must be referenced and validated together; missing or stale evidence blocks release proof.
 
 ### iOS
 
@@ -71,6 +74,9 @@ This document defines the shared release flow and the evidence folders that back
   - app launch verified;
   - basic flow verified;
   - evidence matches the current git head/tree/dirty hash.
+  - physical-device evidence checked_at is recent (default max 24h, override with `PHYSICAL_DEVICE_PROOF_MAX_AGE_HOURS`) and not older than the linked Android artifact evidence checked_at.
+  - evidence may be refreshed only after real hardware execution; simulators/emulators are not accepted.
+  - `physical-device-release.json` must include linked `artifact_evidence.source_path` and `artifact_evidence.source_checked_at` for provenance.
 - Forbidden evidence: raw device serials, tokens, API keys, signing passwords.
 - Blocker rule: if this evidence is missing, stale, failed, or writes a raw device serial, physical release proof is blocked.
 

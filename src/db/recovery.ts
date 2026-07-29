@@ -26,6 +26,7 @@ const RECOVERY_TABLES = [
   'app_package_state',
   'app_installation_package_state',
   'app_package_receipts',
+  'package_migration_journal',
   'undo_events',
   'workflow_runs',
   'agent_runs',

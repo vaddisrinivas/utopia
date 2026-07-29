@@ -1,0 +1,259 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "workout-logger",
+  "version": "1.0.0",
+  "collections": {
+    "workout_template": {
+      "id": "workout_template",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "focus": { "type": "text", "indexed": true },
+        "estimated_minutes": { "type": "number", "indexed": true },
+        "status": { "type": "text", "indexed": true }
+      }
+    },
+    "workout_session": {
+      "id": "workout_session",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "template_id": { "type": "text", "indexed": true },
+        "status": { "type": "text", "indexed": true },
+        "started_at": { "type": "timestamp", "indexed": true },
+        "finished_at": { "type": "timestamp", "indexed": true },
+        "rating": { "type": "number" },
+        "notes": { "type": "text" }
+      }
+    },
+    "workout_step": {
+      "id": "workout_step",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "template_id": { "type": "text", "indexed": true },
+        "session_id": { "type": "text", "indexed": true },
+        "sequence": { "type": "number", "indexed": true },
+        "work_seconds": { "type": "number" },
+        "rest_seconds": { "type": "number" },
+        "status": { "type": "text", "indexed": true }
+      }
+    },
+    "set_log": {
+      "id": "set_log",
+      "fields": {
+        "id": { "type": "text", "required": true, "indexed": true },
+        "title": { "type": "text", "required": true, "indexed": true },
+        "collection": { "type": "text", "required": true, "indexed": true },
+        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
+        "properties": { "type": "json", "required": true },
+        "session_id": { "type": "text", "indexed": true },
+        "step_id": { "type": "text", "indexed": true },
+        "reps": { "type": "number", "indexed": true },
+        "weight": { "type": "number", "indexed": true },
+        "duration_seconds": { "type": "number" },
+        "status": { "type": "text", "indexed": true },
+        "notes": { "type": "text" }
+      }
+    }
+  },
+  "queries": {
+    "active-sessions": {
+      "from": "workout_session",
+      "where": { "field": "status", "op": "eq", "value": "active" },
+      "orderBy": [{ "field": "started_at", "direction": "desc" }],
+      "limit": 10
+    },
+    "steps": {
+      "from": "workout_step",
+      "orderBy": [{ "field": "sequence", "direction": "asc" }],
+      "limit": 100
+    },
+    "sets": {
+      "from": "set_log",
+      "orderBy": [{ "field": "updated_at", "direction": "desc" }],
+      "limit": 100
+    },
+    "finished-sessions": {
+      "from": "workout_session",
+      "where": { "field": "status", "op": "eq", "value": "finished" },
+      "orderBy": [{ "field": "finished_at", "direction": "desc" }],
+      "limit": 30
+    }
+  },
+  "views": {
+    "active": {
+      "id": "active",
+      "query": "active-sessions",
+      "mode": "list",
+      "fields": ["title", "template_id", "status", "started_at", "rating"]
+    },
+    "steps": {
+      "id": "steps",
+      "query": "steps",
+      "mode": "timeline",
+      "fields": ["title", "sequence", "work_seconds", "rest_seconds", "planned_seconds", "status"]
+    },
+    "sets": {
+      "id": "sets",
+      "query": "sets",
+      "mode": "table",
+      "fields": ["title", "reps", "weight", "duration_seconds", "volume", "status"]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "planned_seconds",
+      "collection": "workout_step",
+      "dependsOn": [],
+      "expression": { "+": [{ "var": "record.work_seconds" }, { "var": "record.rest_seconds" }] }
+    },
+    {
+      "id": "volume",
+      "collection": "set_log",
+      "dependsOn": [],
+      "expression": { "*": [{ "var": "record.reps" }, { "var": "record.weight" }] }
+    }
+  ],
+  "rules": [
+    {
+      "id": "review-new-active-session",
+      "trigger": { "kind": "query_transition", "query": "active-sessions", "transition": "enter" },
+      "when": { ">": [{ "var": "query.after.total" }, { "var": "query.before.total" }] },
+      "effect": { "kind": "propose_operation", "operation": "review_workout_flow" },
+      "mode": "suggest",
+      "maxRunsPerEvent": 2
+    }
+  ],
+  "capabilities": [],
+  "acceptanceTests": ["adversarial-flow-state"],
+  "presentation": {
+    "label": "Workout Logger",
+    "homeSurface": "home",
+    "surfaces": [
+      { "id": "home", "label": "Session", "collections": ["workout_template", "workout_session", "workout_step", "set_log"], "views": ["active", "steps"] },
+      { "id": "sets", "label": "Sets", "collections": ["set_log"], "views": ["sets"] },
+      { "id": "history", "label": "History", "collections": ["workout_session"], "views": ["active"] }
+    ],
+    "visualIdentity": {
+      "accent": "#2F7448",
+      "canvas": "#F7FAF4",
+      "icon": "activity",
+      "tone": "moss"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Workout Logger",
+          "subtitle": "Tests multi-step plans, set logs, computed volume, and the timer-flow boundary.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Active Sessions",
+              "subtitle": "A session can be represented as records today.",
+              "query": { "collections": ["workout_session"], "match": "active", "limit": 5 },
+              "props": { "emptyText": "No active sessions.", "subtitleFields": ["template_id", "status", "started_at"] }
+            },
+            {
+              "kind": "widget",
+              "widget": "stepFlow",
+              "title": "Guided Workout",
+              "subtitle": "Package-authored timed steps run and persist through the kernel flow runtime.",
+              "props": {
+                "runId": "guided-workout",
+                "steps": [
+                  { "id": "warmup", "title": "Warm-up", "durationSeconds": 300 },
+                  { "id": "work", "title": "Work set", "durationSeconds": 45 },
+                  { "id": "rest", "title": "Rest", "durationSeconds": 30 },
+                  { "id": "log", "title": "Log set" }
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "durationTimer",
+              "title": "Recovery Timer",
+              "subtitle": "Single-step recovery timer for pause and breath control.",
+              "props": {
+                "runId": "recovery-timer",
+                "label": "Recovery",
+                "durationSeconds": 60
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "checklistCard",
+              "title": "Manual Flow",
+              "subtitle": "Useful for notes while the flow runs.",
+              "tone": "blue",
+              "props": {
+                "items": [
+                  { "label": "Start session record", "checked": true },
+                  { "label": "Complete current step", "checked": false },
+                  { "label": "Log set", "checked": false },
+                  { "label": "Finish session", "checked": false }
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Flow Boundary",
+              "subtitle": "This app is package-only and uses generic flow/timer widgets.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  { "key": "capability", "label": "Capability" },
+                  { "key": "status", "label": "Status" }
+                ],
+                "items": [
+                  { "capability": "Workout templates", "status": "Package-only records" },
+                  { "capability": "Set volume", "status": "Package-only computed field" },
+                  { "capability": "Step sequence", "status": "Package-only step flow runtime" },
+                  { "capability": "Running interval timer", "status": "Package-only duration timer" }
+                ]
+              }
+            }
+          ]
+        },
+        "sets": {
+          "title": "Sets",
+          "subtitle": "Set logs with computed volume.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Sets",
+              "subtitle": "Volume is reps times weight.",
+              "query": { "collections": ["set_log"], "limit": 30 },
+              "props": { "emptyText": "No sets logged.", "subtitleFields": ["reps", "weight", "volume", "status"] }
+            }
+          ]
+        },
+        "history": {
+          "title": "History",
+          "subtitle": "Finished workout sessions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Finished Sessions",
+              "subtitle": "Manual history until workflow/timer runtime exists.",
+              "query": { "collections": ["workout_session"], "match": "finished", "limit": 30 },
+              "props": { "emptyText": "No finished sessions.", "subtitleFields": ["finished_at", "rating", "notes"] }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

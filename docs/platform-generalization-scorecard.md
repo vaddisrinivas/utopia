@@ -22,21 +22,29 @@ npm run check:platform-generalization
 
 Current source scan:
 
-- 4 bundled apps
-- 1 package-only app
+- 8 proven/reference bundled apps
+- 5 package-only apps
 - 2 reusable runtime-capability apps
 - 1 domain-debt app
-- 9 domain-specific widget references
+- 8 domain-specific widget references
 - 3 specialized runtime widgets
+- 50 adversarial fixtures excluded from product counts
 
 | App | Classification | What it proves | Runtime debt |
 |---|---|---|---|
-| Food | domain-specific debt | Deep reference app and real data/workflow surface | Uses 9 Food-shaped widget references plus `healthConnect`; Food widgets must be generalized or isolated |
+| Food | domain-specific debt | Deep reference app and real data/workflow surface | Uses 8 Food-shaped widget references plus `healthConnect`; Food widgets must be generalized or isolated |
 | Scientific Calculator | reusable runtime capability | Non-Food tool app; not just CRUD | Uses `scientificCalculator` |
-| Audio Loop 108 | reusable runtime capability | Non-Food media/timer app | Uses `audioLoopPlayer` and native media capability |
+| Audio Loop | reusable runtime capability | Non-Food media/timer app | Uses `audioLoopPlayer` and native media capability |
 | Habit Grid | pure package | First package-only app; records, chart, checklist, and table with zero new widgets | No app-specific renderer work |
+| Expense Splitter | pure package | Grouped balances and deterministic minimized transfers | Shared expression kernel; no new widget |
+| Split Rent | pure package | Exact weighted allocation with stable remainder handling | Shared expression kernel; no new widget |
+| Workout Logger | pure package | Persisted multi-step timers and restart recovery | Generic `stepFlow` and `durationTimer`; no app-specific widget |
+| Focus Intervals | pure package | Second-domain interval cycle and persisted progression | Reuses `stepFlow` and `durationTimer`; no new runtime primitive |
 
-This is better than a one-app platform claim, but it does not prove “500 apps for free.” It proves Utopia can host different app shapes when the shell exposes the right reusable capability, and now has one useful package-only app as the next baseline.
+The adversarial fixtures are test inputs, not app proofs. Expense Splitter and
+Split Rent have separate bundled product proofs. Workout Logger passes the
+persisted flow/timer restart scenarios, and Focus Intervals provides the
+unrelated second-app validation.
 
 ## App Admission Rule
 

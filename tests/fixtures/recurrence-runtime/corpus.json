@@ -1,0 +1,186 @@
+{
+  "budget": {
+    "maxOccurrences": 6,
+    "maxIterations": 32,
+    "maxRuleEvaluations": 64,
+    "maxLookaheadDays": 1500,
+    "maxExclusions": 16,
+    "maxOverrides": 16
+  },
+  "nextCases": [
+    {
+      "id": "dst-gap-compatible",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2024-03-09T02:30:00-05:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "daily", "kind": "interval", "every": 1, "unit": "day" }
+        ]
+      },
+      "after": "2024-03-09T02:30:01-05:00",
+      "expected": {
+        "instant": "2024-03-10T07:30:00.000Z",
+        "local": "2024-03-10T03:30:00",
+        "offset": "-04:00"
+      }
+    },
+    {
+      "id": "dst-fold-compatible",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2024-11-02T01:30:00-04:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "daily", "kind": "interval", "every": 1, "unit": "day" }
+        ]
+      },
+      "after": "2024-11-02T01:30:01-04:00",
+      "expected": {
+        "instant": "2024-11-03T05:30:00.000Z",
+        "local": "2024-11-03T01:30:00",
+        "offset": "-04:00"
+      }
+    },
+    {
+      "id": "leap-day-yearly",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2024-02-29T08:00:00-05:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "leap-day", "kind": "interval", "every": 1, "unit": "year" }
+        ]
+      },
+      "after": "2025-01-01T00:00:00Z",
+      "expected": {
+        "instant": "2028-02-29T13:00:00.000Z",
+        "local": "2028-02-29T08:00:00",
+        "offset": "-05:00"
+      }
+    }
+  ],
+  "expandCases": [
+    {
+      "id": "monthday-expansion",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2026-07-01T08:00:00-04:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "semi-monthly", "kind": "monthday", "every": 1, "monthDays": [1, 15] }
+        ]
+      },
+      "after": "2026-07-01T07:59:59-04:00",
+      "limit": 4,
+      "expectedInstants": [
+        "2026-07-01T12:00:00.000Z",
+        "2026-07-15T12:00:00.000Z",
+        "2026-08-01T12:00:00.000Z",
+        "2026-08-15T12:00:00.000Z"
+      ]
+    },
+    {
+      "id": "weekday-expansion",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2026-07-29T07:30:00-04:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "study-days", "kind": "weekday", "every": 1, "weekdays": ["mon", "wed", "fri"] }
+        ]
+      },
+      "after": "2026-07-29T07:30:01-04:00",
+      "limit": 4,
+      "expectedInstants": [
+        "2026-07-31T11:30:00.000Z",
+        "2026-08-03T11:30:00.000Z",
+        "2026-08-05T11:30:00.000Z",
+        "2026-08-07T11:30:00.000Z"
+      ]
+    },
+    {
+      "id": "exclusions-and-overrides",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2026-07-01T09:00:00-04:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "daily-bill", "kind": "interval", "every": 1, "unit": "day" }
+        ],
+        "exclusions": [
+          "2026-07-02T13:00:00.000Z"
+        ],
+        "overrides": [
+          {
+            "at": "2026-07-04T13:00:00.000Z",
+            "replaceWith": "2026-07-04T14:15:00.000Z"
+          }
+        ]
+      },
+      "after": "2026-07-01T00:00:00Z",
+      "limit": 4,
+      "expectedInstants": [
+        "2026-07-01T13:00:00.000Z",
+        "2026-07-03T13:00:00.000Z",
+        "2026-07-04T14:15:00.000Z",
+        "2026-07-05T13:00:00.000Z"
+      ]
+    },
+    {
+      "id": "budget-refusal",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2026-07-01T09:00:00-04:00",
+        "dstPolicy": "compatible",
+        "rules": [
+          { "id": "daily-bill", "kind": "interval", "every": 1, "unit": "day" }
+        ]
+      },
+      "after": "2026-07-01T00:00:00Z",
+      "limit": 5,
+      "budget": {
+        "maxOccurrences": 2,
+        "maxIterations": 8,
+        "maxRuleEvaluations": 8,
+        "maxLookaheadDays": 30,
+        "maxExclusions": 4,
+        "maxOverrides": 4
+      },
+      "expectedRefusal": "recurrence_limit_exceeds_budget"
+    }
+  ],
+  "invalidCases": [
+    {
+      "id": "invalid-timezone",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "Mars/Phobos",
+        "anchor": "2026-07-01T09:00:00-04:00",
+        "rules": [
+          { "id": "daily-bill", "kind": "interval", "every": 1, "unit": "day" }
+        ]
+      },
+      "expected": "recurrence_timezone_invalid:Mars/Phobos"
+    },
+    {
+      "id": "invalid-interval",
+      "schedule": {
+        "schemaVersion": "utopia.recurrence.v1",
+        "timezone": "America/New_York",
+        "anchor": "2026-07-01T09:00:00-04:00",
+        "rules": [
+          { "id": "bad-rule", "kind": "interval", "every": 0, "unit": "day" }
+        ]
+      },
+      "expected": "recurrence_rule_invalid:bad-rule:every"
+    }
+  ]
+}

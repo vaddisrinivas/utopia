@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "wine-cellar-3d-bins",
+  "version": "1.0.0",
+  "collections": {
+    "wine_cellar_3d_bins_item": {
+      "id": "wine_cellar_3d_bins_item",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "priority": {
+          "type": "number",
+          "indexed": true
+        },
+        "owner": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "wine_cellar_3d_bins_event": {
+      "id": "wine_cellar_3d_bins_event",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "happened_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "value": {
+          "type": "number",
+          "indexed": true
+        },
+        "source": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    },
+    "wine_cellar_3d_bins_result": {
+      "id": "wine_cellar_3d_bins_result",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "score": {
+          "type": "number",
+          "indexed": true
+        },
+        "summary": {
+          "type": "text"
+        },
+        "missing_primitive": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "items": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "wine_cellar_3d_bins_item"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "events": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "wine_cellar_3d_bins_event"
+      },
+      "orderBy": [
+        {
+          "field": "happened_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "results": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "wine_cellar_3d_bins_result"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    }
+  },
+  "views": {
+    "items": {
+      "id": "items",
+      "query": "items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "status",
+        "priority",
+        "owner"
+      ]
+    },
+    "events": {
+      "id": "events",
+      "query": "events",
+      "mode": "table",
+      "fields": [
+        "title",
+        "happened_at",
+        "value",
+        "source",
+        "status"
+      ]
+    },
+    "results": {
+      "id": "results",
+      "query": "results",
+      "mode": "table",
+      "fields": [
+        "title",
+        "score",
+        "summary",
+        "missing_primitive",
+        "status"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "id": "review-new-test-event",
+      "trigger": {
+        "kind": "query_transition",
+        "query": "events",
+        "transition": "enter"
+      },
+      "when": {
+        ">": [
+          {
+            "var": "query.after.total"
+          },
+          {
+            "var": "query.before.total"
+          }
+        ]
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": "review_adversarial_fixture"
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [],
+  "acceptanceTests": [
+    "adversarial-42-weird_shape"
+  ],
+  "presentation": {
+    "label": "Wine cellar with 3D bin positions",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Probe",
+        "collections": [
+          "wine_cellar_3d_bins_item",
+          "wine_cellar_3d_bins_event",
+          "wine_cellar_3d_bins_result"
+        ],
+        "views": [
+          "items",
+          "results"
+        ]
+      },
+      {
+        "id": "events",
+        "label": "Events",
+        "collections": [
+          "wine_cellar_3d_bins_event"
+        ],
+        "views": [
+          "events"
+        ]
+      },
+      {
+        "id": "boundary",
+        "label": "Boundary",
+        "collections": [
+          "wine_cellar_3d_bins_result"
+        ],
+        "views": [
+          "results"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#0F766E",
+      "canvas": "#F3FBFA",
+      "icon": "grid",
+      "tone": "teal"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Wine cellar with 3D bin positions",
+          "subtitle": "Adversarial fixture #42: Spatial coordinates as first-class data.",
+          "components": [
+            {
+              "kind": "metric",
+              "title": "Runtime Axis",
+              "subtitle": "weird shape",
+              "query": {
+                "collections": [
+                  "wine_cellar_3d_bins_result"
+                ],
+                "limit": 20
+              },
+              "tone": "teal"
+            },
+            {
+              "kind": "recordList",
+              "title": "Fixture Items",
+              "subtitle": "Generic records prove the data shell can host the app shape.",
+              "query": {
+                "collections": [
+                  "wine_cellar_3d_bins_item"
+                ],
+                "limit": 20
+              },
+              "props": {
+                "emptyText": "No fixture items yet.",
+                "subtitleFields": [
+                  "status",
+                  "priority",
+                  "owner"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs spatial layout primitive instead of table/list only.",
+              "tone": "teal",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "weird shape"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "spatialGridView"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Partial fixture"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "events": {
+          "title": "Wine cellar with 3D bin positions Events",
+          "subtitle": "Event rows for imports, taps, scans, timers, edits, or generated transitions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Events",
+              "subtitle": "Newest first.",
+              "query": {
+                "collections": [
+                  "wine_cellar_3d_bins_event"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "emptyText": "No events yet.",
+                "subtitleFields": [
+                  "happened_at",
+                  "value",
+                  "source",
+                  "status"
+                ]
+              }
+            }
+          ]
+        },
+        "boundary": {
+          "title": "Boundary",
+          "subtitle": "What this JSON package proves and what the runtime still lacks.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs spatial layout primitive instead of table/list only.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "weird shape"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "spatialGridView"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Partial fixture"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

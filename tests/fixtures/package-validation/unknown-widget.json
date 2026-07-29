@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "reference-app",
+  "version": "1.0.0",
+  "collections": {
+    "tasks": {
+      "id": "tasks",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "tasks": {
+      "from": "tasks",
+      "limit": 10
+    }
+  },
+  "views": {
+    "tasks": {
+      "id": "tasks",
+      "query": "tasks",
+      "mode": "list",
+      "fields": [
+        "title"
+      ]
+    }
+  },
+  "presentation": {
+    "label": "Reference App",
+    "surfaces": [
+      {
+        "id": "tasks",
+        "label": "Tasks",
+        "collections": [
+          "tasks"
+        ]
+      }
+    ],
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "components": [
+        {
+          "kind": "widget",
+          "id": "unknown-widget",
+          "widget": "notAWidget",
+          "props": {}
+        }
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [
+    "records.read"
+  ],
+  "acceptanceTests": [
+    "package-validation"
+  ]
+}

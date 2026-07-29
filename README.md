@@ -53,6 +53,14 @@ Bundled app packages:
 - [apps/scientific-calculator/scientific-calculator.v1.json](./apps/scientific-calculator/scientific-calculator.v1.json) — calculator tool app.
 - [apps/audio-loop-108/audio-loop-108.v1.json](./apps/audio-loop-108/audio-loop-108.v1.json) — local audio loop tool app.
 - [apps/habit-grid/habit-grid.v1.json](./apps/habit-grid/habit-grid.v1.json) — package-only habit tracker.
+- [apps/expense-splitter/expense-splitter.v1.json](./apps/expense-splitter/expense-splitter.v1.json) — package-only grouped balances and settlement proof.
+- [apps/split-rent/split-rent.v1.json](./apps/split-rent/split-rent.v1.json) — package-only weighted allocation proof.
+- [apps/workout-logger/workout-logger.v1.json](./apps/workout-logger/workout-logger.v1.json) — package-only persisted timed-flow proof.
+- [apps/focus-intervals/focus-intervals.v1.json](./apps/focus-intervals/focus-intervals.v1.json) — package-only interval-cycle proof.
+
+The 50-app adversarial suite lives under
+[`tests/fixtures/adversarial-apps/`](./tests/fixtures/adversarial-apps) as test
+input, not bundled products.
 
 The platform generalization scorecard tracks whether new apps need domain-specific renderer work or reusable shell capabilities: [docs/platform-generalization-scorecard.md](./docs/platform-generalization-scorecard.md).
 
@@ -94,6 +102,9 @@ flowchart LR
 - [apps/scientific-calculator/scientific-calculator.v1.json](./apps/scientific-calculator/scientific-calculator.v1.json) — non-Food tool package.
 - [apps/audio-loop-108/audio-loop-108.v1.json](./apps/audio-loop-108/audio-loop-108.v1.json) — non-Food media tool package.
 - [apps/habit-grid/habit-grid.v1.json](./apps/habit-grid/habit-grid.v1.json) — first package-only proof app.
+- [apps/expense-splitter/expense-splitter.v1.json](./apps/expense-splitter/expense-splitter.v1.json) — grouped balances and deterministic settlement proof.
+- [apps/split-rent/split-rent.v1.json](./apps/split-rent/split-rent.v1.json) — exact weighted-allocation proof.
+- [apps/workout-logger/workout-logger.v1.json](./apps/workout-logger/workout-logger.v1.json) — persisted flow/timer proof.
 - [packages/domain-config/domain-catalog.v1.json](./packages/domain-config/domain-catalog.v1.json) — active catalog and shell tabs.
 - [packages/domain-config/domains/food.v1.json](./packages/domain-config/domains/food.v1.json) — bundled Food domain config.
 - [packages/domain-config/domains/health.v1.json](./packages/domain-config/domains/health.v1.json) — Health preview.
@@ -109,6 +120,8 @@ flowchart LR
 ### App factory pieces
 
 - [docs/github-app-factory.md](./docs/github-app-factory.md) — fork + `OPENAI_API_KEY` + natural-language app generation workflow.
+- [docs/adversarial-app-tests.md](./docs/adversarial-app-tests.md) — adversarial runtime probes and current partial results.
+- [docs/adversarial-app-matrix.json](./docs/adversarial-app-matrix.json) — checked 50-app falsification matrix; every row points to a test fixture.
 - [requests/app-idea.md](./requests/app-idea.md) — plain-English request template for the GitHub workflow.
 - [scripts/factory/generate-app-from-prompt.ts](./scripts/factory/generate-app-from-prompt.ts) — OpenAI structured-output generator for reviewable app packages.
 - [packages/domain-config/templates/utopia-data-plane-template.v1.json](./packages/domain-config/templates/utopia-data-plane-template.v1.json)
@@ -137,6 +150,22 @@ It is intended to feel like a focused AI-native kitchen system:
 - nutrition observations;
 - Notion / Sheets data homes;
 - assistant workflows for “what can I cook tonight?” and “use these first.”
+
+### Data-home selection behavior
+
+Data-home options come from two checks only:
+
+- declared by app manifest (`data_homes` / `data-home:*` capability);
+- runtime availability from the adapter registry (`ready`, `requires_auth`, `offline`, `blocked`, or `unsupported`).
+
+Rows that are unavailable must remain visible with truthy reasons and `canSelect: false`.
+
+- not configured by app -> `... is not configured by this app.`
+- runtime offline -> `... is currently offline.`
+- auth required -> `... needs sign-in before use.`
+- unsupported at runtime -> `... is not supported by this runtime.`
+
+This contract is deterministic metadata; it does not assert live upstream provider proof by itself.
 
 ## Widget surface
 
@@ -177,6 +206,12 @@ Known renderer debt:
 - Food still uses domain-shaped widgets: `foodHero`, `pantryShelf`, `useFirstCarousel`, `mealTimeline`, `recipeCard`, `receiptReviewCard`.
 - Calculator and Audio Loop prove non-Food apps, but each uses a specialized reusable runtime widget: `scientificCalculator`, `audioLoopPlayer`.
 - Habit Grid is the first package-only proof app: it uses existing `chartBlock`, `checklistCard`, `dataTable`, and `recordList` primitives.
+- Expense Splitter and Split Rent are package-only expression proofs using the
+  shared deterministic kernel and existing `recordList` and `dataTable` UI.
+- Workout Logger uses generic `stepFlow` and `durationTimer` widgets backed by
+  the persisted workflow journal.
+- Focus Intervals reuses the same flow/timer contract for a second domain with
+  no new runtime primitive.
 - The scorecard must trend toward package-only apps and reusable capabilities, not app-specific shell growth.
 
 Rule of thumb: JSON can configure any capability the renderer already exposes. New behavior belongs in generic widgets, not one-off app screens.
@@ -286,6 +321,8 @@ Useful focused gates:
 ```bash
 npm run check:widget-catalog
 npm run check:platform-generalization
+npm run check:adversarial-app-matrix
+npm run materialize:adversarial-apps
 npm run check:native-capability-contract
 npm run check:package-owned-routes
 npm run check:food-app-vibe

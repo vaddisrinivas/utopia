@@ -1,0 +1,8 @@
+{
+  "label": "Playlist",
+  "subtitle": "Curated looping sessions and playback runs.",
+  "collections": ["session"],
+  "query": "recent-sessions",
+  "mode": "list",
+  "fields": ["title", "file_name", "target_plays", "completed_plays", "status", "updated_at"]
+}

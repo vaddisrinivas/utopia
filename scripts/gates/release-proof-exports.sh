@@ -11,6 +11,7 @@ run_gate() {
 
 run_gate npm run config:validate
 run_gate npm run typecheck
+run_gate npm test
 run_gate npm run doctor
 run_gate npm run phase3:check:chat-send
 run_gate npm run phase3:check:chat-rollback-idempotency

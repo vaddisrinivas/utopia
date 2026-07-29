@@ -1,7 +1,10 @@
 # Utopia Working Instructions
 
-- Scope: server chat/runtime slice only for this pass.
-- Do not edit Expo UI files.
+- Scope: rolling platform-hardening queue covering package capability
+  enforcement, signed-extension trust, App Library lifecycle, package builders,
+  provider-neutral sync/data homes, release gates, and generic runtime proofs.
+- Expo UI edits are approved for App Library lifecycle/trust UX and generic
+  renderer/capability surfaces. Unrelated Food visual redesign is out of scope.
 - Do not edit `packages/domain-shared` without explicit approval.
 - Do not log secrets, API keys, or token values.
 - Keep chat endpoint responses deterministic and model-contract centered.

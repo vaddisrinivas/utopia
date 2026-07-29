@@ -12,6 +12,7 @@ import {
   installApprovedAppPackage,
   previewAppPackageUpdate,
   previewAppPackageChange,
+  restoreAppInstallation,
   rollbackAppPackage,
   type AppPackageChangeRequest,
 } from '@/src/db/app-package-registry';
@@ -115,6 +116,29 @@ describe('app package SQLite registry', () => {
     expect(archived.approval?.approvedBy).toBe('tester');
     expect(await getActiveAppPackage(db, 'archive-demo')).toBeTruthy();
     expect((await getAppInstallation(db, 'archive-demo'))?.status).toBe('archived');
+  });
+
+  it('restores archived apps without losing package binding or approval evidence', async () => {
+    const db = new MemoryDb() as any;
+    const pkg = buildAppPackageFromManifest(loadCatalog().activeManifest).package;
+    const preview = buildPackageInstallPreview(pkg, { sourceUrl: 'https://example.com/restore-demo.package.json' });
+    await installApprovedAppPackage(db, {
+      packageJson: pkg,
+      preview,
+      approval: buildPackageInstallApprovalReceipt(preview, 'tester', '2026-07-28T11:59:00.000Z'),
+      installationId: 'restore-demo',
+      now: '2026-07-28T11:59:01.000Z',
+    });
+    await archiveAppInstallation(db, 'restore-demo', '2026-07-28T12:00:00.000Z');
+
+    const restored = await restoreAppInstallation(db, 'restore-demo', '2026-07-28T12:01:00.000Z');
+
+    expect(restored.status).toBe('active');
+    expect(restored.activation?.activePackageKey).toBe(`${pkg.id}@${pkg.version}`);
+    expect(restored.approval?.approvedBy).toBe('tester');
+    expect((await getAppInstallation(db, 'restore-demo'))?.status).toBe('active');
+    await expect(restoreAppInstallation(db, 'restore-demo', '2026-07-28T12:02:00.000Z'))
+      .rejects.toThrow('app_installation_restore_not_archived');
   });
 
   it('previews app updates and requires a fresh approval for capability escalation', async () => {

@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "household-voting-decision",
+  "version": "1.0.0",
+  "collections": {
+    "household_voting_decision_item": {
+      "id": "household_voting_decision_item",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "priority": {
+          "type": "number",
+          "indexed": true
+        },
+        "owner": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "household_voting_decision_event": {
+      "id": "household_voting_decision_event",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "happened_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "value": {
+          "type": "number",
+          "indexed": true
+        },
+        "source": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    },
+    "household_voting_decision_result": {
+      "id": "household_voting_decision_result",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "score": {
+          "type": "number",
+          "indexed": true
+        },
+        "summary": {
+          "type": "text"
+        },
+        "missing_primitive": {
+          "type": "text",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "items": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "household_voting_decision_item"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "events": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "household_voting_decision_event"
+      },
+      "orderBy": [
+        {
+          "field": "happened_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "results": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "household_voting_decision_result"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    }
+  },
+  "views": {
+    "items": {
+      "id": "items",
+      "query": "items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "status",
+        "priority",
+        "owner"
+      ]
+    },
+    "events": {
+      "id": "events",
+      "query": "events",
+      "mode": "table",
+      "fields": [
+        "title",
+        "happened_at",
+        "value",
+        "source",
+        "status"
+      ]
+    },
+    "results": {
+      "id": "results",
+      "query": "results",
+      "mode": "table",
+      "fields": [
+        "title",
+        "score",
+        "summary",
+        "missing_primitive",
+        "status"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "id": "review-new-test-event",
+      "trigger": {
+        "kind": "query_transition",
+        "query": "events",
+        "transition": "enter"
+      },
+      "when": {
+        ">": [
+          {
+            "var": "query.after.total"
+          },
+          {
+            "var": "query.before.total"
+          }
+        ]
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": "review_adversarial_fixture"
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [],
+  "acceptanceTests": [
+    "adversarial-41-multi_writer"
+  ],
+  "presentation": {
+    "label": "Household voting/decision app",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Probe",
+        "collections": [
+          "household_voting_decision_item",
+          "household_voting_decision_event",
+          "household_voting_decision_result"
+        ],
+        "views": [
+          "items",
+          "results"
+        ]
+      },
+      {
+        "id": "events",
+        "label": "Events",
+        "collections": [
+          "household_voting_decision_event"
+        ],
+        "views": [
+          "events"
+        ]
+      },
+      {
+        "id": "boundary",
+        "label": "Boundary",
+        "collections": [
+          "household_voting_decision_result"
+        ],
+        "views": [
+          "results"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#4F46E5",
+      "canvas": "#F7F7FF",
+      "icon": "users",
+      "tone": "indigo"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "home": {
+          "title": "Household voting/decision app",
+          "subtitle": "Adversarial fixture #41: Quorum, roles, permissions.",
+          "components": [
+            {
+              "kind": "metric",
+              "title": "Runtime Axis",
+              "subtitle": "multi writer",
+              "query": {
+                "collections": [
+                  "household_voting_decision_result"
+                ],
+                "limit": 20
+              },
+              "tone": "indigo"
+            },
+            {
+              "kind": "recordList",
+              "title": "Fixture Items",
+              "subtitle": "Generic records prove the data shell can host the app shape.",
+              "query": {
+                "collections": [
+                  "household_voting_decision_item"
+                ],
+                "limit": 20
+              },
+              "props": {
+                "emptyText": "No fixture items yet.",
+                "subtitleFields": [
+                  "status",
+                  "priority",
+                  "owner"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs membership, roles, quorum rules, and audit trail.",
+              "tone": "indigo",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "multi writer"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "membershipPolicy"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Boundary expected"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "events": {
+          "title": "Household voting/decision app Events",
+          "subtitle": "Event rows for imports, taps, scans, timers, edits, or generated transitions.",
+          "components": [
+            {
+              "kind": "recordList",
+              "title": "Recent Events",
+              "subtitle": "Newest first.",
+              "query": {
+                "collections": [
+                  "household_voting_decision_event"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "emptyText": "No events yet.",
+                "subtitleFields": [
+                  "happened_at",
+                  "value",
+                  "source",
+                  "status"
+                ]
+              }
+            }
+          ]
+        },
+        "boundary": {
+          "title": "Boundary",
+          "subtitle": "What this JSON package proves and what the runtime still lacks.",
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Adversarial Boundary",
+              "subtitle": "Needs membership, roles, quorum rules, and audit trail.",
+              "tone": "amber",
+              "props": {
+                "columns": [
+                  {
+                    "key": "field",
+                    "label": "Field"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value"
+                  }
+                ],
+                "items": [
+                  {
+                    "field": "Axis",
+                    "value": "multi writer"
+                  },
+                  {
+                    "field": "Missing primitive",
+                    "value": "membershipPolicy"
+                  },
+                  {
+                    "field": "Current status",
+                    "value": "Boundary expected"
+                  },
+                  {
+                    "field": "Package rule",
+                    "value": "No app-specific renderer widget allowed"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -247,6 +247,13 @@ describe('database migrations', () => {
     expect(db.indexes.has('cloud_devices_account_status_idx')).toBe(true);
     expect(db.indexes.has('cloud_sessions_account_status_idx')).toBe(true);
     expect(db.indexes.has('cloud_sessions_device_status_idx')).toBe(true);
+    const installationColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_installations)');
+    expect(installationColumns.map((column) => column.name)).toEqual(expect.arrayContaining([
+      'data_home_provider',
+      'data_home_external_id',
+      'data_home_status',
+      'data_home_updated_at',
+    ]));
   });
 
   it('keeps control-plane config separate from data-plane records', async () => {

@@ -397,6 +397,30 @@ export async function archiveAppInstallation(
   return archived;
 }
 
+export async function restoreAppInstallation(
+  db: SQLiteDatabase,
+  installationId: AppInstallationId,
+  now = new Date().toISOString(),
+): Promise<LocalAppInstallation> {
+  const scopedInstallationId = normalizeInstallationId(installationId);
+  if (Number.isNaN(Date.parse(now))) throw new Error('app_installation_restore_time_invalid');
+  const current = await getAppInstallation(db, scopedInstallationId);
+  if (!current) throw new Error('app_installation_not_found');
+  if (current.status !== 'archived') throw new Error('app_installation_restore_not_archived');
+  await db.runAsync(
+    `UPDATE app_installations
+      SET status = 'active', updated_at = $updated_at
+      WHERE installation_id = $installation_id`,
+    {
+      $installation_id: scopedInstallationId,
+      $updated_at: now,
+    },
+  );
+  const restored = await getAppInstallation(db, scopedInstallationId);
+  if (!restored) throw new Error('app_installation_not_found');
+  return restored;
+}
+
 export async function previewAppPackageUpdate(
   db: SQLiteDatabase,
   installationId: AppInstallationId,

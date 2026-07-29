@@ -27,7 +27,9 @@ import {
 import { type NormalizedChatSend } from './chat';
 import { assertServerStartupSecurity, authorizeServerRequest, type RequestAuthorizationResult } from './security/auth';
 import { handleHonoReadRoute, isHonoReadRoute } from './hono-read-routes';
-import { handleMcpRequest } from './mcp/official-server';
+import { handleChatQueryRoutes } from './routes/chat-routes';
+import { handleChatControlRoutes } from './routes/chat-control-routes';
+import { handleMcpRoutes } from './routes/mcp-routes';
 import { buildNotionWebhookResponse, buildSheetsWebhookResponse } from './provider-webhook-response';
 import { ProviderOperation } from './providers/contracts';
 import { discoverNotionDataSources } from './providers/notion/discovery';
@@ -43,9 +45,12 @@ import {
   normalizeSheetsWebhookEvent,
   getWebhookReplayState as getSheetsWebhookReplayState,
 } from './providers/webhooks/sheets';
+import { handleHealthConnectRoute } from './routes/health-connect';
+import { handleProviderRoutes } from './routes/provider-routes';
+import { handlePackageRoutes } from './routes/package-routes';
+import { readSheetsConfig } from './providers/sheets/client';
 import { writeNotionRecord } from './providers/notion/push';
 import { checkSheetsHealth } from './providers/sheets/health';
-import { readSheetsConfig } from './providers/sheets/client';
 import { writeSheetsRecord } from './providers/sheets/push';
 import { pullSheetsRecords, pullSheetsRecordsLive } from './providers/sheets/pull';
 import { syncSheetsFromWebhook } from './providers/sync/sheets';
@@ -69,21 +74,11 @@ import {
   reserveScopedIdempotencyRecord,
   setRunState,
 } from './chat-runtime-state';
-import {
-  deleteHealthSnapshot,
-  exportHealthSnapshots,
-  listHealthSnapshots,
-  saveHealthSnapshot,
-} from './health/snapshots';
-
 const port = Number(process.env.PORT ?? '8787');
 const host = process.env.LIFEOS_SERVER_HOST?.trim() || '127.0.0.1';
 assertServerStartupSecurity(host);
 const CHAT_SEND_BODY_LIMIT_BYTES = 256 * 1024;
 const CHAT_CONTROL_BODY_LIMIT_BYTES = 64 * 1024;
-const PROVIDER_BODY_LIMIT_BYTES = 1024 * 1024;
-const PACKAGE_BODY_LIMIT_BYTES = 512 * 1024;
-const HEALTH_BODY_LIMIT_BYTES = 512 * 1024;
 const REQUEST_DEADLINE_MS = Number(process.env.LIFEOS_REQUEST_DEADLINE_MS ?? '15000');
 const BODY_CHUNK_TIMEOUT_MS = Number(process.env.LIFEOS_BODY_CHUNK_TIMEOUT_MS ?? '3000');
 const HEADER_TIMEOUT_MS = Number(process.env.LIFEOS_HEADER_TIMEOUT_MS ?? '5000');
@@ -93,6 +88,7 @@ const DEFAULT_AUTHENTICATED_PRINCIPAL = 'server';
 const DEFAULT_LOCAL_DEVELOPMENT_PRINCIPAL = 'local-development';
 const packageRegistryPath = process.env.LIFEOS_PACKAGE_REGISTRY_PATH?.trim()
   || `${process.cwd()}/server-data/package-registry.json`;
+const PROVIDER_BODY_LIMIT_BYTES = 1024 * 1024;
 
 const activeRunControllers = new Map<string, AbortController>();
 
@@ -131,18 +127,6 @@ function validateRequestHeaders(req: any) {
   }
 }
 
-function packageRegistry() {
-  return new PackageRegistry({ path: packageRegistryPath });
-}
-
-function packageRegistryState(registry = packageRegistry()) {
-  return {
-    active: registry.getActive(),
-    installations: registry.listAppInstallations(),
-    receipts: registry.getReceipts(),
-  };
-}
-
 function getPath(rawUrl: string | undefined) {
   if (!rawUrl) return '/';
   return rawUrl.split('?')[0];
@@ -169,44 +153,6 @@ function getAuthenticatedPrincipalId(auth: RequestAuthorizationResult) {
     auth.principalId ?? undefined,
     auth.localDevelopment ? DEFAULT_LOCAL_DEVELOPMENT_PRINCIPAL : DEFAULT_AUTHENTICATED_PRINCIPAL,
   );
-}
-
-function conversationScopeKey(principalId: string, conversationId: string) {
-  return `${principalId}\u0000${conversationId}`;
-}
-
-function buildScopedChatRequest(input: {
-  principalId: string;
-  conversationId: string;
-  idempotencyKey: string;
-  message: string;
-  domainId: string;
-  operation: 'send' | 'stream' | 'retry';
-  retryOfMessageId?: string;
-  preview: boolean;
-}) {
-  const operationFingerprint = buildChatOperationFingerprint({
-    operation: input.operation,
-    message: input.message,
-    domainId: input.domainId,
-    retryOfMessageId: input.retryOfMessageId,
-    preview: input.preview,
-  });
-  return {
-    conversationRunKey: conversationScopeKey(input.principalId, input.conversationId),
-    idempotencyNamespace: scopeChatIdempotencyNamespace({
-      principalId: input.principalId,
-      conversationId: input.conversationId,
-      idempotencyKey: input.idempotencyKey,
-    }),
-    scopedIdempotencyKey: scopeChatOperationIdempotencyKey({
-      principalId: input.principalId,
-      conversationId: input.conversationId,
-      idempotencyKey: input.idempotencyKey,
-      operationFingerprint,
-    }),
-    operationFingerprint,
-  };
 }
 
 function notionWebhooksEnabled() {
@@ -246,16 +192,45 @@ function parseProviderOperation(raw: unknown): ProviderOperation | null {
 }
 
 async function readRawBody(req: any, maxBytes: number): Promise<string> {
-  return readBoundedTextBody(req, maxBytes);
+  return readBoundedTextBodyFromHttp(req, maxBytes, BODY_READ_LIMITS);
 }
 
-function sendStopReply(res: any, id: string, status: 'running' | 'completed' | 'cancelled' | 'failed') {
-  const run = getRunState(id);
-  if (!run) {
-    setJson(res, 404, { status: 'error', message: 'run_id not found' });
-    return;
-  }
-  ok(res, { run_id: id, status, conversation_id: run.conversationId, run_status: run.status });
+function conversationScopeKey(principalId: string, conversationId: string) {
+  return `${principalId}\u0000${conversationId}`;
+}
+
+function buildScopedChatRequest(input: {
+  principalId: string;
+  conversationId: string;
+  idempotencyKey: string;
+  message: string;
+  domainId: string;
+  operation: 'send' | 'stream' | 'retry';
+  retryOfMessageId?: string;
+  preview: boolean;
+}) {
+  const operationFingerprint = buildChatOperationFingerprint({
+    operation: input.operation,
+    message: input.message,
+    domainId: input.domainId,
+    retryOfMessageId: input.retryOfMessageId,
+    preview: input.preview,
+  });
+  return {
+    conversationRunKey: conversationScopeKey(input.principalId, input.conversationId),
+    idempotencyNamespace: scopeChatIdempotencyNamespace({
+      principalId: input.principalId,
+      conversationId: input.conversationId,
+      idempotencyKey: input.idempotencyKey,
+    }),
+    scopedIdempotencyKey: scopeChatOperationIdempotencyKey({
+      principalId: input.principalId,
+      conversationId: input.conversationId,
+      idempotencyKey: input.idempotencyKey,
+      operationFingerprint,
+    }),
+    operationFingerprint,
+  };
 }
 
 type ChatRunResponse = Awaited<ReturnType<typeof handleServerChat>>;
@@ -450,8 +425,7 @@ const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, async (req: any
   }
 
   const path = getPath(req.url);
-  if (path.startsWith('/mcp')) {
-    await handleMcpRequest(req, res);
+  if (await handleMcpRoutes(req, res, path)) {
     return;
   }
 
@@ -461,57 +435,53 @@ const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, async (req: any
   }
 
   if (path.startsWith('/health/connect')) {
-    if (!assertAuth(req, res)) return;
-    if (req.method === 'GET' && path === '/health/connect/snapshots') {
-      ok(res, { status: 'ok', provider: 'health_connect', snapshots: listHealthSnapshots() });
+    if (await handleHealthConnectRoute(req, res, path, {
+      assertAuth,
+      readJsonBody,
+    })) {
       return;
     }
-    if (req.method === 'GET' && path === '/health/connect/export') {
-      res.setHeader('content-disposition', 'attachment; filename="utopia-health-connect-export.json"');
-      ok(res, {
-        status: 'ok',
-        provider: 'health_connect',
-        exported_at: new Date().toISOString(),
-        snapshots: exportHealthSnapshots(),
-      });
-      return;
-    }
-    if (req.method === 'POST' && path === '/health/connect/snapshot') {
-      let payload: Record<string, unknown>;
-      try {
-        payload = await readJsonBody(req, HEALTH_BODY_LIMIT_BYTES);
-      } catch (error) {
-        if (handleBodyReadError(res, error)) return;
-        badRequest(res, 'Invalid JSON');
-        return;
-      }
-      const result = saveHealthSnapshot(payload as Parameters<typeof saveHealthSnapshot>[0]);
-      if (!result.ok) {
-        badRequest(res, result.message);
-        return;
-      }
-      ok(res, result);
-      return;
-    }
-    const snapshotMatch = path.match(/^\/health\/connect\/snapshot\/([^/]+)$/);
-    if (req.method === 'DELETE' && snapshotMatch) {
-      const result = deleteHealthSnapshot(decodeURIComponent(snapshotMatch[1]));
-      if (!result.ok && result.status === 'not_found') {
-        notFound(res, result.message);
-        return;
-      }
-      if (!result.ok) {
-        badRequest(res, result.message);
-        return;
-      }
-      ok(res, result);
-      return;
-    }
-    badRequest(res, 'Route not found');
     return;
   }
 
-  if (path.startsWith('/providers/notion')) {
+  if (await handlePackageRoutes(req, res, path, {
+    assertAuth,
+    readJsonBody,
+    packageRegistry: () => new PackageRegistry({ path: packageRegistryPath }),
+    installReactiveRuntime,
+  })) {
+    return;
+  }
+
+  if (await handleProviderRoutes(req, res, path, {
+    assertAuth,
+    readJsonBody,
+    readRawBody,
+    readNotionConfig: () => readNotionConfig(),
+    discoverNotionDataSources,
+    pullNotionRecords,
+    pullNotionRecordsLive,
+    writeNotionRecord,
+    normalizeWebhookBody,
+    normalizeWebhookEvent,
+    verifyNotionWebhookSignature,
+    syncNotionFromWebhook,
+    getNotionWebhookReplayState: () => getWebhookReplayState(),
+    buildNotionWebhookResponse,
+    checkSheetsHealth,
+    readSheetsConfig: () => readSheetsConfig(),
+    pullSheetsRecords,
+    pullSheetsRecordsLive,
+    writeSheetsRecord,
+    normalizeSheetsWebhookEvent,
+    syncSheetsFromWebhook,
+    getSheetsWebhookReplayState: () => getSheetsWebhookReplayState(),
+    buildSheetsWebhookResponse,
+  })) {
+    return;
+  }
+
+  if (path === '/providers/notion' || path.startsWith('/providers/notion/')) {
     if (path === '/providers/notion/webhook') {
       if (!notionWebhooksEnabled()) {
         notFound(res, 'Notion webhooks are disabled; use authenticated pull sync.');
@@ -675,7 +645,7 @@ const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, async (req: any
     return;
   }
 
-  if (path.startsWith('/providers/sheets')) {
+  if (path === '/providers/sheets' || path.startsWith('/providers/sheets/')) {
     if (path === '/providers/sheets/webhook') {
       if (req.method !== 'POST') {
         badRequest(res, 'Unsupported method');
@@ -859,175 +829,13 @@ const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, async (req: any
     return;
   }
 
-  if (path === '/chat/threads' && req.method === 'GET') {
-    const auth = assertAuth(req, res);
-    if (!auth) {
-      return;
-    }
-    const query = new URL(`http://127.0.0.1:${port}${req.url}`);
-    const domain = query.searchParams.get('domain');
-    const principalId = getAuthenticatedPrincipalId(auth);
-    const rows = listConversations(principalId);
-    const filtered = domain ? rows.filter((row) => row.domain === domain) : rows;
-    ok(res, {
-      threads: filtered.map((thread) => ({
-        id: thread.id,
-        domain: thread.domain,
-        title: thread.title,
-        detail: thread.detail,
-        updated_at: new Date().toISOString(),
-      })),
-    });
-    return;
-  }
-
-  if (path === '/chat/run' && req.method === 'GET') {
-    const auth = assertAuth(req, res);
-    if (!auth) {
-      return;
-    }
-    const query = new URL(`http://127.0.0.1:${port}${req.url}`);
-    const conversationId = query.searchParams.get('conversation_id');
-    if (!conversationId) {
-      badRequest(res, 'conversation_id required');
-      return;
-    }
-    const principalId = getAuthenticatedPrincipalId(auth);
-    const activeRun = findRunningConversationRun(principalId, conversationId);
-    if (!activeRun) {
-      ok(res, {
-        conversation_id: conversationId,
-        active: false,
-        status: 'idle',
-        run_id: null,
-      });
-      return;
-    }
-    ok(res, {
-      conversation_id: conversationId,
-      active: true,
-      status: activeRun.run.status,
-      run_id: activeRun.runId,
-    });
-    return;
-  }
-
-  if (path.startsWith('/chat/threads/') && req.method === 'GET') {
-    const auth = assertAuth(req, res);
-    if (!auth) {
-      return;
-    }
-    const parts = path.split('/');
-    const threadId = parts[parts.length - 1];
-    const principalId = getAuthenticatedPrincipalId(auth);
-    const thread = getConversation(threadId, principalId);
-    if (!thread) {
-      badRequest(res, 'thread not found');
-      return;
-    }
-    ok(res, thread);
-    return;
-  }
-
-  if (req.method === 'GET' && path === '/packages/active') {
-    if (!assertAuth(req, res)) {
-      return;
-    }
-    ok(res, {
-      status: 'ok',
-      ...packageRegistryState(),
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && path === '/packages/preview') {
-    if (!assertAuth(req, res)) {
-      return;
-    }
-    let payload: { package?: unknown };
-    try {
-      payload = await readJsonBody(req, PACKAGE_BODY_LIMIT_BYTES) as typeof payload;
-    } catch (error) {
-      if (handleBodyReadError(res, error)) return;
-      badRequest(res, 'Invalid JSON');
-      return;
-    }
-    const preview = packageRegistry().preview(payload.package);
-    ok(res, {
-      status: preview.valid ? 'valid' : 'invalid',
-      preview,
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && path === '/packages/change/preview') {
-    if (!assertAuth(req, res)) {
-      return;
-    }
-    let payload: { request?: unknown };
-    try {
-      payload = await readJsonBody(req, PACKAGE_BODY_LIMIT_BYTES) as typeof payload;
-    } catch (error) {
-      if (handleBodyReadError(res, error)) return;
-      badRequest(res, 'Invalid JSON');
-      return;
-    }
-    try {
-      const preview = packageRegistry().previewChange(payload.request as never);
-      ok(res, preview);
-    } catch (error) {
-      badRequest(res, error instanceof Error ? error.message : 'package_change_invalid');
-    }
-    return;
-  }
-
-  if (req.method === 'POST' && path === '/packages/change/activate') {
-    if (!assertAuth(req, res)) {
-      return;
-    }
-    let payload: { request?: unknown; approval?: unknown };
-    try {
-      payload = await readJsonBody(req, PACKAGE_BODY_LIMIT_BYTES) as typeof payload;
-    } catch (error) {
-      if (handleBodyReadError(res, error)) return;
-      badRequest(res, 'Invalid JSON');
-      return;
-    }
-    try {
-      const registry = packageRegistry();
-      const active = registry.activateApprovedChange(payload.request as never, payload.approval as never);
-      installReactiveRuntime();
-      ok(res, {
-        status: 'activated',
-        active,
-        receipt: registry.getReceipts().at(-1),
-      });
-    } catch (error) {
-      badRequest(res, error instanceof Error ? error.message : 'package_change_approval_failed');
-    }
-    return;
-  }
-
-  if (req.method === 'POST' && path === '/packages/activate') {
-    if (!assertAuth(req, res)) {
-      return;
-    }
-    badRequest(res, 'Direct package activation is disabled. Use /packages/change/preview then /packages/change/activate with a hash-bound approval receipt.');
-    return;
-  }
-
-  if (req.method === 'POST' && path === '/packages/rollback') {
-    if (!assertAuth(req, res)) {
-      return;
-    }
-    const registry = packageRegistry();
-    const active = registry.rollback();
-    installReactiveRuntime();
-    ok(res, {
-      status: active ? 'rolled_back' : 'no_previous_package',
-      active,
-      receipt: registry.getReceipts().at(-1),
-    });
+  if (await handleChatQueryRoutes(req, res, path, {
+    assertAuth,
+    getAuthenticatedPrincipalId,
+    listConversations,
+    getConversation,
+    findRunningConversationRun,
+  })) {
     return;
   }
 
@@ -1339,48 +1147,18 @@ const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, async (req: any
     return;
   }
 
-  if (req.method === 'POST' && path === '/chat/stop') {
-    const auth = assertAuth(req, res);
-    if (!auth) {
-      return;
-    }
-
-    let payload: { run_id?: string };
-    try {
-      payload = (await readJsonBody(req, CHAT_CONTROL_BODY_LIMIT_BYTES)) as typeof payload;
-    } catch (error) {
-      if (handleBodyReadError(res, error)) return;
-      badRequest(res, 'Invalid JSON');
-      return;
-    }
-
-    if (!payload.run_id) {
-      badRequest(res, 'run_id required');
-      return;
-    }
-
-    const run = getRunState(payload.run_id);
-    if (!run) {
-      badRequest(res, 'Unknown run');
-      return;
-    }
-    const principalId = getAuthenticatedPrincipalId(auth);
-    if (run.principalId !== principalId) {
-      badRequest(res, 'Unknown run');
-      return;
-    }
-    if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
-      ok(res, { run_id: payload.run_id, status: run.status });
-      return;
-    }
-    activeRunControllers.get(payload.run_id)?.abort();
-    setRunState(payload.run_id, {
-      status: 'cancelled',
-      conversationId: run.conversationId,
-      principalId: run.principalId,
-    });
-    activeRunControllers.delete(payload.run_id);
-    sendStopReply(res, payload.run_id, 'cancelled');
+  if (await handleChatControlRoutes(req, res, path, {
+    assertAuth,
+    readJsonBody,
+    getAuthenticatedPrincipalId,
+    getRunState,
+    setRunState,
+    getRunController: (runId) => activeRunControllers.get(runId),
+    clearRunController: (runId) => {
+      activeRunControllers.delete(runId);
+    },
+    chatControlBodyLimitBytes: CHAT_CONTROL_BODY_LIMIT_BYTES,
+  })) {
     return;
   }
 
