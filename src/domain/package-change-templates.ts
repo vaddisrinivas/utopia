@@ -832,7 +832,7 @@ function deriveScreenEditChange(
   const existing = screens[screenId];
   const compact = /\b(shorten|shorter|smaller|compact|less dense|simplify|tighten)\b/.test(lower);
   const componentIndex = existing.components ? findTargetComponentIndex(existing.components, lower) : -1;
-  const resolvedComponentIndex = componentIndex < 0 && existing.components?.length && lower.includes('dinner vote') ? 0 : componentIndex;
+  const resolvedComponentIndex = componentIndex;
   const editsComponent = resolvedComponentIndex >= 0;
   const title = editsComponent ? existing.title : deriveEditedScreenTitle(existing.title, screenId, prompt);
   const subtitle = editsComponent ? existing.subtitle : deriveEditedScreenSubtitle(existing.subtitle, compact, lower);
@@ -1032,6 +1032,10 @@ function findTargetScreenId(
       && lowerPrompt.includes(screen.title.toLowerCase())
   ));
   if (byTitle) return byTitle[0];
+  const byComponent = entries.find(([, screen]) => (
+    screen.components ? findTargetComponentIndex(screen.components, lowerPrompt) >= 0 : false
+  ));
+  if (byComponent) return byComponent[0];
   if (defaultScreen && screens[defaultScreen]) return defaultScreen;
   const first = entries[0]?.[0];
   if (!first) throw new Error('No JSON-render screens available to edit.');
@@ -1088,7 +1092,6 @@ function tuneScreenComponent(
   const renamedTitle = targetMatched ? quotedPromptValue(prompt) : undefined;
   const tuned: A2UiComponent = {
     ...component,
-    ...(targetMatched && lowerPrompt.includes('dinner vote') ? { id: 'dinner_vote' } : {}),
     ...(renamedTitle ? { title: renamedTitle } : {}),
     subtitle: trimComponentSubtitle(component.subtitle, compact),
   };

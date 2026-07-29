@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "audio-loop-108",
+  "version": "1.0.0",
+  "collections": {
+    "session": {
+      "id": "session",
+      "fields": {
+        "collection": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "completed_plays": {
+          "indexed": true,
+          "type": "number"
+        },
+        "delay_seconds": {
+          "type": "number"
+        },
+        "duration_seconds": {
+          "type": "number"
+        },
+        "file_name": {
+          "indexed": true,
+          "type": "text"
+        },
+        "finished_at": {
+          "indexed": true,
+          "type": "timestamp"
+        },
+        "id": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        },
+        "properties": {
+          "required": true,
+          "type": "json"
+        },
+        "started_at": {
+          "indexed": true,
+          "type": "timestamp"
+        },
+        "status": {
+          "indexed": true,
+          "type": "text"
+        },
+        "target_plays": {
+          "indexed": true,
+          "type": "number"
+        },
+        "title": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "updated_at": {
+          "indexed": true,
+          "required": true,
+          "type": "timestamp"
+        }
+      }
+    }
+  },
+  "queries": {
+    "recent-sessions": {
+      "from": "records",
+      "where": {
+        "field": "collection",
+        "op": "eq",
+        "value": "session"
+      },
+      "orderBy": [
+        {
+          "direction": "desc",
+          "field": "updated_at"
+        }
+      ],
+      "limit": 50
+    }
+  },
+  "views": {
+    "history": {
+      "id": "history",
+      "query": "recent-sessions",
+      "mode": "table",
+      "fields": [
+        "title",
+        "file_name",
+        "target_plays",
+        "completed_plays",
+        "delay_seconds",
+        "status",
+        "started_at",
+        "finished_at"
+      ]
+    },
+    "home": {
+      "id": "home",
+      "query": "recent-sessions",
+      "mode": "list",
+      "fields": [
+        "title",
+        "file_name",
+        "completed_plays",
+        "target_plays",
+        "status",
+        "updated_at"
+      ]
+    }
+  },
+  "presentation": {
+    "label": "Audio Loop 108",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "history",
+        "label": "History",
+        "collections": [
+          "session"
+        ],
+        "views": [
+          "history"
+        ]
+      },
+      {
+        "id": "home",
+        "label": "Loop",
+        "collections": [
+          "session"
+        ],
+        "views": [
+          "home"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "accent": "#2F7448",
+      "canvas": "#F7FAF4",
+      "icon": "audio",
+      "tone": "moss"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "screens": {
+        "history": {
+          "title": "History",
+          "subtitle": "Loop session records."
+        },
+        "home": {
+          "title": "Loop",
+          "subtitle": "Local audio loop player with play count, start delay, and delay between repeats.",
+          "components": [
+            {
+              "kind": "widget",
+              "props": {
+                "countSkippedAsCompleted": true,
+                "defaultDelaySeconds": 0,
+                "defaultPlays": 108,
+                "defaultStartDelaySeconds": 0,
+                "delayOptions": [
+                  0,
+                  5,
+                  15,
+                  30,
+                  60,
+                  108,
+                  300
+                ],
+                "maxPlays": 108,
+                "nativeUnavailableCopy": "This package is JSON-owned. The shared Expo runtime plays local audio on iOS, Android, and web; the macOS shell uses its native package player.",
+                "presets": [
+                  {
+                    "delaySeconds": 0,
+                    "label": "108 straight",
+                    "plays": 108,
+                    "startDelaySeconds": 0
+                  },
+                  {
+                    "delaySeconds": 15,
+                    "label": "Gentle 27",
+                    "plays": 27,
+                    "startDelaySeconds": 10
+                  },
+                  {
+                    "delaySeconds": 30,
+                    "label": "Focus 54",
+                    "plays": 54,
+                    "startDelaySeconds": 30
+                  }
+                ],
+                "startDelayOptions": [
+                  0,
+                  10,
+                  30,
+                  60,
+                  108
+                ]
+              },
+              "subtitle": "Choose an audio file, set how many times to play it, then run a controlled loop.",
+              "title": "Audio Loop 108",
+              "tone": "moss",
+              "widget": "audioLoopPlayer"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "columns": [
+                  {
+                    "key": "control",
+                    "label": "Control"
+                  },
+                  {
+                    "key": "behavior",
+                    "label": "Behavior"
+                  }
+                ],
+                "items": [
+                  {
+                    "behavior": "Pick a local audio file without uploading it.",
+                    "control": "Choose"
+                  },
+                  {
+                    "behavior": "Reset count and begin the loop.",
+                    "control": "Start"
+                  },
+                  {
+                    "behavior": "Pause track playback or a between-play delay.",
+                    "control": "Pause/Resume"
+                  },
+                  {
+                    "behavior": "Finish the current play and move to the next loop.",
+                    "control": "Skip"
+                  },
+                  {
+                    "behavior": "Stop playback and keep the selected file ready.",
+                    "control": "Stop"
+                  }
+                ]
+              },
+              "subtitle": "The JSON app configures the runtime player.",
+              "title": "Session Controls",
+              "tone": "blue",
+              "widget": "dataTable"
+            },
+            {
+              "kind": "recordList",
+              "props": {
+                "emptyText": "No saved loop sessions yet.",
+                "subtitleFields": [
+                  "file_name",
+                  "completed_plays",
+                  "target_plays",
+                  "status"
+                ]
+              },
+              "query": {
+                "collections": [
+                  "session"
+                ],
+                "limit": 8
+              },
+              "subtitle": "Saved loop sessions appear here when the runtime persists them.",
+              "title": "Recent Sessions"
+            }
+          ]
+        }
+      }
+    },
+    "sourceSchemaVersion": "wonder.package-source.v1"
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "schema-native"
+  ]
+}

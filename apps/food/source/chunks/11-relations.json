@@ -1,0 +1,217 @@
+[
+  {
+    "from": "household",
+    "to": "member",
+    "name": "has_member"
+  },
+  {
+    "from": "member",
+    "to": "preference",
+    "name": "has_preference"
+  },
+  {
+    "from": "member",
+    "to": "nutrition_goal",
+    "name": "has_goal"
+  },
+  {
+    "from": "food_item",
+    "to": "preference",
+    "name": "shaped_by"
+  },
+  {
+    "from": "product",
+    "to": "food_item",
+    "name": "packages"
+  },
+  {
+    "from": "product",
+    "to": "nutrition_profile",
+    "name": "has_label_nutrition"
+  },
+  {
+    "from": "inventory",
+    "to": "food_item",
+    "name": "tracks"
+  },
+  {
+    "from": "inventory",
+    "to": "ingredient",
+    "name": "represents"
+  },
+  {
+    "from": "inventory_lot",
+    "to": "food_item",
+    "name": "stores"
+  },
+  {
+    "from": "inventory_lot",
+    "to": "product",
+    "name": "from_product"
+  },
+  {
+    "from": "inventory_lot",
+    "to": "purchase_line",
+    "name": "acquired_from"
+  },
+  {
+    "from": "inventory_movement",
+    "to": "inventory_lot",
+    "name": "moves"
+  },
+  {
+    "from": "inventory_movement",
+    "to": "meal_log",
+    "name": "caused_by_meal"
+  },
+  {
+    "from": "ingredient",
+    "to": "food_item",
+    "name": "matches_food"
+  },
+  {
+    "from": "recipe",
+    "to": "ingredient",
+    "name": "uses"
+  },
+  {
+    "from": "recipe",
+    "to": "recipe_revision",
+    "name": "has_revision"
+  },
+  {
+    "from": "recipe_revision",
+    "to": "recipe_step",
+    "name": "contains_step"
+  },
+  {
+    "from": "recipe",
+    "to": "recipe_step",
+    "name": "has_step"
+  },
+  {
+    "from": "recipe",
+    "to": "recipe_tool",
+    "name": "uses_tool"
+  },
+  {
+    "from": "recipe",
+    "to": "nutrition_profile",
+    "name": "has_nutrition"
+  },
+  {
+    "from": "meal_template",
+    "to": "recipe",
+    "name": "templates"
+  },
+  {
+    "from": "meal_plan",
+    "to": "recipe",
+    "name": "plans"
+  },
+  {
+    "from": "meal_plan",
+    "to": "meal_template",
+    "name": "uses_template"
+  },
+  {
+    "from": "meal_log",
+    "to": "meal_plan",
+    "name": "completes"
+  },
+  {
+    "from": "meal_consumption",
+    "to": "meal_log",
+    "name": "portion_of"
+  },
+  {
+    "from": "meal_consumption",
+    "to": "member",
+    "name": "eaten_by"
+  },
+  {
+    "from": "shopping_list",
+    "to": "meal_plan",
+    "name": "supports_plan"
+  },
+  {
+    "from": "shopping_item",
+    "to": "shopping_list",
+    "name": "belongs_to"
+  },
+  {
+    "from": "shopping_item",
+    "to": "inventory",
+    "name": "restocks"
+  },
+  {
+    "from": "shopping_item",
+    "to": "food_item",
+    "name": "buys_food"
+  },
+  {
+    "from": "shopping_demand",
+    "to": "shopping_item",
+    "name": "explains"
+  },
+  {
+    "from": "shopping_demand",
+    "to": "ingredient",
+    "name": "from_ingredient"
+  },
+  {
+    "from": "shopping_demand",
+    "to": "meal_plan",
+    "name": "from_plan"
+  },
+  {
+    "from": "purchase_line",
+    "to": "shopping_item",
+    "name": "fulfills"
+  },
+  {
+    "from": "purchase_line",
+    "to": "inventory",
+    "name": "adds"
+  },
+  {
+    "from": "purchase_line",
+    "to": "inventory_lot",
+    "name": "creates_lot"
+  },
+  {
+    "from": "purchase_line",
+    "to": "product",
+    "name": "bought_product"
+  },
+  {
+    "from": "purchase_line",
+    "to": "purchase",
+    "name": "part_of"
+  },
+  {
+    "from": "nutrition_observation",
+    "to": "meal_log",
+    "name": "describes"
+  },
+  {
+    "from": "nutrition_observation",
+    "to": "nutrition_profile",
+    "name": "uses_profile"
+  },
+  {
+    "from": "attachment",
+    "to": "*",
+    "name": "attached_to"
+  },
+  {
+    "from": "audit_event",
+    "to": "*",
+    "name": "records_change"
+  },
+  {
+    "from": "source_record",
+    "to": "*",
+    "name": "supports"
+  }
+]

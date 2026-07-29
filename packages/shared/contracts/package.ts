@@ -95,7 +95,7 @@ export type PackagePresentationSpec = {
 
 export type AppPackagePermissionDeclaration = {
   id: string;
-  platform: 'expo' | 'android' | 'ios' | 'web';
+  platform: 'expo' | 'android' | 'ios' | 'web' | 'macos';
   permission: string;
   reason: string;
   required?: boolean;
@@ -145,12 +145,12 @@ export type AppPackageDependencyPin = {
 
 export type AppPackageNativeCapability = {
   schemaVersion: 'wonder.app-package-native-capabilities.v1';
-  platform: 'expo' | 'android' | 'ios' | 'web';
+  platform: 'expo' | 'android' | 'ios' | 'web' | 'macos';
   packages: string[];
   permissions?: Array<string | AppPackagePermissionDeclaration>;
   intents?: Array<{
     id: string;
-    platform: 'expo' | 'android' | 'ios' | 'web';
+    platform: 'expo' | 'android' | 'ios' | 'web' | 'macos';
     kind: AppPackageNativeIntentKind;
     reason: string;
     required?: boolean;
@@ -502,7 +502,7 @@ function isDependencyPin(value: unknown): value is AppPackageDependencyPin {
 function isNativeCapability(value: unknown): value is AppPackageNativeCapability {
   if (!isRecord(value)) return false;
   if (value.schemaVersion !== 'wonder.app-package-native-capabilities.v1') return false;
-  if (!isNonEmptyString(value.platform) || !['expo', 'android', 'ios', 'web'].includes(value.platform)) return false;
+  if (!isNonEmptyString(value.platform) || !['expo', 'android', 'ios', 'web', 'macos'].includes(value.platform)) return false;
   if (!Array.isArray(value.packages) || !value.packages.every((item) => isNonEmptyString(item))) return false;
   if (value.permissions !== undefined && !isNativePermissions(value.permissions)) return false;
   if (value.intents !== undefined && !isNativeIntents(value.intents)) return false;
@@ -516,7 +516,7 @@ function isNativePermissions(value: unknown): boolean {
     return isRecord(permission)
       && isNonEmptyString(permission.id)
       && isNonEmptyString(permission.platform)
-      && ['expo', 'android', 'ios', 'web'].includes(permission.platform)
+      && ['expo', 'android', 'ios', 'web', 'macos'].includes(permission.platform)
       && isNonEmptyString(permission.permission)
       && isNonEmptyString(permission.reason)
       && (permission.required === undefined || typeof permission.required === 'boolean')
@@ -530,7 +530,7 @@ function isNativeIntents(value: unknown): boolean {
     return isRecord(intent)
       && isNonEmptyString(intent.id)
       && isNonEmptyString(intent.platform)
-      && ['expo', 'android', 'ios', 'web'].includes(intent.platform)
+      && ['expo', 'android', 'ios', 'web', 'macos'].includes(intent.platform)
       && isAppPackageNativeIntentKind(intent.kind)
       && isNonEmptyString(intent.reason)
       && (intent.required === undefined || typeof intent.required === 'boolean')

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -9,7 +10,13 @@ import {
   type AppPackageSourceFolder,
 } from '@/packages/app-compiler';
 
-const fixtureDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/package-source/reference-app');
+const fixtureRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/package-source');
+const referenceFixtureDir = path.join(fixtureRoot, 'reference-app');
+const tinyFixtureDirs = JSON.parse(readFileSync(path.join(fixtureRoot, 'manifest.json'), 'utf8')) as Array<{
+  path: string;
+  label: string;
+  homeSurface: string;
+}>;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -20,7 +27,7 @@ function reverseMap<T>(input: Record<string, T>): Record<string, T> {
 }
 
 function loadReferenceSource(): AppPackageSourceFolder {
-  return readAppPackageSourceFolder(fixtureDir);
+  return readAppPackageSourceFolder(referenceFixtureDir);
 }
 
 describe('package compiler', () => {
@@ -51,6 +58,77 @@ describe('package compiler', () => {
     expect(compiledA.package).toEqual(compiledB.package);
     expect(compiledA.preview.collectionIds).toEqual(['assignment', 'chore', 'completion', 'household_member']);
     expect(compiledA.preview.widgets).toEqual(['themePreview']);
+  });
+
+  it.each(tinyFixtureDirs)('compiles tiny package fixture $path', ({ path: fixtureName, label: expectedLabel, homeSurface: expectedSurfaceId }) => {
+    const source = readAppPackageSourceFolder(path.join(fixtureRoot, fixtureName));
+    const compiled = compileAppPackageSource(source);
+
+    expect(compiled.valid).toBe(true);
+    if (!compiled.valid) throw new Error(compiled.errors.map((error) => error.message).join(', '));
+
+    expect(compiled.package.id).toBe(fixtureName);
+    expect(compiled.package.presentation?.label).toBe(expectedLabel);
+    expect(compiled.package.presentation?.surfaces.map((surface) => surface.id)).toEqual([expectedSurfaceId]);
+  });
+
+  it('compiles the capability lab with cross-platform capability widget coverage', () => {
+    const source = readAppPackageSourceFolder(path.join(fixtureRoot, 'capability-lab'));
+    const compiled = compileAppPackageSource(source);
+
+    expect(compiled.valid).toBe(true);
+    if (!compiled.valid) throw new Error(compiled.errors.map((error) => error.message).join(', '));
+
+    expect(compiled.preview.widgets).toEqual([
+      'permissionCard',
+      'dataTable',
+      'filePicker',
+      'fileExport',
+      'videoPlayer',
+      'cameraScanner',
+      'locationMap',
+      'sensorReadout',
+      'notificationScheduler',
+      'contactPicker',
+      'calendarEvent',
+      'biometricGate',
+      'healthKitStatus',
+      'speechTool',
+    ]);
+    expect(compiled.preview.nativeCapabilities).toEqual(expect.objectContaining({
+      platform: 'expo',
+      packages: [
+        'expo-calendar',
+        'expo-camera',
+        'expo-contacts',
+        'expo-document-picker',
+        'expo-image-picker',
+        'expo-local-authentication',
+        'expo-location',
+        'expo-notifications',
+        'expo-sensors',
+        'expo-sharing',
+        'expo-speech',
+        'expo-task-manager',
+        'expo-video',
+      ],
+      permissions: [
+        'expo:expo-calendar',
+        'expo:expo-camera',
+        'expo:expo-contacts',
+        'expo:expo-document-picker',
+        'expo:expo-image-picker:camera',
+        'expo:expo-image-picker:media-library',
+        'expo:expo-local-authentication',
+        'expo:expo-location',
+        'expo:expo-notifications',
+        'expo:expo-sensors',
+        'expo:expo-sharing',
+        'expo:expo-speech',
+        'ios:ios.permission.speech',
+      ],
+      intents: ['expo:deep_link', 'expo:file_open'],
+    }));
   });
 
   it('produces semantic diffs and preview metadata', () => {
@@ -97,10 +175,10 @@ describe('package compiler', () => {
         packages: ['@a2ui/web_core/v0_9'],
         permissions: [
           {
-            id: 'camera',
+            id: 'bluetooth-admin',
             platform: 'android',
-            permission: 'android.permission.CAMERA',
-            reason: 'Need camera access.',
+            permission: 'android.permission.BLUETOOTH_ADMIN',
+            reason: 'Need broad Bluetooth access.',
             required: true,
           },
         ],
@@ -112,7 +190,7 @@ describe('package compiler', () => {
     const nativeResult = compileAppPackageSource(badNative);
     expect(nativeResult.valid).toBe(false);
     if (nativeResult.valid) throw new Error('expected invalid native package');
-    expect(nativeResult.errors.some((error) => error.message.includes('unsupported native permission:android.permission.CAMERA'))).toBe(true);
+    expect(nativeResult.errors.some((error) => error.message.includes('unsupported native permission:android.permission.BLUETOOTH_ADMIN'))).toBe(true);
   });
 
   it('compiles a locked V3 package when native capabilities are declared', () => {

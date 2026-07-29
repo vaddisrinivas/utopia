@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "wonder.app-package-preview.v1",
+  "packageSchemaVersion": "wonder.app-package.v2",
+  "id": "scientific-calculator",
+  "version": "1.0.0",
+  "label": "Scientific Calculator",
+  "checksum": "sha256:302b4edb900605b60e99947915e42f1e8058b4386c9d5beda57bdd004744d29c",
+  "homeSurface": "home",
+  "surfaces": [
+    {
+      "id": "functions",
+      "label": "Functions",
+      "collections": [
+        "calculation"
+      ],
+      "views": [
+        "functions"
+      ]
+    },
+    {
+      "id": "history",
+      "label": "History",
+      "collections": [
+        "calculation"
+      ],
+      "views": [
+        "history"
+      ]
+    },
+    {
+      "id": "home",
+      "label": "Calculator",
+      "collections": [
+        "calculation"
+      ],
+      "views": [
+        "home"
+      ]
+    }
+  ],
+  "collectionIds": [
+    "calculation"
+  ],
+  "queryIds": [
+    "history"
+  ],
+  "ruleIds": [],
+  "widgets": [
+    "dataTable",
+    "scientificCalculator"
+  ],
+  "acceptanceTests": [
+    "schema-native"
+  ],
+  "sourceCounts": {
+    "app": 1,
+    "collections": 1,
+    "queries": 1,
+    "screens": 3,
+    "rules": 0,
+    "workflows": 0,
+    "providers": 0,
+    "theme": 0,
+    "fixtures": 0,
+    "acceptance": 1,
+    "capabilities": 0
+  },
+  "diffSummary": {
+    "added": 0,
+    "removed": 0,
+    "changed": 0
+  }
+}

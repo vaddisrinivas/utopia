@@ -1,0 +1,7 @@
+{
+  "label": "Renewals",
+  "collections": ["subscription"],
+  "query": "renewals",
+  "mode": "timeline",
+  "fields": ["title", "renewal_date", "updated_at"]
+}

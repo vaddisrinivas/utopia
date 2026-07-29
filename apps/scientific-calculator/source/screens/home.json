@@ -1,0 +1,79 @@
+{
+  "label": "Calculator",
+  "subtitle": "Scientific calculator package: expression entry, constants, functions, and saved calculation history.",
+  "collections": ["calculation"],
+  "query": "history",
+  "mode": "list",
+  "fields": ["title", "expression", "result", "mode", "updated_at"],
+  "components": [
+    {
+      "kind": "widget",
+      "widget": "scientificCalculator",
+      "title": "Scientific Calculator",
+      "subtitle": "Local tap calculator with trig, logs, powers, constants, factorial, memory, degrees, and radians.",
+      "tone": "blue",
+      "props": {
+        "angleMode": "deg",
+        "initialExpression": "",
+        "initialResult": "0"
+      }
+    },
+    {
+      "kind": "text",
+      "title": "Expression Support",
+      "subtitle": "Supported notation: +, -, *, /, %, ^, parentheses, sin, cos, tan, asin, acos, atan, ln, log/log10, sqrt, abs, exp, factorial, pi, e, M.",
+      "tone": "neutral"
+    },
+    {
+      "kind": "widget",
+      "widget": "dataTable",
+      "title": "Scientific Keys",
+      "subtitle": "Core keypad map",
+      "tone": "blue",
+      "props": {
+        "columns": [
+          { "key": "group", "label": "Group" },
+          { "key": "keys", "label": "Keys" },
+          { "key": "notes", "label": "Notes" }
+        ],
+        "items": [
+          { "group": "Arithmetic", "keys": "+ - * / % ^", "notes": "Order of operations with parentheses" },
+          { "group": "Trig", "keys": "sin cos tan asin acos atan", "notes": "Declare degrees or radians" },
+          { "group": "Logs", "keys": "ln log10 exp", "notes": "Natural log, base-10 log, e^x" },
+          { "group": "Powers", "keys": "sqrt x^2 x^y factorial", "notes": "Roots, exponents, n!" },
+          { "group": "Constants", "keys": "pi e", "notes": "High precision constants" }
+        ]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "dataTable",
+      "title": "Examples",
+      "subtitle": "Paste one into Ask",
+      "tone": "moss",
+      "props": {
+        "columns": [
+          { "key": "label", "label": "Example" },
+          { "key": "expression", "label": "Expression" },
+          { "key": "mode", "label": "Mode" }
+        ],
+        "items": [
+          { "label": "Compound", "expression": "(1 + 0.065 / 12) ^ 60", "mode": "Exact numeric" },
+          { "label": "Trig", "expression": "sin(45 deg) + cos(pi / 4)", "mode": "Mixed units stated" },
+          { "label": "Log", "expression": "ln(e ^ 3) + log10(1000)", "mode": "Symbolic constants" },
+          { "label": "Root", "expression": "sqrt(2) ^ 2", "mode": "Precision check" }
+        ]
+      }
+    },
+    {
+      "kind": "recordList",
+      "title": "History",
+      "subtitle": "Saved calculations appear here.",
+      "query": { "collections": ["calculation"], "limit": 8 },
+      "props": {
+        "emptyText": "No saved calculations yet.",
+        "subtitleFields": ["expression", "result", "mode"]
+      }
+    }
+  ]
+}

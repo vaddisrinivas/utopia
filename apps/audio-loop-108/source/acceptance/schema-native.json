@@ -1,0 +1,9 @@
+{
+  "goal": "Audio Loop 108 installs from JSON and renders a runtime audio loop player.",
+  "checks": [
+    "Package compiles from wonder.package-source.v1 source.",
+    "Compiled package declares the audioLoopPlayer widget.",
+    "iOS, Android, and web runtimes can select a local audio file and loop playback without upload.",
+    "macOS shell lists and opens the package with a native audio player."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "required": [
+    "id",
+    "title",
+    "collection",
+    "status",
+    "meta",
+    "body"
+  ],
+  "rich_detail_json": [
+    "Food detail",
+    "food_detail",
+    "Food Detail",
+    "Detail JSON",
+    "detail_json"
+  ],
+  "relations_json": [
+    "Relations",
+    "relations",
+    "Related records",
+    "related_records"
+  ]
+}

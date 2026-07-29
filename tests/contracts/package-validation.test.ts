@@ -51,4 +51,42 @@ describe('package validation parity fixtures', () => {
       await expect(activateAppPackage(new MemoryDb() as any, pkg as any)).rejects.toThrow(matchingIssue!.message);
     });
   }
+
+  it('keeps widget package validation shared between server and artifact schemas', () => {
+    const pkg = readAppPackageFixture('valid-v3.json') as any;
+    pkg.presentation.ui.screens = {
+      tools: {
+        title: 'Tools',
+        components: [{
+          kind: 'widget',
+          widget: 'scientificCalculator',
+          props: { initialExpression: '2+2' },
+        }],
+      },
+    };
+    const artifact = validateArtifact({ value: pkg });
+    const server = validateAppPackage(pkg);
+
+    expect(artifact.ok).toBe(true);
+    expect(server.valid).toBe(true);
+  });
+
+  it('rejects unknown widgets through server validation', () => {
+    const pkg = readAppPackageFixture('valid-v3.json') as any;
+    pkg.presentation.ui.screens = {
+      tools: {
+        title: 'Tools',
+        components: [{
+          kind: 'widget',
+          widget: 'notAWidget',
+          props: {},
+        }],
+      },
+    };
+    const server = validateAppPackage(pkg);
+
+    expect(server.valid).toBe(false);
+    if (server.valid) throw new Error('expected invalid widget to fail server validation');
+    expect(server.errors.join('\n')).toMatch(/widget|component/i);
+  });
 });

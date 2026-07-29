@@ -1,0 +1,118 @@
+{
+  "answer_label": "Food",
+  "empty_intro": "No matching local Food records were loaded. Connect Notion/Sheets or add records, then ask again.",
+  "default_title": "Local Food answer",
+  "default_intro": "I found {count} local Food record{plural} tied to this question.",
+  "default_columns": [
+    "Record",
+    "Available",
+    "Missing / shopping"
+  ],
+  "default_fields": [
+    "title",
+    "available_ingredients",
+    "missing_ingredients"
+  ],
+  "card_bullets": [
+    "nutrition",
+    "available_ingredients",
+    "first_instruction"
+  ],
+  "source_quote_fields": [
+    "body",
+    "meta",
+    "ingredients",
+    "first_instruction"
+  ],
+  "source_exclude_fields": [
+    "tone",
+    "food_detail"
+  ],
+  "intents": {
+    "inventory": {
+      "terms": [
+        "inventory",
+        "pantry",
+        "fridge",
+        "freezer",
+        "what do i have",
+        "what do we have",
+        "what we have",
+        "on hand",
+        "available"
+      ],
+      "title": "Current food inventory",
+      "intro": "I found {count} current inventory record{plural}.",
+      "columns": [
+        "Item",
+        "Status",
+        "Details"
+      ],
+      "fields": [
+        "title",
+        "status",
+        "meta"
+      ],
+      "boost_collections": [
+        "inventory",
+        "inventory_lot"
+      ]
+    },
+    "shopping": {
+      "terms": [
+        "shop",
+        "buy",
+        "grocery",
+        "missing",
+        "cart"
+      ],
+      "title": "Local shopping answer",
+      "intro": "I found {count} local Food record{plural} that explain what to buy and why.",
+      "columns": [
+        "Record",
+        "Available",
+        "Missing / shopping"
+      ],
+      "fields": [
+        "title",
+        "available_ingredients",
+        "missing_ingredients"
+      ],
+      "boost_collections": [
+        "shopping_item",
+        "shopping_list",
+        "shopping_demand",
+        "purchase"
+      ]
+    },
+    "planning": {
+      "terms": [
+        "recipe",
+        "cook",
+        "dinner",
+        "meal",
+        "ingredient",
+        "nutrition"
+      ],
+      "title": "Local food planning answer",
+      "intro": "I found {count} local Food record{plural} with ingredients, availability, and next cooking steps.",
+      "columns": [
+        "Record",
+        "Available",
+        "Missing / shopping"
+      ],
+      "fields": [
+        "title",
+        "available_ingredients",
+        "missing_ingredients"
+      ],
+      "boost_collections": [
+        "recipe",
+        "meal_plan",
+        "meal_log",
+        "nutrition_profile",
+        "nutrition_observation"
+      ]
+    }
+  }
+}

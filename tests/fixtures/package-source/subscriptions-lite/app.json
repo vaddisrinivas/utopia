@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "wonder.package-source.v1",
+  "id": "subscriptions-lite",
+  "version": "1.0.0",
+  "label": "Subscriptions Lite",
+  "homeSurface": "renewals"
+}

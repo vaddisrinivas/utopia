@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "wonder.package-source.v1",
+  "id": "audio-loop-108",
+  "version": "1.0.0",
+  "label": "Audio Loop 108",
+  "homeSurface": "home",
+  "visualIdentity": {
+    "icon": "audio",
+    "tone": "moss",
+    "accent": "#2F7448",
+    "canvas": "#F7FAF4"
+  }
+}

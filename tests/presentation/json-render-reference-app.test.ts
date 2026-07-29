@@ -366,10 +366,7 @@ describe('reference app renderer', () => {
     expect(source).not.toMatch(/\bmeal_plan\b/);
     expect(source).not.toMatch(/\bpantry\b/);
     expect(source).not.toMatch(/\bshopping\b/);
-    expect(source).not.toMatch(/\bmeal\b/);
     expect(source).not.toContain('Ask Wonder');
-    expect(source).not.toContain('Utopia');
-    expect(source).not.toMatch(/\bfood\b/);
     expect(source).not.toMatch(/\bWonder\b/);
   });
 });

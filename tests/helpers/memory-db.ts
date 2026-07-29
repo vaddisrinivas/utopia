@@ -49,7 +49,9 @@ export class MemoryDb {
       return;
     }
     if (compact.startsWith('INSERT INTO operations')) {
-      const [op_id, app_installation_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at] = params;
+      const hasInstallationScope = compact.includes('app_installation_id');
+      const values = hasInstallationScope ? params : [params[0], DEFAULT_APP_INSTALLATION_ID, ...params.slice(1)];
+      const [op_id, app_installation_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at] = values;
       this.operations.set(op_id, { op_id, app_installation_id, kind, domain, collection, record_id, expected_revision, result_revision, actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id, status, reject_reason, created_at });
       return;
     }
@@ -81,19 +83,25 @@ export class MemoryDb {
       return;
     }
     if (compact.startsWith('INSERT INTO provider_links')) {
-      const [id, provider, external_id, name, status, freshness, workspace, url, created_at, updated_at] = params;
-      this.providerLinks.set(id, { id, provider, external_id, name, status, freshness, workspace, url, created_at, updated_at });
+      const hasInstallationScope = compact.includes('app_installation_id');
+      const values = hasInstallationScope ? params : [params[0], DEFAULT_APP_INSTALLATION_ID, ...params.slice(1)];
+      const [id, app_installation_id, provider, external_id, name, status, freshness, workspace, url, created_at, updated_at] = values;
+      this.providerLinks.set(providerLinkKey(app_installation_id, id), { id, app_installation_id, provider, external_id, name, status, freshness, workspace, url, created_at, updated_at });
       return;
     }
     if (compact.startsWith('INSERT INTO source_snapshots')) {
-      const [id, provider, external_id, scope, observed_at, payload_json, checksum, created_at, updated_at] = params;
-      this.sourceSnapshots.set(id, { id, provider, external_id, scope, observed_at, payload_json, checksum, created_at, updated_at });
+      const hasInstallationScope = compact.includes('app_installation_id');
+      const values = hasInstallationScope ? params : [params[0], DEFAULT_APP_INSTALLATION_ID, ...params.slice(1)];
+      const [id, app_installation_id, provider, external_id, scope, observed_at, payload_json, checksum, created_at, updated_at] = values;
+      this.sourceSnapshots.set(sourceSnapshotKey(app_installation_id, id), { id, app_installation_id, provider, external_id, scope, observed_at, payload_json, checksum, created_at, updated_at });
       return;
     }
     if (compact.startsWith('INSERT OR IGNORE INTO source_snapshot_relations')) {
-      const [snapshot_id, record_id] = params;
-      if (!this.sourceSnapshotRelations.some((row) => row.snapshot_id === snapshot_id && row.record_id === record_id)) {
-        this.sourceSnapshotRelations.push({ snapshot_id, record_id });
+      const hasInstallationScope = compact.includes('app_installation_id');
+      const values = hasInstallationScope ? params : [DEFAULT_APP_INSTALLATION_ID, ...params];
+      const [app_installation_id, snapshot_id, record_id] = values;
+      if (!this.sourceSnapshotRelations.some((row) => row.app_installation_id === app_installation_id && row.snapshot_id === snapshot_id && row.record_id === record_id)) {
+        this.sourceSnapshotRelations.push({ app_installation_id, snapshot_id, record_id });
       }
       return;
     }
@@ -128,8 +136,10 @@ export class MemoryDb {
       return;
     }
     if (compact.startsWith('INSERT INTO workflow_runs')) {
-      const [id, domain, workflow_id, inputs_json, status, payload_json, created_at, updated_at] = params;
-      this.workflowRuns.set(id, { id, domain, workflow_id, inputs_json, status, payload_json, created_at, updated_at });
+      const hasInstallationScope = compact.includes('app_installation_id');
+      const values = hasInstallationScope ? params : [params[0], DEFAULT_APP_INSTALLATION_ID, ...params.slice(1)];
+      const [id, app_installation_id, domain, workflow_id, inputs_json, status, payload_json, created_at, updated_at] = values;
+      this.workflowRuns.set(workflowRunKey(app_installation_id, id), { id, app_installation_id, domain, workflow_id, inputs_json, status, payload_json, created_at, updated_at });
       return;
     }
     if (compact.startsWith('INSERT OR REPLACE INTO app_packages')) {
@@ -190,6 +200,37 @@ export class MemoryDb {
       });
       return;
     }
+    if (compact === "UPDATE app_installations SET status = 'archived', updated_at = $updated_at WHERE installation_id = $installation_id") {
+      const row = normalizeParams(params);
+      const current = this.appInstallations.get(row.$installation_id);
+      if (current) {
+        current.status = 'archived';
+        current.updated_at = row.$updated_at;
+      }
+      return;
+    }
+    if (compact.startsWith("UPDATE app_installations SET package_key = $package_key,")) {
+      const row = normalizeParams(params);
+      const current = this.appInstallations.get(row.$installation_id);
+      if (current) {
+        current.package_key = row.$package_key;
+        current.package_id = row.$package_id;
+        current.version = row.$version;
+        current.source_url = row.$source_url;
+        current.checksum = row.$checksum;
+        current.app_name = row.$app_name;
+        current.status = 'active';
+        current.launch_path = row.$launch_path;
+        current.approval_hash = row.$approval_hash;
+        current.approved_by = row.$approved_by;
+        current.updated_at = row.$updated_at;
+      }
+      return;
+    }
+    if (compact.startsWith('DELETE FROM ')) {
+      this.deleteRows(compact, params);
+      return;
+    }
     if (compact.startsWith('INSERT OR REPLACE INTO app_package_state')) {
       const row = normalizeParams(params);
       this.appPackageState = {
@@ -218,7 +259,8 @@ export class MemoryDb {
     }
     if (compact.startsWith('UPDATE workflow_runs SET')) {
       const id = params[params.length - 1];
-      const row = this.workflowRuns.get(id);
+      const appInstallationId = compact.includes('WHERE app_installation_id = ? AND id = ?') ? params[params.length - 2] : DEFAULT_APP_INSTALLATION_ID;
+      const row = this.workflowRuns.get(workflowRunKey(appInstallationId, id));
       if (!row) return;
       if (compact.includes('status = ?')) {
         row.status = params[0];
@@ -227,9 +269,57 @@ export class MemoryDb {
         const payloadIndex = compact.includes('status = ?') ? 1 : 0;
         row.payload_json = params[payloadIndex];
       }
-      row.updated_at = params[params.length - 2];
+      row.updated_at = params[compact.includes('WHERE app_installation_id = ? AND id = ?') ? params.length - 3 : params.length - 2];
       return;
     }
+    throw new Error(`Unsupported runAsync SQL: ${compact}`);
+  }
+
+  private deleteRows(compact: string, params: any[]) {
+    const scopedId = params[0];
+    if (compact === 'DELETE FROM app_installation_package_state WHERE installation_id = ?') {
+      this.appInstallationPackageState.delete(scopedId);
+      return;
+    }
+    if (compact === 'DELETE FROM app_installations WHERE installation_id = ?') {
+      this.appInstallations.delete(scopedId);
+      return;
+    }
+    const table = compact.match(/^DELETE FROM ([a-z_]+) WHERE app_installation_id = \?$/)?.[1];
+    if (!table) throw new Error(`Unsupported runAsync SQL: ${compact}`);
+    if (table === 'record_relations') {
+      this.recordRelations = this.recordRelations.filter((row) => row.app_installation_id !== scopedId);
+      return;
+    }
+    if (table === 'records') {
+      this.records = filterMapByInstallation(this.records, scopedId);
+      return;
+    }
+    if (table === 'operations') {
+      this.operations = filterMapByInstallation(this.operations, scopedId);
+      return;
+    }
+    if (table === 'outbox_events') {
+      this.outbox = filterMapByInstallation(this.outbox, scopedId);
+      return;
+    }
+    if (table === 'workflow_runs') {
+      this.workflowRuns = filterMapByInstallation(this.workflowRuns, scopedId);
+      return;
+    }
+    if (table === 'provider_links') {
+      this.providerLinks = filterMapByInstallation(this.providerLinks, scopedId);
+      return;
+    }
+    if (table === 'source_snapshots') {
+      this.sourceSnapshots = filterMapByInstallation(this.sourceSnapshots, scopedId);
+      return;
+    }
+    if (table === 'source_snapshot_relations') {
+      this.sourceSnapshotRelations = this.sourceSnapshotRelations.filter((row) => row.app_installation_id !== scopedId);
+      return;
+    }
+    if (['action_events', 'undo_events', 'conversations'].includes(table)) return;
     throw new Error(`Unsupported runAsync SQL: ${compact}`);
   }
 
@@ -255,6 +345,12 @@ export class MemoryDb {
         .sort((left, right) => String(right.observed_at).localeCompare(String(left.observed_at)));
       return (rows[0] ?? null) as T | null;
     }
+    if (compact === 'SELECT * FROM source_snapshots WHERE app_installation_id = ? AND provider = ? AND external_id = ? ORDER BY observed_at DESC LIMIT 1') {
+      const rows = Array.from(this.sourceSnapshots.values())
+        .filter((row) => row.app_installation_id === params[0] && row.provider === params[1] && row.external_id === params[2])
+        .sort((left, right) => String(right.observed_at).localeCompare(String(left.observed_at)));
+      return (rows[0] ?? null) as T | null;
+    }
     if (compact === 'SELECT * FROM outbox_events WHERE action_key = ? ORDER BY created_at DESC LIMIT 1') {
       const rows = Array.from(this.outbox.values())
         .filter((row) => row.action_key === params[0])
@@ -262,7 +358,16 @@ export class MemoryDb {
       return (rows[0] ?? null) as T | null;
     }
     if (compact === 'SELECT * FROM workflow_runs WHERE id = ?') {
-      return (this.workflowRuns.get(params[0]) ?? null) as T | null;
+      return (this.workflowRuns.get(workflowRunKey(DEFAULT_APP_INSTALLATION_ID, params[0])) ?? null) as T | null;
+    }
+    if (compact === 'SELECT * FROM workflow_runs WHERE app_installation_id = ? AND id = ?') {
+      return (this.workflowRuns.get(workflowRunKey(params[0], params[1])) ?? null) as T | null;
+    }
+    if (compact === 'SELECT * FROM provider_links WHERE app_installation_id = ? AND id = ?') {
+      return (this.providerLinks.get(providerLinkKey(params[0], params[1])) ?? null) as T | null;
+    }
+    if (compact === 'SELECT * FROM source_snapshots WHERE app_installation_id = ? AND id = ?') {
+      return (this.sourceSnapshots.get(sourceSnapshotKey(params[0], params[1])) ?? null) as T | null;
     }
     if (compact === "SELECT active_package_key, previous_package_key FROM app_package_state WHERE id = 'default'"
       || compact === "SELECT active_package_key, previous_package_key, active_installation_id FROM app_package_state WHERE id = 'default'") {
@@ -325,9 +430,36 @@ export class MemoryDb {
         .filter((row) => row.domain === params[0])
         .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at))) as T[];
     }
+    if (compact === 'SELECT * FROM workflow_runs WHERE app_installation_id = ? AND domain = ? ORDER BY updated_at DESC') {
+      return Array.from(this.workflowRuns.values())
+        .filter((row) => row.app_installation_id === params[0] && row.domain === params[1])
+        .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at))) as T[];
+    }
     if (compact === 'SELECT * FROM provider_links ORDER BY updated_at DESC') {
       return Array.from(this.providerLinks.values())
         .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at))) as T[];
+    }
+    if (compact === 'SELECT * FROM provider_links WHERE app_installation_id = ? ORDER BY updated_at DESC') {
+      return Array.from(this.providerLinks.values())
+        .filter((row) => row.app_installation_id === params[0])
+        .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at))) as T[];
+    }
+    if (compact === 'SELECT * FROM source_snapshots WHERE app_installation_id = ? AND provider = ? ORDER BY observed_at DESC') {
+      return Array.from(this.sourceSnapshots.values())
+        .filter((row) => row.app_installation_id === params[0] && row.provider === params[1])
+        .sort((left, right) => String(right.observed_at).localeCompare(String(left.observed_at))) as T[];
+    }
+    if (compact === 'SELECT * FROM source_snapshots WHERE app_installation_id = ? ORDER BY observed_at DESC') {
+      return Array.from(this.sourceSnapshots.values())
+        .filter((row) => row.app_installation_id === params[0])
+        .sort((left, right) => String(right.observed_at).localeCompare(String(left.observed_at))) as T[];
+    }
+    if (compact.startsWith('SELECT s.* FROM source_snapshots s INNER JOIN source_snapshot_relations r')) {
+      return Array.from(this.sourceSnapshotRelations)
+        .filter((row) => row.app_installation_id === params[0] && row.record_id === params[1])
+        .map((relation) => this.sourceSnapshots.get(sourceSnapshotKey(relation.app_installation_id, relation.snapshot_id)))
+        .filter((row): row is Row => Boolean(row))
+        .sort((left, right) => String(right.observed_at).localeCompare(String(left.observed_at))) as T[];
     }
     if (compact === 'SELECT * FROM outbox_events ORDER BY updated_at ASC') {
       return Array.from(this.outbox.values()).sort((left, right) => String(left.updated_at).localeCompare(String(right.updated_at))) as T[];
@@ -421,7 +553,26 @@ function normalizeParams(params: unknown): Record<string, any> {
   return params && typeof params === 'object' && !Array.isArray(params) ? params as Record<string, any> : {};
 }
 
+function filterMapByInstallation(source: Map<string, Row>, installationId: string): Map<string, Row> {
+  return new Map(Array.from(source.entries()).filter(([, row]) => row.app_installation_id !== installationId));
+}
+
 function recordKey(appInstallationId: string | null | undefined, recordId: string) {
   const scope = appInstallationId?.trim() || DEFAULT_APP_INSTALLATION_ID;
   return scope === DEFAULT_APP_INSTALLATION_ID ? recordId : `${scope}:${recordId}`;
+}
+
+function providerLinkKey(appInstallationId: string | null | undefined, id: string) {
+  const scope = appInstallationId?.trim() || DEFAULT_APP_INSTALLATION_ID;
+  return scope === DEFAULT_APP_INSTALLATION_ID ? id : `${scope}:${id}`;
+}
+
+function sourceSnapshotKey(appInstallationId: string | null | undefined, id: string) {
+  const scope = appInstallationId?.trim() || DEFAULT_APP_INSTALLATION_ID;
+  return scope === DEFAULT_APP_INSTALLATION_ID ? id : `${scope}:${id}`;
+}
+
+function workflowRunKey(appInstallationId: string | null | undefined, id: string) {
+  const scope = appInstallationId?.trim() || DEFAULT_APP_INSTALLATION_ID;
+  return scope === DEFAULT_APP_INSTALLATION_ID ? id : `${scope}:${id}`;
 }

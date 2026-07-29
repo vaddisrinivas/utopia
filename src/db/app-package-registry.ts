@@ -92,6 +92,26 @@ export type AppPackageChangePreview = Readonly<{
   errors: string[];
 }>;
 
+export type AppPackageCapabilityDiff = Readonly<{
+  addedCapabilities: readonly string[];
+  removedCapabilities: readonly string[];
+  addedProviders: readonly string[];
+  addedNativePermissions: readonly string[];
+  addedCollections: readonly string[];
+}>;
+
+export type AppPackageUpdatePreview = Readonly<{
+  status: 'ready_for_review' | 'blocked';
+  installationId: AppInstallationId;
+  currentPackageKey: string;
+  nextPackageKey: string | null;
+  currentVersion: string;
+  nextVersion: string | null;
+  approvalRequired: true;
+  capabilityDiff: AppPackageCapabilityDiff;
+  errors: readonly string[];
+}>;
+
 export type ApprovedPackageInstallRequest = Readonly<{
   packageJson: unknown;
   preview: PackageInstallPreview;
@@ -99,6 +119,15 @@ export type ApprovedPackageInstallRequest = Readonly<{
   installationId?: string;
   workspaceId?: WorkspaceId;
   now?: string;
+}>;
+
+export type ApprovedPackageUpdateRequest = ApprovedPackageInstallRequest & Readonly<{
+  installationId: AppInstallationId;
+}>;
+
+export type DeleteAppInstallationDataConfirmation = Readonly<{
+  confirmedInstallationId: AppInstallationId;
+  deleteData: true;
 }>;
 
 export async function bootstrapAppPackageRegistry(db: SQLiteDatabase): Promise<AppPackage>;
@@ -344,6 +373,179 @@ export async function listAppInstallations(
   return Promise.all(rows.map((row) => hydrateAppInstallation(db, row)));
 }
 
+export async function archiveAppInstallation(
+  db: SQLiteDatabase,
+  installationId: AppInstallationId,
+  now = new Date().toISOString(),
+): Promise<LocalAppInstallation> {
+  const scopedInstallationId = normalizeInstallationId(installationId);
+  if (scopedInstallationId === DEFAULT_APP_INSTALLATION_ID) throw new Error('default_app_installation_archive_forbidden');
+  if (Number.isNaN(Date.parse(now))) throw new Error('app_installation_archive_time_invalid');
+  const current = await getAppInstallation(db, scopedInstallationId);
+  if (!current) throw new Error('app_installation_not_found');
+  await db.runAsync(
+    `UPDATE app_installations
+      SET status = 'archived', updated_at = $updated_at
+      WHERE installation_id = $installation_id`,
+    {
+      $installation_id: scopedInstallationId,
+      $updated_at: now,
+    },
+  );
+  const archived = await getAppInstallation(db, scopedInstallationId);
+  if (!archived) throw new Error('app_installation_not_found');
+  return archived;
+}
+
+export async function previewAppPackageUpdate(
+  db: SQLiteDatabase,
+  installationId: AppInstallationId,
+  packageJson: unknown,
+  preview: PackageInstallPreview,
+): Promise<AppPackageUpdatePreview> {
+  const scopedInstallationId = normalizeInstallationId(installationId);
+  const current = await getActiveAppPackage(db, scopedInstallationId);
+  if (!current) throw new Error('package_update_no_active_package');
+  const currentPackageKey = packageKey(current);
+  const errors: string[] = [];
+  let next: AppPackage | null = null;
+  try {
+    next = loadAppPackage(packageJson).activePackage;
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'package_update_invalid_package');
+  }
+
+  if (preview.status !== 'ready_for_review') errors.push('package_update_install_preview_blocked');
+  if (next && next.id !== current.id) errors.push('package_update_package_id_mismatch');
+  if (next && (preview.packageId !== next.id || preview.version !== next.version)) {
+    errors.push('package_update_preview_identity_mismatch');
+  }
+
+  return {
+    status: errors.length ? 'blocked' : 'ready_for_review',
+    installationId: scopedInstallationId,
+    currentPackageKey,
+    nextPackageKey: next ? packageKey(next) : null,
+    currentVersion: current.version,
+    nextVersion: next?.version ?? null,
+    approvalRequired: true,
+    capabilityDiff: next ? diffPackageCapabilities(current, next) : emptyCapabilityDiff(),
+    errors,
+  };
+}
+
+export async function activateApprovedAppPackageUpdate(
+  db: SQLiteDatabase,
+  request: ApprovedPackageUpdateRequest,
+): Promise<LocalAppInstallation> {
+  const scopedInstallationId = normalizeInstallationId(request.installationId);
+  const updatePreview = await previewAppPackageUpdate(db, scopedInstallationId, request.packageJson, request.preview);
+  if (updatePreview.status !== 'ready_for_review') {
+    throw new Error(`package_update_preview_blocked:${updatePreview.errors.join('|')}`);
+  }
+  assertPackageInstallApprovalMatchesPreview(request.approval, request.preview);
+
+  const appPackage = loadAppPackage(request.packageJson).activePackage;
+  const packageHash = hashValue(appPackage);
+  if (packageHash !== request.approval.checksum) throw new Error('package_update_payload_mismatch');
+  const now = request.now ?? new Date().toISOString();
+  if (Number.isNaN(Date.parse(now))) throw new Error('package_update_time_invalid');
+  const currentInstallation = await getAppInstallation(db, scopedInstallationId);
+  if (!currentInstallation) throw new Error('app_installation_not_found');
+
+  const key = packageKey(appPackage);
+  const previous = await getPackageState(db, scopedInstallationId);
+  const approvalHash = hashPackageInstallApprovalReceipt(request.approval);
+
+  await db.withTransactionAsync(async () => {
+    await storeAppPackage(db, appPackage, now);
+    await db.runAsync(
+      `UPDATE app_installations
+        SET package_key = $package_key,
+          package_id = $package_id,
+          version = $version,
+          source_url = $source_url,
+          checksum = $checksum,
+          app_name = $app_name,
+          status = 'active',
+          launch_path = $launch_path,
+          approval_hash = $approval_hash,
+          approved_by = $approved_by,
+          updated_at = $updated_at
+        WHERE installation_id = $installation_id`,
+      {
+        $installation_id: scopedInstallationId,
+        $package_key: key,
+        $package_id: appPackage.id,
+        $version: appPackage.version,
+        $source_url: request.preview.sourceUrl,
+        $checksum: packageHash,
+        $app_name: request.preview.appName,
+        $launch_path: `/apps/${encodeURIComponent(scopedInstallationId)}`,
+        $approval_hash: approvalHash,
+        $approved_by: request.approval.approvedBy,
+        $updated_at: now,
+      },
+    );
+    await db.runAsync(
+      `INSERT OR REPLACE INTO app_installation_package_state
+        (installation_id, active_package_key, previous_package_key, updated_at)
+        VALUES ($installation_id, $active_package_key, $previous_package_key, $updated_at)`,
+      {
+        $installation_id: scopedInstallationId,
+        $active_package_key: key,
+        $previous_package_key: previous?.active_package_key ?? null,
+        $updated_at: now,
+      },
+    );
+    if (scopedInstallationId === DEFAULT_APP_INSTALLATION_ID) {
+      await writeLegacyDefaultPackageState(db, key, previous?.active_package_key ?? null, now);
+    }
+    await insertReceipt(db, 'activate', key, previous?.active_package_key ?? null, now, {
+      packageHash,
+      approvalHash,
+      approvedBy: request.approval.approvedBy,
+    }, scopedInstallationId);
+  });
+
+  setActivePackageOverride(appPackage);
+  return (await getAppInstallation(db, scopedInstallationId)) ?? currentInstallation;
+}
+
+export async function deleteAppInstallationAndData(
+  db: SQLiteDatabase,
+  installationId: AppInstallationId,
+  confirmation: DeleteAppInstallationDataConfirmation,
+): Promise<void> {
+  const scopedInstallationId = normalizeInstallationId(installationId);
+  if (scopedInstallationId === DEFAULT_APP_INSTALLATION_ID) throw new Error('default_app_installation_delete_forbidden');
+  if (confirmation.deleteData !== true || normalizeInstallationId(confirmation.confirmedInstallationId) !== scopedInstallationId) {
+    throw new Error('app_installation_delete_confirmation_required');
+  }
+  const current = await getAppInstallation(db, scopedInstallationId);
+  if (!current) throw new Error('app_installation_not_found');
+
+  await db.withTransactionAsync(async () => {
+    for (const table of [
+      'record_relations',
+      'records',
+      'operations',
+      'outbox_events',
+      'action_events',
+      'undo_events',
+      'conversations',
+      'workflow_runs',
+      'provider_links',
+      'source_snapshot_relations',
+      'source_snapshots',
+    ]) {
+      await db.runAsync(`DELETE FROM ${table} WHERE app_installation_id = ?`, [scopedInstallationId]);
+    }
+    await db.runAsync('DELETE FROM app_installation_package_state WHERE installation_id = ?', [scopedInstallationId]);
+    await db.runAsync('DELETE FROM app_installations WHERE installation_id = ?', [scopedInstallationId]);
+  });
+}
+
 export async function getAppInstallation(
   db: SQLiteDatabase,
   installationId: AppInstallationId,
@@ -488,6 +690,51 @@ export async function rollbackAppPackage(
 
 function packageKey(appPackage: AppPackage): string {
   return `${appPackage.id}@${appPackage.version}`;
+}
+
+function diffPackageCapabilities(current: AppPackage, next: AppPackage): AppPackageCapabilityDiff {
+  const currentCapabilities = uniqueStrings(current.capabilities);
+  const nextCapabilities = uniqueStrings(next.capabilities);
+  const currentNativePermissions = nativePermissionSet(current);
+  const nextNativePermissions = nativePermissionSet(next);
+  const currentCollections = uniqueStrings(Object.keys(current.collections));
+  const nextCollections = uniqueStrings(Object.keys(next.collections));
+  return {
+    addedCapabilities: diffAdded(currentCapabilities, nextCapabilities),
+    removedCapabilities: diffAdded(nextCapabilities, currentCapabilities),
+    addedProviders: diffAdded(
+      currentCapabilities.filter((capability) => capability.startsWith('provider:')),
+      nextCapabilities.filter((capability) => capability.startsWith('provider:')),
+    ),
+    addedNativePermissions: diffAdded(currentNativePermissions, nextNativePermissions),
+    addedCollections: diffAdded(currentCollections, nextCollections),
+  };
+}
+
+function emptyCapabilityDiff(): AppPackageCapabilityDiff {
+  return {
+    addedCapabilities: [],
+    removedCapabilities: [],
+    addedProviders: [],
+    addedNativePermissions: [],
+    addedCollections: [],
+  };
+}
+
+function nativePermissionSet(appPackage: AppPackage): string[] {
+  if (appPackage.schemaVersion !== 'wonder.app-package.v3') return [];
+  return uniqueStrings((appPackage.nativeCapabilities.permissions ?? []).map((permission) => (
+    typeof permission === 'string' ? permission : permission.permission
+  )));
+}
+
+function diffAdded(before: readonly string[], after: readonly string[]): string[] {
+  const previous = new Set(before);
+  return after.filter((value) => !previous.has(value)).sort();
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
 }
 
 async function storeAppPackage(db: SQLiteDatabase, appPackage: AppPackage, now: string): Promise<void> {

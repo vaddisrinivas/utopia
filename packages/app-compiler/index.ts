@@ -89,6 +89,27 @@ export type AppPackageSourceFolder = {
   capabilities?: AppPackageSourceCapabilities;
 };
 
+export type FoodPackageSourceChunk = Readonly<{
+  key: string;
+  file: string;
+  kind: string;
+  entries: number;
+}>;
+
+export type FoodPackageSourceIndex = Readonly<{
+  source: string;
+  strategy: string;
+  chunks: FoodPackageSourceChunk[];
+}>;
+
+export type FoodPackageSourceRoundTrip = Readonly<{
+  index: FoodPackageSourceIndex;
+  runtime: Record<string, unknown>;
+  reassembled: Record<string, unknown>;
+  checksum: string;
+  matches: boolean;
+}>;
+
 export type PackageCompilerIssue = Readonly<{
   path: string;
   message: string;
@@ -182,6 +203,49 @@ export function readAppPackageSourceFolder(rootDir: string): AppPackageSourceFol
     fixtures: readJsonMap(join(rootDir, 'fixtures')) as Record<string, unknown> | undefined,
     acceptance: readJsonMap(join(rootDir, 'acceptance')) as Record<string, unknown> | undefined,
     capabilities: readCapabilitiesFolder(join(rootDir, 'capabilities')),
+  };
+}
+
+export function readFoodPackageSourceIndex(rootDir: string): FoodPackageSourceIndex {
+  const index = readJsonFile(join(rootDir, 'index.json'));
+  if (!isRecord(index) || !Array.isArray(index.chunks)) {
+    throw new Error(`invalid food source index in ${rootDir}`);
+  }
+
+  return {
+    source: isText(index.source) ? index.source : 'apps/food/food.v1.json',
+    strategy: isText(index.strategy) ? index.strategy : 'top-level-key split',
+    chunks: index.chunks.map((chunk, position) => {
+      if (!isRecord(chunk) || !isText(chunk.key) || !isText(chunk.file)) {
+        throw new Error(`invalid food source chunk at index ${position}`);
+      }
+      return {
+        key: chunk.key,
+        file: chunk.file,
+        kind: isText(chunk.kind) ? chunk.kind : 'unknown',
+        entries: typeof chunk.entries === 'number' && Number.isInteger(chunk.entries) ? chunk.entries : 0,
+      };
+    }),
+  };
+}
+
+export function reassembleFoodPackageSource(rootDir: string): Record<string, unknown> {
+  const index = readFoodPackageSourceIndex(rootDir);
+  return Object.fromEntries(
+    index.chunks.map((chunk) => [chunk.key, readJsonFile(join(rootDir, chunk.file))]),
+  );
+}
+
+export function validateFoodPackageSourceRoundTrip(rootDir: string, runtimePath: string): FoodPackageSourceRoundTrip {
+  const index = readFoodPackageSourceIndex(rootDir);
+  const runtime = readJsonFile(runtimePath) as Record<string, unknown>;
+  const reassembled = reassembleFoodPackageSource(rootDir);
+  return {
+    index,
+    runtime,
+    reassembled,
+    checksum: sha256Canonical(reassembled),
+    matches: canonicalJson(runtime) === canonicalJson(reassembled),
   };
 }
 
@@ -923,7 +987,7 @@ function isDependencyPin(value: unknown): value is AppPackageDependencyPin {
 function isNativeCapability(value: unknown): value is AppPackageNativeCapability {
   if (!isRecord(value)) return false;
   if (value.schemaVersion !== 'wonder.app-package-native-capabilities.v1') return false;
-  if (!isText(value.platform) || !['expo', 'android', 'ios', 'web'].includes(value.platform)) return false;
+  if (!isText(value.platform) || !['expo', 'android', 'ios', 'web', 'macos'].includes(value.platform)) return false;
   if (!Array.isArray(value.packages) || !value.packages.every(isText)) return false;
   if (value.permissions !== undefined && !Array.isArray(value.permissions)) return false;
   if (Array.isArray(value.permissions) && !value.permissions.every(isNativePermission)) return false;
@@ -937,7 +1001,7 @@ function isNativePermission(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return isText(value.id)
     && isText(value.platform)
-    && ['expo', 'android', 'ios', 'web'].includes(value.platform)
+    && ['expo', 'android', 'ios', 'web', 'macos'].includes(value.platform)
     && isText(value.permission)
     && isText(value.reason)
     && (value.required === undefined || typeof value.required === 'boolean')
@@ -948,7 +1012,7 @@ function isNativeIntent(value: unknown): boolean {
   return isRecord(value)
     && isText(value.id)
     && isText(value.platform)
-    && ['expo', 'android', 'ios', 'web'].includes(value.platform)
+    && ['expo', 'android', 'ios', 'web', 'macos'].includes(value.platform)
     && isAppPackageNativeIntentKind(value.kind)
     && isText(value.reason)
     && (value.required === undefined || typeof value.required === 'boolean')

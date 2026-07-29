@@ -1,0 +1,120 @@
+{
+  "source": "apps/food/food.v1.json",
+  "strategy": "top-level-key split",
+  "chunks": [
+    {
+      "key": "$schema",
+      "file": "chunks/00-schema.json",
+      "kind": "string",
+      "entries": 0
+    },
+    {
+      "key": "schema_version",
+      "file": "chunks/01-schema-version.json",
+      "kind": "string",
+      "entries": 0
+    },
+    {
+      "key": "id",
+      "file": "chunks/02-id.json",
+      "kind": "string",
+      "entries": 0
+    },
+    {
+      "key": "label",
+      "file": "chunks/03-label.json",
+      "kind": "string",
+      "entries": 0
+    },
+    {
+      "key": "home_surface",
+      "file": "chunks/04-home-surface.json",
+      "kind": "string",
+      "entries": 0
+    },
+    {
+      "key": "surfaces",
+      "file": "chunks/05-surfaces.json",
+      "kind": "array",
+      "entries": 4
+    },
+    {
+      "key": "collections",
+      "file": "chunks/06-collections.json",
+      "kind": "array",
+      "entries": 29
+    },
+    {
+      "key": "rich_detail_schema",
+      "file": "chunks/07-rich-detail-schema.json",
+      "kind": "string",
+      "entries": 0
+    },
+    {
+      "key": "provider_template_fields",
+      "file": "chunks/08-provider-template-fields.json",
+      "kind": "object",
+      "entries": 3
+    },
+    {
+      "key": "visual_identity",
+      "file": "chunks/09-visual-identity.json",
+      "kind": "object",
+      "entries": 8
+    },
+    {
+      "key": "ui",
+      "file": "chunks/10-ui.json",
+      "kind": "object",
+      "entries": 4
+    },
+    {
+      "key": "relations",
+      "file": "chunks/11-relations.json",
+      "kind": "array",
+      "entries": 43
+    },
+    {
+      "key": "skills",
+      "file": "chunks/12-skills.json",
+      "kind": "array",
+      "entries": 1
+    },
+    {
+      "key": "workflows",
+      "file": "chunks/13-workflows.json",
+      "kind": "array",
+      "entries": 5
+    },
+    {
+      "key": "data_homes",
+      "file": "chunks/14-data-homes.json",
+      "kind": "array",
+      "entries": 4
+    },
+    {
+      "key": "dependency_pins",
+      "file": "chunks/15-dependency-pins.json",
+      "kind": "array",
+      "entries": 4
+    },
+    {
+      "key": "native_capabilities",
+      "file": "chunks/16-native-capabilities.json",
+      "kind": "object",
+      "entries": 5
+    },
+    {
+      "key": "render",
+      "file": "chunks/17-render.json",
+      "kind": "object",
+      "entries": 10
+    },
+    {
+      "key": "mcp",
+      "file": "chunks/18-mcp.json",
+      "kind": "object",
+      "entries": 2
+    }
+  ]
+}

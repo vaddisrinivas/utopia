@@ -62,7 +62,7 @@ flowchart LR
 | Android | Native Expo / React Native shell |
 | iOS | Native Xcode project generated |
 | Web | Static Expo web export |
-| macOS | Not a true native target yet; use web/PWA or add a desktop shell later |
+| macOS | Native React Native macOS shell/prototype with JSON rendering and local media bridge; not release-proven yet |
 | UI | JSON-render powered surfaces with a widget registry |
 | Data | Local SQLite operation store |
 | Providers | Notion / Google Sheets style external homes |
@@ -88,6 +88,9 @@ flowchart LR
 
 ### App factory pieces
 
+- [docs/github-app-factory.md](./docs/github-app-factory.md) — fork + `OPENAI_API_KEY` + natural-language app generation workflow.
+- [requests/app-idea.md](./requests/app-idea.md) — plain-English request template for the GitHub workflow.
+- [scripts/factory/generate-app-from-prompt.ts](./scripts/factory/generate-app-from-prompt.ts) — OpenAI structured-output generator for reviewable app packages.
 - [packages/domain-config/templates/utopia-data-plane-template.v1.json](./packages/domain-config/templates/utopia-data-plane-template.v1.json)
 - [packages/domain-config/templates/package-change-templates/package-change-blueprints.v1.json](./packages/domain-config/templates/package-change-templates/package-change-blueprints.v1.json)
 - [packages/domain-config/templates/package-change-templates/widget-screen-intents.v1.json](./packages/domain-config/templates/package-change-templates/widget-screen-intents.v1.json)
@@ -140,7 +143,18 @@ The renderer supports a growing generic widget catalog. Current package-level wi
 - charts;
 - galleries;
 - schema editor;
-- widget catalog.
+- widget catalog;
+- file picker/export;
+- video player;
+- camera scanner;
+- location/map;
+- sensor readout;
+- local notifications;
+- contact picker;
+- calendar event;
+- biometric gate;
+- health status;
+- speech tool.
 
 Rule of thumb: JSON can configure any capability the renderer already exposes. New behavior belongs in generic widgets, not one-off app screens.
 
@@ -191,13 +205,22 @@ npm run export:web
 
 ### macOS
 
-There is no true native macOS target yet.
+There is a native React Native macOS shell/prototype.
 
-Best options:
+Useful commands:
 
-- use the web build as a PWA;
-- wrap the web build with a desktop shell;
-- add React Native macOS if true native desktop becomes important.
+```bash
+npm run macos
+npm run macos:build
+```
+
+Current macOS bridge scope:
+
+- render package JSON surfaces;
+- pick/open/save local files;
+- open local video files through the native workspace bridge.
+
+It is not release-proven like Android signed build/export proof yet.
 
 ## Development
 
@@ -277,7 +300,9 @@ Still needed:
 - declarative native permission flows per package;
 - polished provider connection UX;
 - production dependency/security cleanup;
-- true macOS target if needed.
+- physical-device release proof;
+- native HealthKit entitlement bridge;
+- speech-to-text bridge.
 
 ## Product thesis
 

@@ -1,0 +1,23 @@
+# Cross-Platform Capability Runtime Todo
+
+- [x] Task 1: Add capability matrix and required/optional policy.
+- [x] Task 2: Add capability test app skeleton.
+- [ ] Task 3: Normalize capability permissions.
+- [ ] Checkpoint A: Contract safe.
+- [x] Task 4: Build generic Mac JSON renderer.
+- [x] Task 5: Add Mac capability bridge registry.
+- [x] Checkpoint B: Mac real runtime.
+- [x] Task 6: Add generic file picker/open/save.
+- [x] Task 7: Add video player/capture.
+- [x] Task 8: Add camera scanner.
+- [x] Task 9: Add location and map runtime.
+- [x] Task 10: Add sensors capability.
+- [ ] Checkpoint C: Core device IO.
+- [x] Task 11: Add notifications, timers, background.
+- [x] Task 12: Add contacts and calendar.
+- [x] Task 13: Add biometrics and secure actions.
+- [ ] Task 14: Add Apple Health. Product fallback is implemented; signed iOS HealthKit entitlement bridge remains.
+- [ ] Task 15: Add speech-to-text and text-to-speech. Text-to-speech is implemented; speech-to-text native bridge remains.
+- [ ] Checkpoint D: System services.
+- [ ] Task 16: Promote capability lab into bundled cross-platform test app.
+- [ ] Checkpoint E: Release proof.

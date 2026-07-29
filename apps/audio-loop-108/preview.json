@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "wonder.app-package-preview.v1",
+  "packageSchemaVersion": "wonder.app-package.v2",
+  "id": "audio-loop-108",
+  "version": "1.0.0",
+  "label": "Audio Loop 108",
+  "checksum": "sha256:685176f8166462a1a8c3047cae009c041a130e4b631583c535e6d2c34017341d",
+  "homeSurface": "home",
+  "surfaces": [
+    {
+      "id": "history",
+      "label": "History",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "history"
+      ]
+    },
+    {
+      "id": "home",
+      "label": "Loop",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "home"
+      ]
+    }
+  ],
+  "collectionIds": [
+    "session"
+  ],
+  "queryIds": [
+    "recent-sessions"
+  ],
+  "ruleIds": [],
+  "widgets": [
+    "audioLoopPlayer",
+    "dataTable"
+  ],
+  "acceptanceTests": [
+    "schema-native"
+  ],
+  "sourceCounts": {
+    "app": 1,
+    "collections": 1,
+    "queries": 1,
+    "screens": 2,
+    "rules": 0,
+    "workflows": 0,
+    "providers": 0,
+    "theme": 0,
+    "fixtures": 0,
+    "acceptance": 1,
+    "capabilities": 0
+  },
+  "diffSummary": {
+    "added": 0,
+    "removed": 0,
+    "changed": 0
+  }
+}
