@@ -17,6 +17,10 @@ import { get as httpGet } from 'node:http';
 
 import { currentGit } from '../evidence-provenance.mjs';
 import {
+  buildGoldenLoopDebugUrl,
+  buildSharedHouseholdBoardDebugCommands,
+} from '../golden-loop/debug-bridge-commands.mjs';
+import {
   PUBLIC_UI_HOOKS,
   areInstallationIdsDistinct,
   collectInstallationIdsFromStates,
@@ -208,6 +212,17 @@ function runAndRecord(rootDir, artifacts, label, commandName, args, options = {}
   return result;
 }
 
+function dispatchDebugCommand(serial, command, rootDir, artifacts, label) {
+  return runAndRecord(
+    rootDir,
+    artifacts,
+    `deep-link-debug-${safeLabel(label)}-${safeLabel(serial)}`,
+    ADB,
+    ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', buildGoldenLoopDebugUrl(command)],
+    { timeout: 20_000 },
+  );
+}
+
 export function collectAndroidInputs(argv = process.argv.slice(2), env = process.env) {
   const flags = parseArgv(argv);
   const serialSources = [
@@ -235,6 +250,7 @@ export function collectAndroidInputs(argv = process.argv.slice(2), env = process
     emulatorSerials,
     proofPath: flags['proof-path'] || env.UTOPIA_ANDROID_GOLDEN_LOOP_RECEIPT_PATH,
     runId: flags['run-id'] || `golden-${nowIso().replace(/[-:.TZ]/g, '').slice(0, 14)}`,
+    debugToken: flags['debug-token'] || env.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN || env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN || '',
   };
 }
 
@@ -299,6 +315,9 @@ export function validateGoldenLoopInputs(rawInputs, options = {}) {
   if (disallowDuplicatePackageHash && apkV1Hash && apkV2Hash && apkV1Hash === apkV2Hash) {
     blockers.push('invalid:android_apk_hash_match');
   }
+  if (String(inputs.debugToken || '').trim().length < 32) {
+    blockers.push('missing:golden_loop_debug_token');
+  }
 
   return {
     blockers,
@@ -311,6 +330,7 @@ export function validateGoldenLoopInputs(rawInputs, options = {}) {
     emulatorSerials,
     proofPath: inputs.proofPath,
     runId: inputs.runId,
+    debugToken: String(inputs.debugToken || '').trim(),
   };
 }
 
@@ -980,6 +1000,14 @@ async function run() {
     const serialStates = [];
 
     for (const serial of serials) {
+      const installationId = `android-${safeLabel(serial)}-${validated.runId}`;
+      const debugCommands = buildSharedHouseholdBoardDebugCommands({
+        root: ROOT,
+        token: validated.debugToken,
+        installationId,
+        recordId: `task-${safeLabel(serial)}`,
+      }).commands;
+      const commandByOperationId = new Map(debugCommands.map((command) => [command.operation_id, command]));
       const state = {
         serial,
         allArtifacts: artifacts,
@@ -989,50 +1017,42 @@ async function run() {
 
       installApk(serial, validated.apkV1Path, evidenceDir, artifacts, `v1-install-${serial}`);
       assertPackageExists(serial, validated.packageId, evidenceDir, artifacts);
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-install-v1'), evidenceDir, state.allArtifacts, 'install-v1');
+      await sleep(DEEP_LINK_WAIT_MS);
       state.v1State = snapshotDatabase(serial, validated.packageId, `v1-${safeLabel(serial)}`, evidenceDir, artifacts);
 
       installApk(serial, validated.apkV2Path, evidenceDir, artifacts, `v2-install-${serial}`);
       assertPackageExists(serial, validated.packageId, evidenceDir, artifacts);
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-update-v2'), evidenceDir, state.allArtifacts, 'update-v2');
+      await sleep(DEEP_LINK_WAIT_MS);
       state.v2State = snapshotDatabase(serial, validated.packageId, `v2-${safeLabel(serial)}`, evidenceDir, artifacts);
 
       assertInstallRowsPersist(state.v1State, state.v2State, 'install-update');
 
       installApk(serial, validated.apkV1Path, evidenceDir, artifacts, `v1-rollback-${serial}`);
       assertPackageExists(serial, validated.packageId, evidenceDir, artifacts);
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-rollback'), evidenceDir, state.allArtifacts, 'rollback');
+      await sleep(DEEP_LINK_WAIT_MS);
       state.rollbackState = snapshotDatabase(serial, validated.packageId, `rollback-${safeLabel(serial)}`, evidenceDir, artifacts);
 
       assertInstallRowsPersist(state.v2State, state.rollbackState, 'install-rollback');
 
-      runAndRecord(
-        evidenceDir,
-        state.allArtifacts,
-        `deep-link-identity-${safeLabel(serial)}`,
-        ADB,
-        ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'utopia://chat?prompt=golden-loop-identity&run=1'],
-      );
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-state-checksum'), evidenceDir, state.allArtifacts, 'identity-checksum');
       await sleep(DEEP_LINK_WAIT_MS / 2);
 
       const beforeBoard = state.rollbackState;
-      runAndRecord(
-        evidenceDir,
-        state.allArtifacts,
-        `deep-link-board-${safeLabel(serial)}`,
-        ADB,
-        ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'utopia://chat?prompt=golden-loop-create-board-row&run=1'],
-      );
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-write-record'), evidenceDir, state.allArtifacts, 'write-record');
       await sleep(DEEP_LINK_WAIT_MS);
       const afterBoard = snapshotDatabase(serial, validated.packageId, `board-post-${safeLabel(serial)}`, evidenceDir, artifacts);
       const boardBlock = boardGrowth(beforeBoard, afterBoard, serial);
       if (boardBlock) state.hookChecks.push(boardBlock);
 
       const beforeSync = afterBoard;
-      runAndRecord(
-        evidenceDir,
-        state.allArtifacts,
-        `deep-link-sync-${safeLabel(serial)}`,
-        ADB,
-        ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'utopia://settings?run=1'],
-      );
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-transport-disconnect'), evidenceDir, state.allArtifacts, 'transport-disconnect');
+      await sleep(DEEP_LINK_WAIT_MS / 2);
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-offline-write'), evidenceDir, state.allArtifacts, 'offline-write');
+      await sleep(DEEP_LINK_WAIT_MS / 2);
+      dispatchDebugCommand(serial, commandByOperationId.get('debug-transport-reconnect'), evidenceDir, state.allArtifacts, 'transport-reconnect');
       await sleep(DEEP_LINK_WAIT_MS);
       state.finalState = snapshotDatabase(serial, validated.packageId, `sync-post-${safeLabel(serial)}`, evidenceDir, artifacts);
       const syncBlock = syncGrowth(beforeSync, state.finalState, serial);

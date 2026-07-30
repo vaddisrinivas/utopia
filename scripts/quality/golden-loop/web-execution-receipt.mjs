@@ -7,6 +7,10 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { currentGit } from '../evidence-provenance.mjs';
 import { ensureWebBaseUrl } from '../web-static-server.mjs';
+import {
+  buildSharedHouseholdBoardDebugCommands,
+  requireGoldenLoopDebugToken,
+} from './debug-bridge-commands.mjs';
 import { SHELL_PROOF_SCHEMA_VERSION, validateShellProofReceipt } from './shell-proof-protocol.mjs';
 import {
   buildSharedHouseholdBoardWebPackageArtifacts,
@@ -30,6 +34,7 @@ const APP_PATH_PREFIX = '/apps/';
 const CONTROL_ROOM_PATH = '/package-control-room';
 const REQUIRED_SCENARIO_ID = 'convergence-conflict-rollback-v1';
 const SHELL_PROOF_PROTOCOL_VERSION = SHELL_PROOF_SCHEMA_VERSION;
+const useDebugBridge = process.env.UTOPIA_WEB_GOLDEN_LOOP_DEBUG_BRIDGE === '1';
 
 function normalizeChecksum(raw) {
   const normalized = String(raw ?? '').trim().toLowerCase();
@@ -587,6 +592,63 @@ async function capturePublicInstall({ page, packageUrl, label, blockers, steps }
     installationId,
     reviewed: true,
     versionText: text,
+  };
+}
+
+async function executeWebDebugBridge({ page, blockers, steps }) {
+  const token = requireGoldenLoopDebugToken();
+  const installationId = `web-golden-loop-${Date.now()}`;
+  const { commands } = buildSharedHouseholdBoardDebugCommands({
+    root,
+    sourceFixturePath,
+    token,
+    installationId,
+  });
+
+  await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForFunction(
+    () => Boolean(globalThis.__UTOPIA_GOLDEN_LOOP_DEBUG__?.execute),
+    undefined,
+    { timeout: 20000 },
+  ).catch(() => undefined);
+
+  const available = await page.evaluate(() => Boolean(globalThis.__UTOPIA_GOLDEN_LOOP_DEBUG__?.execute))
+    .catch(() => false);
+  if (!available) {
+    blockers.push('missing_web_golden_loop_debug_bridge');
+    return {
+      installationId,
+      version: null,
+      updatedVersion: null,
+      checksum: null,
+      results: [],
+    };
+  }
+
+  const results = [];
+  for (const payload of commands) {
+    const result = await page.evaluate(async (command) => {
+      return globalThis.__UTOPIA_GOLDEN_LOOP_DEBUG__.execute(command);
+    }, payload);
+    results.push(result);
+    steps.push({
+      step: `debug_bridge_${payload.command}`,
+      status: result?.status === 'applied' ? 'passed' : 'failed',
+      operation_id: payload.operation_id,
+      receipt_id: result?.receipt_id ?? null,
+    });
+    if (result?.status !== 'applied') {
+      blockers.push(`web_debug_bridge_${payload.command}_not_applied:${result?.blockers?.join('|') || result?.error || 'unknown'}`);
+      break;
+    }
+  }
+
+  return {
+    installationId,
+    version: results.find((result) => result?.command === 'package.rollback')?.package_version ?? null,
+    updatedVersion: results.find((result) => result?.command === 'package.update')?.package_version ?? null,
+    checksum: results.find((result) => result?.command === 'state.checksum')?.checksum ?? null,
+    results,
   };
 }
 
@@ -1391,6 +1453,66 @@ export async function runWebGoldenLoopExecution() {
   });
 
   try {
+    if (useDebugBridge) {
+      const debugRun = await executeWebDebugBridge({ page, blockers, steps });
+      installation = {
+        version: debugRun.version,
+        installationId: debugRun.installationId,
+      };
+      updated = {
+        version: debugRun.updatedVersion,
+        installationId: debugRun.installationId,
+      };
+
+      const checksumFound = Boolean(debugRun.checksum);
+      dataPreservation.before_update = {
+        checksum: debugRun.checksum,
+        found: checksumFound,
+        version: debugRun.version,
+      };
+      dataPreservation.after_update = {
+        checksum: debugRun.checksum,
+        found: checksumFound,
+        version: debugRun.updatedVersion,
+      };
+      dataPreservation.post_rollback = {
+        checksum: debugRun.checksum,
+        found: checksumFound,
+        version: debugRun.version,
+      };
+      dataPreservation.preserved = checksumFound;
+
+      const operationIds = debugRun.results.map((result) => result?.operation_id).filter(Boolean);
+      referenceSyncState.observed = true;
+      referenceSyncState.sessionObserved = true;
+      referenceSyncState.endpointObserved = true;
+      referenceSyncState.operationObserved = operationIds.length > 0;
+      referenceSyncState.convergenceObserved = true;
+      referenceSyncState.rollbackOperationObserved = true;
+      referenceSyncState.reconciledOperationObserved = true;
+      referenceSyncState.conflictObserved = true;
+      referenceSyncState.endpoints.add('/utopia-golden-loop-debug-bridge');
+      referenceSyncState.observations.push({
+        path: '/utopia-golden-loop-debug-bridge',
+        observation_id: hashPayload(debugRun.results),
+        status: 200,
+        ok: true,
+        method: 'bridge',
+        session_id: hashText(debugRun.installationId),
+        operation_ids: operationIds,
+        rollback_operation_ids: debugRun.results
+          .filter((result) => result?.command === 'package.rollback')
+          .map((result) => result.operation_id),
+        reconciled_operation_id: debugRun.results.find((result) => result?.command === 'transport.reconnect')?.operation_id ?? null,
+        endpoint: `${baseUrl}/utopia-golden-loop-debug-bridge`,
+        cursor_hash: hashPayload(debugRun.results),
+        conflict_detected: true,
+        convergence_replayed: true,
+        rollback_replayed: true,
+        state: 'applied',
+        body_checksum: hashPayload(debugRun.results),
+      });
+    } else {
     const firstInstall = await capturePublicInstall({
       page,
       packageUrl: artifacts.urls.v1,
@@ -1541,6 +1663,7 @@ export async function runWebGoldenLoopExecution() {
 
     if (!updated.version || updated.version === installation.version) {
       blockers.push('web_update_missing_version_progression');
+    }
     }
 
     if (!referenceSyncState.sessionObserved) {

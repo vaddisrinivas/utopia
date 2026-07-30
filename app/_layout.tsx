@@ -8,6 +8,7 @@ import { UtopiaDatabaseProvider } from '@/src/db/provider';
 import { setActiveDomainOverride } from '@/src/domain/catalog';
 import { parseAudioLoopIncomingIntent } from '@/src/platform/incoming-audio-loop';
 import { useIncomingShareSafe } from '@/src/platform/incoming-share';
+import { GoldenLoopDebugBridge } from '@/src/quality/GoldenLoopDebugBridge';
 import { loadUtopiaSettings, subscribeUtopiaSettings } from '@/src/settings/utopia-settings';
 
 LogBox.ignoreLogs([
@@ -84,6 +85,7 @@ export default function RootLayout() {
 
   return (
     <UtopiaDatabaseProvider seedInDev={__DEV__}>
+      <GoldenLoopDebugBridge />
       <StatusBar style="dark" />
       {Platform.OS === 'web' ? null : <IncomingShareRouter />}
       <Stack screenOptions={{ headerShown: false }}>
