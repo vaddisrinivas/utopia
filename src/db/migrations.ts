@@ -3,7 +3,7 @@ import { DEFAULT_APP_INSTALLATION_ID, DEFAULT_WORKSPACE_ID } from '@/packages/sh
 import { loadCatalog } from '@/src/domain/catalog';
 
 export const DATABASE_NAME = 'utopia.db';
-export const DATABASE_VERSION = 13;
+export const DATABASE_VERSION = 14;
 
 const TABLES = {
   meta: 'meta',
@@ -30,6 +30,7 @@ const TABLES = {
   cloud_accounts: 'cloud_accounts',
   cloud_devices: 'cloud_devices',
   cloud_sessions: 'cloud_sessions',
+  capability_consent_ledger: 'capability_consent_ledger',
   undo_events: 'undo_events',
   workflow_runs: 'workflow_runs',
   agent_runs: 'agent_runs',
@@ -962,6 +963,43 @@ const MIGRATIONS: Migration[] = [
     },
     down: async (db) => {
       await db.execAsync(`PRAGMA user_version = 12`);
+    },
+  },
+  {
+    version: 14,
+    up: async (db) => {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS ${TABLES.capability_consent_ledger} (
+          id TEXT PRIMARY KEY,
+          app_installation_id TEXT NOT NULL,
+          schema_version TEXT NOT NULL,
+          package_id TEXT NOT NULL,
+          package_version TEXT NOT NULL,
+          package_checksum TEXT NOT NULL,
+          capability TEXT NOT NULL,
+          scope_json TEXT NOT NULL,
+          decision TEXT NOT NULL CHECK(decision IN ('allow', 'deny')),
+          decided_by TEXT NOT NULL,
+          decided_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          revoked_by TEXT,
+          revoked_at TEXT,
+          revocation_reason TEXT,
+          fingerprint TEXT NOT NULL,
+          FOREIGN KEY (app_installation_id) REFERENCES ${TABLES.app_installations}(installation_id) ON DELETE CASCADE
+        )
+      `);
+      await db.execAsync(`
+        CREATE INDEX IF NOT EXISTS ${TABLES.capability_consent_ledger}_installation_idx
+          ON ${TABLES.capability_consent_ledger}(app_installation_id, updated_at DESC)
+      `);
+      await db.execAsync(`PRAGMA user_version = 14`);
+    },
+    down: async (db) => {
+      await db.execAsync(`DROP INDEX IF EXISTS ${TABLES.capability_consent_ledger}_installation_idx`);
+      await db.execAsync(`DROP TABLE IF EXISTS ${TABLES.capability_consent_ledger}`);
+      await db.execAsync('PRAGMA user_version = 13');
     },
   },
 ];

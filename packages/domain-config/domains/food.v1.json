@@ -2692,7 +2692,7 @@
   "dependency_pins": [
     {
       "package": "expo-image-picker",
-      "version": "~57.0.6",
+      "version": "~57.0.7",
       "source": "npm"
     },
     {
@@ -2702,7 +2702,7 @@
     },
     {
       "package": "expo-sharing",
-      "version": "~57.0.7",
+      "version": "~57.0.8",
       "source": "npm"
     },
     {

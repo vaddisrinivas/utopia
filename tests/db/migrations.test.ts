@@ -316,6 +316,7 @@ describe('database migrations', () => {
       'app_package_state',
       'workspaces',
       'app_installations',
+      'capability_consent_ledger',
       'app_installation_package_state',
       'app_package_receipts',
     ]));

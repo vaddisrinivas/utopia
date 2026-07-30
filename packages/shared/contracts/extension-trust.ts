@@ -3,6 +3,8 @@ import { canonicalJson, sha256Canonical } from './canonical-json';
 export const UTOPIA_EXTENSION_MANIFEST_SCHEMA_VERSION = 'utopia.extension-manifest.v1' as const;
 export const UTOPIA_EXTENSION_SIGNED_PAYLOAD_SCHEMA_VERSION = 'utopia.extension-signed-payload.v1' as const;
 export const UTOPIA_EXTENSION_TRUST_POLICY_SCHEMA_VERSION = 'utopia.extension-trust-policy.v1' as const;
+export const UTOPIA_EXTENSION_TRUST_ROOT_SCHEMA_VERSION = 'utopia.extension-trust-root.v1' as const;
+export const UTOPIA_EXTENSION_TRUST_TARGETS_SCHEMA_VERSION = 'utopia.extension-trust-targets.v1' as const;
 
 export const EXTENSION_ABI_PATTERN = /^\d+\.\d+\.\d+$/;
 export const EXTENSION_ARTIFACT_CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/;
@@ -76,6 +78,36 @@ export type UtopiaTrustedExtensionKey = Readonly<{
   label?: string;
 }>;
 
+export type UtopiaExtensionTrustPublisherDelegation = Readonly<{
+  publisherId: string;
+  extensionIdPatterns: readonly string[];
+  delegatedSigningKeyIds: readonly string[];
+  minimumTargetsVersion?: number;
+}>;
+
+export type UtopiaExtensionTrustRootMetadata = Readonly<{
+  schemaVersion: typeof UTOPIA_EXTENSION_TRUST_ROOT_SCHEMA_VERSION;
+  version: number;
+  expires: string;
+  rootKeyId: string;
+  delegatedPublishers: readonly UtopiaExtensionTrustPublisherDelegation[];
+  signature?: UtopiaExtensionSignature;
+}>;
+
+export type UtopiaExtensionTrustTargetsMetadata = Readonly<{
+  schemaVersion: typeof UTOPIA_EXTENSION_TRUST_TARGETS_SCHEMA_VERSION;
+  publisherId: string;
+  version: number;
+  expires: string;
+  delegatedSigningKeyIds: readonly string[];
+  signature?: UtopiaExtensionSignature;
+}>;
+
+export type UtopiaExtensionTrustMetadataFloor = Readonly<{
+  minimumAcceptedRootVersion?: number;
+  minimumAcceptedTargetsVersionByPublisher?: Readonly<Record<string, number>>;
+}>;
+
 export type UtopiaExtensionTrustPolicy = Readonly<{
   schemaVersion: typeof UTOPIA_EXTENSION_TRUST_POLICY_SCHEMA_VERSION;
   name: string;
@@ -86,10 +118,248 @@ export type UtopiaTrustedExtensionDecision =
   | Readonly<{ trusted: true; publicKey: string }>
   | Readonly<{ trusted: false; error: string }>;
 
+export type UtopiaTrustedExtensionTufDecision = UtopiaTrustedExtensionDecision & Readonly<{
+  rootVersion: number;
+  targetsVersion: number;
+}>;
+
 export type UtopiaExtensionSignatureVerifierResult = Readonly<{
   verified: boolean;
   error?: string;
 }>;
+
+export async function resolveExtensionTrustPolicyWithTufMetadata(input: {
+  policy: UtopiaExtensionTrustPolicy;
+  manifest: UtopiaExtensionManifest;
+  root: UtopiaExtensionTrustRootMetadata;
+  targets: UtopiaExtensionTrustTargetsMetadata;
+  floor?: UtopiaExtensionTrustMetadataFloor;
+  now?: string;
+}): Promise<UtopiaTrustedExtensionTufDecision> {
+  const nowTimestamp = input.now ? parseIsoTimestamp(input.now) : Date.now();
+  if (Number.isNaN(nowTimestamp)) {
+    return { trusted: false, error: 'trust metadata now must be ISO date', rootVersion: 0, targetsVersion: 0 };
+  }
+
+  const metadataError = collectExtensionTrustMetadataErrors(input.policy, input.manifest.publisher, input.manifest.signature);
+  if (metadataError) return { trusted: false, error: metadataError, rootVersion: 0, targetsVersion: 0 };
+
+  const rootErrors = collectExtensionTrustRootMetadataValidationErrors(input.root, 'root');
+  if (rootErrors.length) return { trusted: false, error: rootErrors.join('|'), rootVersion: 0, targetsVersion: 0 };
+  const targetsErrors = collectExtensionTrustTargetsMetadataValidationErrors(input.targets, 'targets');
+  if (targetsErrors.length) return { trusted: false, error: targetsErrors.join('|'), rootVersion: input.root.version, targetsVersion: 0 };
+
+  const rootSignatureError = await verifySignedTrustMetadata({
+    metadataType: 'root',
+    metadata: input.root,
+    policy: input.policy,
+    nowTimestamp,
+    requiredKeyId: input.root.rootKeyId,
+    requireSignature: true,
+    delegatedSigningKeyIds: undefined,
+  });
+  if (rootSignatureError) return {
+    trusted: false,
+    error: rootSignatureError,
+    rootVersion: input.root.version,
+    targetsVersion: input.targets.version,
+  };
+
+  const targetsSignatureError = await verifySignedTrustMetadata({
+    metadataType: 'targets',
+    metadata: input.targets,
+    policy: input.policy,
+    nowTimestamp,
+    requireSignature: true,
+    delegatedSigningKeyIds: input.targets.delegatedSigningKeyIds,
+  });
+  if (targetsSignatureError) return {
+    trusted: false,
+    error: targetsSignatureError,
+    rootVersion: input.root.version,
+    targetsVersion: input.targets.version,
+  };
+
+  if (Date.parse(input.root.expires) < nowTimestamp) return { trusted: false, error: 'extension trust root metadata expired', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  if (Date.parse(input.targets.expires) < nowTimestamp) return { trusted: false, error: 'extension trust targets metadata expired', rootVersion: input.root.version, targetsVersion: input.targets.version };
+
+  if (input.floor?.minimumAcceptedRootVersion !== undefined && input.root.version < input.floor.minimumAcceptedRootVersion) {
+    return { trusted: false, error: 'extension trust root version rollback', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+
+  const floorTargetsVersion = input.floor?.minimumAcceptedTargetsVersionByPublisher?.[input.manifest.publisher.id];
+  if (floorTargetsVersion !== undefined && input.targets.version < floorTargetsVersion) {
+    return { trusted: false, error: 'extension trust targets version rollback', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+
+  const delegation = input.root.delegatedPublishers.find((entry) => entry.publisherId === input.manifest.publisher.id);
+  if (!delegation) return { trusted: false, error: 'extension publisher is not delegated', rootVersion: input.root.version, targetsVersion: input.targets.version };
+
+  if (!input.targets.publisherId) return { trusted: false, error: 'extension targets metadata publisherId is required', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  if (input.targets.publisherId !== input.manifest.publisher.id) {
+    return { trusted: false, error: 'extension targets publisher mismatch', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+
+  if (!extensionIdMatchesPattern(input.manifest.id, delegation.extensionIdPatterns)) {
+    return { trusted: false, error: 'extension id is outside delegated trust constraints', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+
+  if (!delegation.delegatedSigningKeyIds.includes(input.manifest.signature.keyId)) {
+    return { trusted: false, error: 'extension signing key is not delegated', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+  if (!input.targets.delegatedSigningKeyIds.includes(input.manifest.signature.keyId)) {
+    return { trusted: false, error: 'extension signing key is not in targets metadata', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+  if (delegation.minimumTargetsVersion !== undefined && input.targets.version < delegation.minimumTargetsVersion) {
+    return { trusted: false, error: 'extension targets version is below publisher floor', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+
+  const pinnedRootKey = input.policy.trustedKeys.find((trusted) =>
+    trusted.keyId === input.root.rootKeyId
+    && trusted.algorithm === 'ecdsa-p256-sha256',
+  );
+  if (!pinnedRootKey) {
+    return { trusted: false, error: 'extension trust root key is not trusted', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+  if (pinnedRootKey.status === 'revoked') {
+    return { trusted: false, error: 'extension trust root key is revoked', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+  if (pinnedRootKey.notBefore && nowTimestamp < Date.parse(pinnedRootKey.notBefore)) {
+    return { trusted: false, error: 'extension trust root key not active yet', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+  if (pinnedRootKey.revokedAt && nowTimestamp >= Date.parse(pinnedRootKey.revokedAt)) {
+    return { trusted: false, error: 'extension trust root key expired', rootVersion: input.root.version, targetsVersion: input.targets.version };
+  }
+
+  const trust = resolveExtensionTrustPolicy({
+    policy: input.policy,
+    manifest: input.manifest,
+  });
+  if (!trust.trusted) return { trusted: false, error: trust.error ?? 'extension trust policy failed', rootVersion: input.root.version, targetsVersion: input.targets.version };
+
+  return { trusted: true, publicKey: trust.publicKey, rootVersion: input.root.version, targetsVersion: input.targets.version };
+}
+
+export function collectExtensionTrustRootMetadataValidationErrors(value: unknown, path = '', requireSignature = false): string[] {
+  if (value === undefined || value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return [`${path} must be an object`];
+  }
+
+  const root = value as Partial<UtopiaExtensionTrustRootMetadata>;
+  const errors: string[] = [];
+
+  if (root.schemaVersion !== UTOPIA_EXTENSION_TRUST_ROOT_SCHEMA_VERSION) {
+    errors.push(`${path}.schemaVersion must be ${UTOPIA_EXTENSION_TRUST_ROOT_SCHEMA_VERSION}`);
+  }
+  if (typeof root.version !== 'number' || !Number.isInteger(root.version) || root.version <= 0) {
+    errors.push(`${path}.version must be a positive integer`);
+  }
+  const rootExpires = root.expires;
+  if (!isText(rootExpires)) {
+    errors.push(`${path}.expires is required`);
+  } else if (Number.isNaN(Date.parse(rootExpires))) {
+    errors.push(`${path}.expires must be ISO date`);
+  }
+  if (!isText(root.rootKeyId)) errors.push(`${path}.rootKeyId is required`);
+  if (!Array.isArray(root.delegatedPublishers)) {
+    errors.push(`${path}.delegatedPublishers must be an array`);
+    return errors;
+  }
+  if (root.delegatedPublishers.length === 0) errors.push(`${path}.delegatedPublishers is required`);
+
+  root.delegatedPublishers.forEach((delegation, index) => {
+    errors.push(...collectExtensionTrustPublisherDelegationValidationErrors(delegation, `${path}.delegatedPublishers[${index}]`));
+  });
+
+  if (requireSignature) {
+    errors.push(...collectSignatureValidationErrors(root.signature, `${path}.signature`));
+  } else if (root.signature !== undefined) {
+    errors.push(...collectSignatureValidationErrors(root.signature, `${path}.signature`));
+  }
+
+  return errors;
+}
+
+export function collectExtensionTrustTargetsMetadataValidationErrors(value: unknown, path = '', requireSignature = false): string[] {
+  if (value === undefined || value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return [`${path} must be an object`];
+  }
+
+  const targets = value as Partial<UtopiaExtensionTrustTargetsMetadata>;
+  const errors: string[] = [];
+
+  if (targets.schemaVersion !== UTOPIA_EXTENSION_TRUST_TARGETS_SCHEMA_VERSION) {
+    errors.push(`${path}.schemaVersion must be ${UTOPIA_EXTENSION_TRUST_TARGETS_SCHEMA_VERSION}`);
+  }
+  if (!isText(targets.publisherId)) errors.push(`${path}.publisherId is required`);
+  if (typeof targets.version !== 'number' || !Number.isInteger(targets.version) || targets.version <= 0) {
+    errors.push(`${path}.version must be a positive integer`);
+  }
+  if (!isText(targets.expires)) {
+    errors.push(`${path}.expires is required`);
+  } else if (Number.isNaN(Date.parse(targets.expires))) {
+    errors.push(`${path}.expires must be ISO date`);
+  }
+  if (!Array.isArray(targets.delegatedSigningKeyIds) || targets.delegatedSigningKeyIds.length === 0) {
+    errors.push(`${path}.delegatedSigningKeyIds must be a non-empty array`);
+    return errors;
+  }
+  for (const [index, keyId] of targets.delegatedSigningKeyIds.entries()) {
+    if (!isText(keyId)) errors.push(`${path}.delegatedSigningKeyIds[${index}] is required`);
+  }
+
+  if (requireSignature) {
+    errors.push(...collectSignatureValidationErrors(targets.signature, `${path}.signature`));
+  } else if (targets.signature !== undefined) {
+    errors.push(...collectSignatureValidationErrors(targets.signature, `${path}.signature`));
+  }
+
+  return errors;
+}
+
+export function collectExtensionTrustPublisherDelegationValidationErrors(
+  value: unknown,
+  path = '',
+): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [`${path} must be an object`];
+  const delegation = value as Partial<UtopiaExtensionTrustPublisherDelegation>;
+  const errors: string[] = [];
+
+  if (!isText(delegation.publisherId)) errors.push(`${path}.publisherId is required`);
+  if (!Array.isArray(delegation.extensionIdPatterns) || delegation.extensionIdPatterns.length === 0) {
+    errors.push(`${path}.extensionIdPatterns must be a non-empty array`);
+  } else {
+    for (const [index, pattern] of delegation.extensionIdPatterns.entries()) {
+      if (!isText(pattern)) errors.push(`${path}.extensionIdPatterns[${index}] is required`);
+    }
+  }
+  if (!Array.isArray(delegation.delegatedSigningKeyIds) || delegation.delegatedSigningKeyIds.length === 0) {
+    errors.push(`${path}.delegatedSigningKeyIds must be a non-empty array`);
+  } else {
+    for (const [index, keyId] of delegation.delegatedSigningKeyIds.entries()) {
+      if (!isText(keyId)) errors.push(`${path}.delegatedSigningKeyIds[${index}] is required`);
+    }
+  }
+  if (delegation.minimumTargetsVersion !== undefined
+    && (!Number.isInteger(delegation.minimumTargetsVersion) || delegation.minimumTargetsVersion < 1)
+  ) {
+    errors.push(`${path}.minimumTargetsVersion must be a positive integer`);
+  }
+
+  return errors;
+}
+
+function extensionIdMatchesPattern(extensionId: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) => {
+    if (pattern === '*') return true;
+    if (pattern.endsWith('.*')) return extensionId.startsWith(pattern.slice(0, -2));
+    return extensionId === pattern;
+  });
+}
+
+function parseIsoTimestamp(input: string): number {
+  return Date.parse(input);
+}
 
 export function collectExtensionManifestValidationErrors(value: unknown, path = ''): string[] {
   if (value === undefined || value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -280,6 +550,63 @@ export function collectSignedExtensionCapabilityViolations(
   }
 
   return violations;
+}
+
+async function verifySignedTrustMetadata(input: {
+  metadataType: 'root' | 'targets';
+  metadata: UtopiaExtensionTrustRootMetadata | UtopiaExtensionTrustTargetsMetadata;
+  policy: UtopiaExtensionTrustPolicy;
+  nowTimestamp: number;
+  requiredKeyId?: string;
+  delegatedSigningKeyIds?: readonly string[];
+  requireSignature: boolean;
+}): Promise<string | null> {
+  const metadataSignature = (input.metadata as { signature?: UtopiaExtensionSignature }).signature;
+  const metadataErrors = input.requireSignature && !metadataSignature
+    ? [`extension trust ${input.metadataType} metadata signature is required`]
+    : collectSignatureValidationErrors(metadataSignature, `${input.metadataType}.signature`);
+
+  if (metadataErrors.length) return metadataErrors.join('|');
+  if (!metadataSignature) return null;
+
+  if (input.metadataType === 'root' && input.requiredKeyId && metadataSignature.keyId !== input.requiredKeyId) {
+    return 'extension trust root signature key does not match root key id';
+  }
+  if (input.metadataType === 'targets' && input.delegatedSigningKeyIds !== undefined) {
+    if (!input.delegatedSigningKeyIds.includes(metadataSignature.keyId)) {
+      return 'extension trust targets signing key is not delegated';
+    }
+  }
+
+  const trustedKey = input.policy.trustedKeys.find((candidate) =>
+    candidate.keyId === metadataSignature.keyId
+    && candidate.algorithm === metadataSignature.algorithm
+    && candidate.status === 'trusted'
+    && (input.metadataType === 'root'
+      || candidate.publisherId === (input.metadata as UtopiaExtensionTrustTargetsMetadata).publisherId)
+  );
+  if (!trustedKey) return `extension trust ${input.metadataType} signature key is not trusted`;
+
+  if (trustedKey.notBefore && metadataSignature.signedAt && input.nowTimestamp < Date.parse(trustedKey.notBefore)) {
+    return `extension trust ${input.metadataType} signature key is not active yet`;
+  }
+  if (trustedKey.revokedAt && metadataSignature.signedAt && input.nowTimestamp >= Date.parse(trustedKey.revokedAt)) {
+    return `extension trust ${input.metadataType} signature key is revoked`;
+  }
+
+  const result = await verifyExtensionManifestSignature({
+    canonicalPayload: buildCanonicalTrustMetadataPayloadText(input.metadata),
+    signature: metadataSignature,
+    publicKey: trustedKey.publicKey,
+  });
+  if (!result.verified) return result.error ?? 'extension trust metadata signature verification failed';
+
+  return null;
+}
+
+function buildCanonicalTrustMetadataPayloadText(metadata: UtopiaExtensionTrustRootMetadata | UtopiaExtensionTrustTargetsMetadata): string {
+  const { signature: _signature, ...unsignedMetadata } = metadata as Record<string, unknown>;
+  return canonicalJson(unsignedMetadata);
 }
 
 async function verifyWithAlgorithm(input: {

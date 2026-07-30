@@ -88,3 +88,7 @@ expo-env.d.ts
 
 # Orchestry state
 .orchestry
+
+# Local Cloudflare/Miniflare state
+.wrangler/
+**/.wrangler/

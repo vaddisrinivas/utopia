@@ -1,14 +1,13 @@
-import { Linking, Platform } from 'react-native';
 import {
-  SdkAvailabilityStatus,
-  getGrantedPermissions,
-  getSdkStatus,
-  initialize,
-  insertRecords,
-  deleteRecordsByUuids,
-  readRecords,
-  requestPermission,
-} from 'react-native-health-connect';
+  defaultHealthConnectPorts,
+  HEALTH_CONNECT_SDK_AVAILABLE,
+  HEALTH_CONNECT_SDK_UNAVAILABLE,
+  HEALTH_CONNECT_SDK_UPDATE_REQUIRED,
+  type HealthPermission,
+  type HealthConnectPlatformPort,
+  type HealthConnectPorts,
+  type HealthConnectSdkPort,
+} from '@/src/health/connect.ports';
 
 export const LIFEOS_HEALTH_PERMISSIONS = [
   { accessType: 'read', recordType: 'Nutrition' },
@@ -79,37 +78,48 @@ function unsupportedStatus(): HealthConnectStatus {
   };
 }
 
-function statusFromSdk(value: number, granted: string[]): HealthConnectStatus {
-  if (value === SdkAvailabilityStatus.SDK_AVAILABLE) {
+function toGrantedKeys(permissions: HealthPermission[]): string[] {
+  return permissions.map((permission) => `${permission.accessType}:${permission.recordType}`);
+}
+
+function mapStatusFromSdk(value: number, granted: string[]): HealthConnectStatus {
+  if (value === HEALTH_CONNECT_SDK_AVAILABLE) {
     return { availability: 'available', granted, message: 'Health Connect is available.' };
   }
-  if (value === SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
+  if (value === HEALTH_CONNECT_SDK_UPDATE_REQUIRED) {
     return {
       availability: 'provider-update-required',
       granted,
       message: 'Update Health Connect, then try again.',
     };
   }
+  if (value === HEALTH_CONNECT_SDK_UNAVAILABLE) {
+    return {
+      availability: 'unavailable',
+      granted,
+      message: 'Health Connect is not available on this device.',
+    };
+  }
   return {
-    availability: 'unavailable',
+    availability: 'error',
     granted,
-    message: 'Health Connect is not available on this device.',
+    message: 'Health Connect availability is unknown.',
   };
 }
 
-export async function getUtopiaHealthStatus(): Promise<HealthConnectStatus> {
-  if (Platform.OS !== 'android') {
+export async function getUtopiaHealthStatus(ports = defaultHealthConnectPorts): Promise<HealthConnectStatus> {
+  if (!ports.platform.isAndroid()) {
     return unsupportedStatus();
   }
 
   try {
     const [sdkStatus, granted] = await Promise.all([
-      getSdkStatus(),
-      getGrantedPermissions().catch(() => []),
+      ports.sdk.getSdkStatus(),
+      ports.sdk.getGrantedPermissions().catch(() => []),
     ]);
-    return statusFromSdk(
+    return mapStatusFromSdk(
       sdkStatus,
-      granted.map((permission) => `${permission.accessType}:${permission.recordType}`),
+      toGrantedKeys(granted),
     );
   } catch (error) {
     return {
@@ -120,13 +130,13 @@ export async function getUtopiaHealthStatus(): Promise<HealthConnectStatus> {
   }
 }
 
-export async function requestUtopiaHealthPermissions(): Promise<HealthConnectStatus> {
-  if (Platform.OS !== 'android') {
+export async function requestUtopiaHealthPermissions(ports = defaultHealthConnectPorts): Promise<HealthConnectStatus> {
+  if (!ports.platform.isAndroid()) {
     return unsupportedStatus();
   }
 
   try {
-    const initialized = await initialize();
+    const initialized = await ports.sdk.initialize();
     if (!initialized) {
       return {
         availability: 'unavailable',
@@ -134,8 +144,8 @@ export async function requestUtopiaHealthPermissions(): Promise<HealthConnectSta
         message: 'Health Connect could not be initialized.',
       };
     }
-    await requestPermission([...LIFEOS_HEALTH_PERMISSIONS]);
-    return getUtopiaHealthStatus();
+    await ports.sdk.requestPermission(LIFEOS_HEALTH_PERMISSIONS);
+    return getUtopiaHealthStatus(ports);
   } catch (error) {
     return {
       availability: 'error',
@@ -145,15 +155,10 @@ export async function requestUtopiaHealthPermissions(): Promise<HealthConnectSta
   }
 }
 
-/**
- * Opens the system-managed Health Connect permission surface through the app's
- * stable deep link. The Android activity owns the intent extras so callers do
- * not need to know platform-specific package names.
- */
-export async function openUtopiaHealthSettings(): Promise<boolean> {
-  if (Platform.OS !== 'android') return false;
+export async function openUtopiaHealthSettings(ports = defaultHealthConnectPorts): Promise<boolean> {
+  if (!ports.platform.isAndroid()) return false;
   try {
-    await Linking.openURL('utopia://health-connect');
+    await ports.navigation.openURL('utopia://health-connect');
     return true;
   } catch {
     return false;
@@ -162,12 +167,13 @@ export async function openUtopiaHealthSettings(): Promise<boolean> {
 
 export async function readUtopiaHealthSnapshot(
   range: { startTime: string; endTime: string },
+  ports = defaultHealthConnectPorts,
 ): Promise<HealthConnectSnapshot> {
-  const availability = await getUtopiaHealthStatus();
+  const availability = await getUtopiaHealthStatus(ports);
   let status = availability;
   if (status.availability === 'available') {
     try {
-      const initialized = await initialize();
+      const initialized = await ports.sdk.initialize();
       if (!initialized) {
         status = {
           ...status,
@@ -175,7 +181,7 @@ export async function readUtopiaHealthSnapshot(
           message: 'Health Connect could not be initialized for reading.',
         };
       } else {
-        status = await getUtopiaHealthStatus();
+        status = await getUtopiaHealthStatus(ports);
       }
     } catch (error) {
       status = {
@@ -204,12 +210,13 @@ export async function readUtopiaHealthSnapshot(
   }
 
   const timeRangeFilter = { operator: 'between' as const, ...range };
-  const read = async (recordType: 'Nutrition' | 'Hydration' | 'Steps' | 'ActiveCaloriesBurned' | 'Weight') => {
+  const read = async (
+    recordType: 'Nutrition' | 'Hydration' | 'Steps' | 'ActiveCaloriesBurned' | 'Weight',
+  ) => {
     try {
-      const result = await readRecords(recordType, { timeRangeFilter });
+      const result = await ports.sdk.readRecords(recordType, { timeRangeFilter });
       return result.records ?? [];
     } catch {
-      // A denied individual scope must not hide other granted Health Connect data.
       return [];
     }
   };
@@ -228,10 +235,10 @@ export async function readUtopiaHealthSnapshot(
   };
 }
 
-export async function runUtopiaHealthRoundTripProof(): Promise<HealthConnectRoundTripProof> {
+export async function runUtopiaHealthRoundTripProof(ports = defaultHealthConnectPorts): Promise<HealthConnectRoundTripProof> {
   const observedAt = new Date().toISOString();
   const clientRecordId = `utopia-health-check-${Date.now()}`;
-  if (Platform.OS !== 'android') {
+  if (!ports.platform.isAndroid()) {
     return {
       status: 'unsupported',
       message: 'Health Connect check runs on Android.',
@@ -252,24 +259,25 @@ export async function runUtopiaHealthRoundTripProof(): Promise<HealthConnectRoun
     volume: { value: 250, unit: 'milliliters' as const },
     metadata: { clientRecordId, clientRecordVersion: 1, recordingMethod: 3 },
   };
+
   const readProofRecords = async () => {
-    const result = await readRecords('Hydration', {
+    const result = await ports.sdk.readRecords('Hydration', {
       timeRangeFilter: { operator: 'between', startTime: start, endTime: end },
     });
-    return (result.records ?? []).filter((record) => record.metadata?.clientRecordId === clientRecordId);
+    return (result.records ?? []).filter((record) => (record as { metadata?: { clientRecordId?: string } })?.metadata?.clientRecordId === clientRecordId);
   };
 
   try {
-    const initialized = await initialize();
+    const initialized = await ports.sdk.initialize();
     if (!initialized) throw new Error('Health Connect could not be initialized.');
-    const status = await getUtopiaHealthStatus();
+    const status = await getUtopiaHealthStatus(ports);
     for (const required of ['read:Hydration', 'write:Hydration']) {
       if (!status.granted.includes(required)) throw new Error(`Missing Health Connect permission: ${required}`);
     }
 
-    const insertedIds = await insertRecords([proofRecord]);
+    const insertedIds = await ports.sdk.insertRecords([proofRecord]);
     const before = await readProofRecords();
-    await deleteRecordsByUuids('Hydration', insertedIds, [clientRecordId]);
+    await ports.sdk.deleteRecordsByUuids('Hydration', insertedIds, [clientRecordId]);
     const after = await readProofRecords();
 
     const passed = before.length > 0 && after.length === 0;
@@ -297,16 +305,19 @@ export async function runUtopiaHealthRoundTripProof(): Promise<HealthConnectRoun
   }
 }
 
-export async function syncUtopiaHealthSnapshot(input: {
-  baseUrl: string;
-  token?: string;
-  snapshot: HealthConnectSnapshot;
-  signal?: AbortSignal;
-}): Promise<{ status: 'stored' | 'duplicate' | 'error'; id?: string; message: string } | null> {
+export async function syncUtopiaHealthSnapshot(
+  input: {
+    baseUrl: string;
+    token?: string;
+    snapshot: HealthConnectSnapshot;
+    signal?: AbortSignal;
+  },
+  ports = defaultHealthConnectPorts,
+): Promise<{ status: 'stored' | 'duplicate' | 'error'; id?: string; message: string } | null> {
   const baseUrl = input.baseUrl.trim().replace(/\/$/, '');
   if (!baseUrl) return null;
   try {
-    const response = await fetch(`${baseUrl}/health/connect/snapshot`, {
+    const response = await ports.http.request(`${baseUrl}/health/connect/snapshot`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -323,15 +334,18 @@ export async function syncUtopiaHealthSnapshot(input: {
   }
 }
 
-export async function listUtopiaHealthSnapshots(input: {
-  baseUrl: string;
-  token?: string;
-  signal?: AbortSignal;
-}): Promise<HealthConnectSnapshotSummary[]> {
+export async function listUtopiaHealthSnapshots(
+  input: {
+    baseUrl: string;
+    token?: string;
+    signal?: AbortSignal;
+  },
+  ports = defaultHealthConnectPorts,
+): Promise<HealthConnectSnapshotSummary[]> {
   const baseUrl = input.baseUrl.trim().replace(/\/$/, '');
   if (!baseUrl) return [];
   try {
-    const response = await fetch(`${baseUrl}/health/connect/snapshots`, {
+    const response = await ports.http.request(`${baseUrl}/health/connect/snapshots`, {
       headers: { ...(input.token?.trim() ? { authorization: `Bearer ${input.token.trim()}` } : {}) },
       signal: input.signal,
     });
@@ -343,16 +357,19 @@ export async function listUtopiaHealthSnapshots(input: {
   }
 }
 
-export async function deleteUtopiaHealthSnapshot(input: {
-  baseUrl: string;
-  token?: string;
-  id: string;
-  signal?: AbortSignal;
-}): Promise<{ status: 'deleted' | 'not_found' | 'error'; message: string }> {
+export async function deleteUtopiaHealthSnapshot(
+  input: {
+    baseUrl: string;
+    token?: string;
+    id: string;
+    signal?: AbortSignal;
+  },
+  ports = defaultHealthConnectPorts,
+): Promise<{ status: 'deleted' | 'not_found' | 'error'; message: string }> {
   const baseUrl = input.baseUrl.trim().replace(/\/$/, '');
   if (!baseUrl || !input.id.trim()) return { status: 'error', message: 'Health snapshot id is required.' };
   try {
-    const response = await fetch(`${baseUrl}/health/connect/snapshot/${encodeURIComponent(input.id.trim())}`, {
+    const response = await ports.http.request(`${baseUrl}/health/connect/snapshot/${encodeURIComponent(input.id.trim())}`, {
       method: 'DELETE',
       headers: { ...(input.token?.trim() ? { authorization: `Bearer ${input.token.trim()}` } : {}) },
       signal: input.signal,
@@ -370,3 +387,6 @@ export function healthConnectExportUrl(baseUrl: string) {
   const normalized = baseUrl.trim().replace(/\/$/, '');
   return normalized ? `${normalized}/health/connect/export` : '';
 }
+
+export { defaultHealthConnectPorts };
+export type { HealthConnectPorts, HealthConnectPlatformPort, HealthConnectSdkPort };

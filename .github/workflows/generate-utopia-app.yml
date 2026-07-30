@@ -11,6 +11,18 @@ on:
         description: OpenAI model
         required: false
         default: gpt-5.4-mini
+      publish_to_registry:
+        description: Send generated package JSON to hosted Utopia registry
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      registry_url:
+        description: Hosted registry URL
+        required: false
+        default: https://utoia.thetechcruise.com
   push:
     paths:
       - 'requests/**/*.md'
@@ -31,6 +43,8 @@ concurrency:
 env:
   REQUEST_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.request_path || 'requests/app-idea.md' }}
   UTOPIA_APP_FACTORY_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'gpt-5.4-mini' }}
+  UTOPIA_REGISTRY_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_registry || 'false' }}
+  UTOPIA_REGISTRY_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.registry_url || 'https://utoia.thetechcruise.com' }}
 
 jobs:
   build:
@@ -92,3 +106,25 @@ jobs:
           name: utopia-app-factory-${{ github.run_id }}
           path: dist/github-app-factory
           if-no-files-found: error
+
+      - name: Optional hosted registry publish
+        if: steps.openai-key.outputs.has_key == 'true' && env.UTOPIA_REGISTRY_PUBLISH == 'true'
+        uses: ./.github/actions/publish-utopia-package
+        with:
+          enabled: ${{ env.UTOPIA_REGISTRY_PUBLISH }}
+          registry_url: ${{ env.UTOPIA_REGISTRY_URL }}
+          package_path: dist/github-app-factory/app/package.json
+          visibility: unlisted
+          token: ${{ secrets.UTOPIA_REGISTRY_PUBLISHER_TOKEN }}
+
+      - name: Registry publish intentionally skipped
+        if: steps.openai-key.outputs.has_key == 'true' && env.UTOPIA_REGISTRY_PUBLISH != 'true'
+        run: |
+          {
+            echo "### Utopia hosted registry"
+            echo ""
+            echo "Registry publishing is skipped in this run."
+            echo "This flow is opt-in and defaulted-off (publish_to_registry=false)."
+            echo "To opt in, re-run workflow_dispatch with publish_to_registry=true."
+            echo "No package JSON is posted to the registry when publish is false."
+          } >> "$GITHUB_STEP_SUMMARY"

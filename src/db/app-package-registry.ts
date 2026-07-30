@@ -553,6 +553,7 @@ export async function deleteAppInstallationAndData(
     for (const table of [
       'record_relations',
       'records',
+      'capability_consent_ledger',
       'operations',
       'outbox_events',
       'action_events',

@@ -3,10 +3,14 @@ export * from './confidence';
 export * from './operation';
 export * from './query';
 export * from './package';
+export * from './canonical-json';
 export * from './package-change';
 export * from './package-authoring';
 export * from './package-install';
+export * from './capability-consent-ledger';
 export * from './package-trust';
+export * from './schema/ajv-authority';
+export * from './telemetry';
 export * from './extension-trust';
 export {
   DEFAULT_APP_INSTALLATION_ID,

@@ -1,6 +1,6 @@
 import Ajv2020, { type ErrorObject, type ValidateFunction } from 'ajv/dist/2020';
+import AjvDraft07 from 'ajv';
 import addFormats from 'ajv-formats';
-import { createRequire } from 'node:module';
 import type Ajv from 'ajv';
 
 import {
@@ -13,12 +13,11 @@ import { canonicalJson, sha256Canonical } from '@/packages/shared/contracts/cano
 import { APP_PACKAGE_SCHEMA_DRAFT } from './app-package-schemas';
 import { getAppPackageSchemaEntry, type AppPackageSchemaRegistryEntry } from './package-registry';
 
-const require = createRequire(import.meta.url);
 const DRAFT_07_SCHEMA = APP_PACKAGE_SCHEMA_DRAFT;
 const DRAFT_2020_12_SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
 const AJV_OPTIONS = { allErrors: true, strict: false, validateFormats: true };
 const ajv2020 = withFormats(new Ajv2020(AJV_OPTIONS));
-const ajvDraft07 = loadDraft07Validator();
+const ajvDraft07 = withFormats(new AjvDraft07(AJV_OPTIONS));
 const validatorCache = new Map<string, ValidateFunction<AppPackage>>();
 
 export type ArtifactValidationCategory = 'structural' | 'reference' | 'compatibility' | 'capability' | 'checksum' | 'policy';
@@ -147,12 +146,6 @@ type AjvLike = {
   compile<T>(schema: object): ValidateFunction<T>;
 };
 
-type AjvConstructor = new (options: {
-  allErrors: boolean;
-  strict: boolean;
-  validateFormats: boolean;
-}) => AjvLike;
-
 function detectSchemaDialect(schema: object): AjvLike {
   if (!isRecord(schema) || typeof schema.$schema !== 'string' || !schema.$schema.trim()) {
     throw new Error('schema validation requires explicit $schema; missing or empty $schema');
@@ -162,35 +155,9 @@ function detectSchemaDialect(schema: object): AjvLike {
   throw new Error(`unsupported schema dialect: ${schema.$schema}`);
 }
 
-function loadDraft07Validator(): AjvLike {
-  const direct = safeRequire<unknown>('ajv/dist/draft-07');
-  if (direct) {
-    const ctor = isFunction(direct) ? direct : isFunction((direct as { default?: unknown }).default) ? (direct as { default?: unknown }).default : null;
-    if (isFunction(ctor) && isConstructable(ctor)) {
-      return withFormats(new (ctor as unknown as AjvConstructor)(AJV_OPTIONS));
-    }
-  }
-
-  const ajv = withFormats(new Ajv2020(AJV_OPTIONS));
-  const meta07 = safeRequire<Record<string, unknown>>('ajv/dist/refs/json-schema-draft-07.json');
-  if (!meta07 || !meta07.$id) {
-    throw new Error(`draft-07 validator unavailable (${DRAFT_07_SCHEMA} support requires Ajv draft-07 module or ref schema)`);
-  }
-  ajv.addMetaSchema(meta07);
-  return ajv;
-}
-
 function withFormats<T extends AjvLike>(ajv: T): T {
   addFormats(ajv as unknown as Ajv);
   return ajv;
-}
-
-function safeRequire<T>(moduleId: string): T | null {
-  try {
-    return require(moduleId) as T;
-  } catch {
-    return null;
-  }
 }
 
 function hasExecutableCode(value: unknown): boolean {
@@ -213,14 +180,6 @@ function dedupeIssues(issues: readonly ArtifactValidationIssue[]): ArtifactValid
 
 function isRecord(value: unknown): value is Record<string, any> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
-  return typeof value === 'function';
-}
-
-function isConstructable(value: unknown): value is new (...args: unknown[]) => object {
-  return typeof value === 'function';
 }
 
 const semanticCodeMap: Partial<Record<PackageValidationCategory, string>> = {

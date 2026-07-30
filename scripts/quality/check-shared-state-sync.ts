@@ -26,10 +26,24 @@ try {
     workspaceId: DEFAULT_WORKSPACE_ID,
     installationId: 'install-a',
   });
+  const liveBoundary = {
+    scope: 'local deterministic',
+    proofStatus: file.live_multi_device_sync_claims.status,
+    localDeterministicStatus: file.live_multi_device_sync_claims.readiness.local_deterministic,
+    liveProviderDeviceStatus: file.live_multi_device_sync_claims.readiness.live_provider_device,
+    requiredNextProof: file.live_multi_device_sync_claims.required_next_proof,
+  };
 
   const evidence = {
     proof: 'shared_state_sync_local_conflict_merge_recovery',
     schemaVersion: SHARED_STATE_SYNC_SCHEMA_VERSION,
+    syncReadiness: {
+      liveMultiDeviceSyncBoundary: {
+        ...liveBoundary,
+        status: 'BLOCKED',
+        summary: 'local deterministic sync proofs are PASS; real live multi-device/provider sync proof is BLOCKED',
+      },
+    },
     deterministicScenarios: {
       conflictMergeRecoveryLocal: {
         sameRecordConflictStatus: memory.same_record_conflict.status,
@@ -91,6 +105,7 @@ try {
   const outPath = join(outDir, 'shared-state-sync-proof.json');
   writeFileSync(outPath, JSON.stringify(evidence, null, 2));
   console.log(`PASS ${outPath}`);
+  console.log('SYNC_READINESS=local deterministic local_passed=true live_multi_device_status=BLOCKED');
 } catch (error) {
   console.error('FAIL', error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

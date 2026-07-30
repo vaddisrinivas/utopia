@@ -17,7 +17,7 @@ import type {
 } from '@/packages/shared/contracts/workflow';
 import { computeInverse } from '@/src/ops/inverse';
 import type { Operation } from '@/src/ops/operation';
-import { transitionWorkflow, WorkflowControlEvent, WorkflowControlState } from '@/server/src/workflows/control-machine';
+import { transitionWorkflow, WorkflowControlEvent, WorkflowControlState } from '@/src/workflows/control-machine';
 import type { CanonicalRecord } from '@/packages/shared/contracts/records';
 
 export type WorkflowRunSnapshot = {

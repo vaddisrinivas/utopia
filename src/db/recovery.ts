@@ -19,6 +19,7 @@ const RECOVERY_TABLES = [
   'config_conflicts',
   'workspaces',
   'app_installations',
+  'capability_consent_ledger',
   'cloud_accounts',
   'cloud_devices',
   'cloud_sessions',

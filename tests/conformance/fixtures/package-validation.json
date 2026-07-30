@@ -1,0 +1,132 @@
+{
+  "valid": {
+    "schemaVersion": "wonder.app-package.v2",
+    "id": "reference-app",
+    "version": "1.0.0",
+    "collections": {
+      "tasks": {
+        "id": "tasks",
+        "fields": {
+          "title": {
+            "type": "text",
+            "required": true
+          }
+        }
+      }
+    },
+    "queries": {
+      "tasks": {
+        "from": "tasks",
+        "limit": 10
+      }
+    },
+    "views": {
+      "tasks": {
+        "id": "tasks",
+        "query": "tasks",
+        "mode": "list",
+        "fields": [
+          "title"
+        ]
+      }
+    },
+    "presentation": {
+      "label": "Reference App",
+      "surfaces": [
+        {
+          "id": "tasks",
+          "label": "Tasks",
+          "collections": [
+            "tasks"
+          ],
+          "views": [
+            "tasks"
+          ]
+        }
+      ],
+      "ui": {
+        "schemaVersion": "a2ui.v0_9",
+        "components": [
+          {
+            "kind": "recordList",
+            "id": "tasks-list",
+            "title": "Tasks",
+            "query": {
+              "collections": [
+                "tasks"
+              ],
+              "limit": 5
+            }
+          }
+        ]
+      }
+    },
+    "rules": [],
+    "capabilities": [
+      "records.read"
+    ],
+    "acceptanceTests": [
+      "package-validation"
+    ]
+  },
+  "invalid": {
+    "value": {
+      "schemaVersion": "wonder.app-package.v2",
+      "id": "reference-app",
+      "collections": {
+        "tasks": {
+          "id": "tasks",
+          "fields": {
+            "title": {
+              "type": "text",
+              "required": true
+            }
+          }
+        }
+      },
+      "queries": {
+        "tasks": {
+          "from": "tasks",
+          "limit": 10
+        }
+      },
+      "views": {
+        "tasks": {
+          "id": "tasks",
+          "query": "tasks",
+          "mode": "list",
+          "fields": [
+            "title"
+          ]
+        }
+      },
+      "presentation": {
+        "label": "Broken App",
+        "surfaces": [
+          {
+            "id": "tasks",
+            "label": "Tasks",
+            "collections": [
+              "tasks"
+            ],
+            "views": [
+              "tasks"
+            ]
+          }
+        ],
+        "ui": {
+          "schemaVersion": "a2ui.v0_9",
+          "components": []
+        }
+      },
+      "rules": [],
+      "capabilities": [
+        "records.read"
+      ],
+      "acceptanceTests": [
+        "package-validation"
+      ]
+    },
+    "expectedFailure": "version is required"
+  }
+}

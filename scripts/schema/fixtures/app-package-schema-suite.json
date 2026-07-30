@@ -1,0 +1,223 @@
+[
+  {
+    "description": "app package v2 structural suite",
+    "schemaId": "https://wonder.local/schemas/app-package/v2",
+    "tests": [
+      {
+        "description": "accepts valid v2 package",
+        "valid": true,
+        "data": {
+          "schemaVersion": "wonder.app-package.v2",
+          "id": "schema-suite-v2",
+          "version": "1.0.0",
+          "collections": {
+            "tasks": {
+              "id": "tasks",
+              "fields": {
+                "title": {
+                  "type": "text"
+                }
+              }
+            }
+          },
+          "queries": {
+            "tasks": {
+              "from": "tasks"
+            }
+          },
+          "views": {
+            "tasks": {
+              "id": "tasks",
+              "query": "tasks",
+              "mode": "list",
+              "fields": ["title"]
+            }
+          },
+          "rules": [],
+          "capabilities": ["records.read"],
+          "acceptanceTests": ["schema-suite"]
+        }
+      },
+      {
+        "description": "rejects unknown query mode",
+        "valid": false,
+        "data": {
+          "schemaVersion": "wonder.app-package.v2",
+          "id": "schema-suite-v2",
+          "version": "1.0.0",
+          "collections": {
+            "tasks": {
+              "id": "tasks",
+              "fields": {
+                "title": {
+                  "type": "text"
+                }
+              }
+            }
+          },
+          "queries": {
+            "tasks": {
+              "from": "tasks"
+            }
+          },
+          "views": {
+            "tasks": {
+              "id": "tasks",
+              "query": "tasks",
+              "mode": "tableau",
+              "fields": ["title"]
+            }
+          },
+          "rules": [],
+          "capabilities": ["records.read"],
+          "acceptanceTests": ["schema-suite"]
+        }
+      }
+    ]
+  },
+  {
+    "description": "app package v3 structural suite",
+    "schemaId": "https://wonder.local/schemas/app-package/v3",
+    "tests": [
+      {
+        "description": "accepts valid v3 package",
+        "valid": true,
+        "data": {
+          "schemaVersion": "wonder.app-package.v3",
+          "id": "schema-suite-v3",
+          "version": "1.0.0",
+          "collections": {
+            "tasks": {
+              "id": "tasks",
+              "fields": {
+                "title": {
+                  "type": "text"
+                }
+              }
+            }
+          },
+          "queries": {
+            "tasks": {
+              "from": "tasks"
+            }
+          },
+          "views": {
+            "tasks": {
+              "id": "tasks",
+              "query": "tasks",
+              "mode": "list",
+              "fields": ["title"]
+            }
+          },
+          "presentation": {
+            "label": "Schema Suite V3",
+            "surfaces": [
+              {
+                "id": "tasks",
+                "label": "Tasks",
+                "collections": ["tasks"],
+                "views": ["tasks"]
+              }
+            ]
+          },
+          "rules": [],
+          "capabilities": ["records.read"],
+          "acceptanceTests": ["schema-suite"],
+          "dependencyPins": [
+            {
+              "package": "@suite/core",
+              "version": "1.0.0",
+              "source": "npm"
+            }
+          ],
+          "nativeCapabilities": {
+            "schemaVersion": "wonder.app-package-native-capabilities.v1",
+            "platform": "expo",
+            "packages": ["@suite/core"],
+            "permissions": []
+          },
+          "contractLock": {
+            "schemaVersion": "wonder.package-contract-lock.v1",
+            "algorithm": "sha256",
+            "checksum": "sha256:283507d117933bd44fedc4ead6fa2512302ed9a6c5520449f9736606bce18de1",
+            "pinnedAt": "2026-01-01T00:00:00.000Z",
+            "dependencyPins": [
+              {
+                "package": "@suite/core",
+                "version": "1.0.0",
+                "source": "npm"
+              }
+            ],
+            "nativeCapabilities": {
+              "schemaVersion": "wonder.app-package-native-capabilities.v1",
+              "platform": "expo",
+              "packages": ["@suite/core"],
+              "permissions": []
+            }
+          }
+        }
+      },
+      {
+        "description": "rejects missing dependency pins",
+        "valid": false,
+        "data": {
+          "schemaVersion": "wonder.app-package.v3",
+          "id": "schema-suite-v3",
+          "version": "1.0.0",
+          "collections": {
+            "tasks": {
+              "id": "tasks",
+              "fields": {
+                "title": {
+                  "type": "text"
+                }
+              }
+            }
+          },
+          "queries": {
+            "tasks": {
+              "from": "tasks"
+            }
+          },
+          "views": {
+            "tasks": {
+              "id": "tasks",
+              "query": "tasks",
+              "mode": "list",
+              "fields": ["title"]
+            }
+          },
+          "rules": [],
+          "capabilities": ["records.read"],
+          "acceptanceTests": ["schema-suite"],
+          "dependencyPins": [
+            {
+              "package": "@suite/core",
+              "version": "1.0.0",
+              "source": "npm"
+            }
+          ],
+          "nativeCapabilities": {
+            "schemaVersion": "wonder.app-package-native-capabilities.v1",
+            "platform": "expo",
+            "packages": ["@suite/core"],
+            "permissions": []
+          },
+          "contractLock": {
+            "schemaVersion": "wonder.package-contract-lock.v1",
+            "algorithm": "sha256",
+            "checksum": "sha256:111111111111111111111111111111111111111111111111111111111111111111",
+            "pinnedAt": "2026-01-01T00:00:00.000Z",
+            "dependencyPins": [],
+            "nativeCapabilities": {
+              "schemaVersion": "wonder.app-package-native-capabilities.v1",
+              "platform": "expo",
+              "packages": ["@suite/core"],
+              "permissions": []
+            }
+          }
+        }
+      }
+    ]
+  }
+]

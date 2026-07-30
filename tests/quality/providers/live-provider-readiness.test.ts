@@ -24,6 +24,7 @@ const envKeys = [
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_SHEETS_ACCESS_TOKEN',
+  'GOOGLE_SHEETS_TOKEN_FILE',
   'WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS',
 ];
 
@@ -83,6 +84,7 @@ describe('check:live-provider-readiness', () => {
         NOTION_TEST_ACCOUNT_ID: 'notion-workspace',
         GOOGLE_SHEETS_TEST_SPREADSHEET_ID: 'spreadsheet-fixture-id',
         GOOGLE_SHEETS_TEST_ACCOUNT_ID: 'sheets-workspace@example.com',
+        GOOGLE_SHEETS_ACCESS_TOKEN: 'google-sheets-access-token',
         GOOGLE_CLIENT_ID: 'google-client-id',
         GOOGLE_CLIENT_SECRET: 'google-client-secret',
         WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY: key,
@@ -94,7 +96,7 @@ describe('check:live-provider-readiness', () => {
     expect(result.payload.providers.sheets.disposable_lane).toBe('BLOCKED');
     expect(result.payload.providers.notion.status).toBe('READY');
     expect(result.payload.status).toBe('BLOCKED');
-    expect(result.payload.blockers).toContain('sheets_not_ready');
+    expect(result.payload.blockers).toContain('sheets_disposable_lane');
   });
 
   it('reports READY when required env and guards are present', () => {
@@ -108,6 +110,7 @@ describe('check:live-provider-readiness', () => {
         NOTION_TEST_ACCOUNT_ID: 'notion-workspace',
         GOOGLE_SHEETS_TEST_SPREADSHEET_ID: 'spreadsheet-fixture-id',
         GOOGLE_SHEETS_TEST_ACCOUNT_ID: 'sheets-workspace@example.com',
+        GOOGLE_SHEETS_ACCESS_TOKEN: 'google-sheets-access-token',
         GOOGLE_CLIENT_ID: 'google-client-id',
         GOOGLE_CLIENT_SECRET: 'google-client-secret',
         WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY: key,

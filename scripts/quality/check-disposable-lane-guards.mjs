@@ -27,6 +27,7 @@ const notionEnv = {
   NOTION_TEST_PAGE_ID: notionTarget,
   NOTION_TEST_ACCOUNT_ID: notionAccount,
 };
+const runGoogleSheetsLiveProofSource = readFileSync(fileURLToPath(new URL('./run-google-sheets-live-proof.sh', import.meta.url)), 'utf8');
 assert.equal(run('provider', notionEnv, 'notion').status, 0);
 assert.equal(run('provider', {
   ...notionEnv,
@@ -61,6 +62,7 @@ assert.equal(run('device', {
   WONDERFOOD_DEVICE_MUTATION_ACK: 'DISPOSABLE_EMULATOR_ONLY',
   ANDROID_SERIAL: 'emulator-5554',
 }).status, 0);
+assert.match(runGoogleSheetsLiveProofSource, /GOOGLE_SHEETS_PROVISION_DISPOSABLE/);
 
 const secret = 'must-not-appear';
 const blocked = run('provider', { NOTION_TOKEN: secret }, 'notion');

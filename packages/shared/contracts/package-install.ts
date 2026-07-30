@@ -10,6 +10,15 @@ export const UTOPIA_REGISTRY_SCHEMA_VERSION = 'utopia.registry.v1' as const;
 export const UTOPIA_INSTALL_PREVIEW_SCHEMA_VERSION = 'utopia.install-preview.v1' as const;
 export const UTOPIA_INSTALL_APPROVAL_SCHEMA_VERSION = 'utopia.install-approval.v1' as const;
 export const UTOPIA_APP_INSTALLATION_SCHEMA_VERSION = 'utopia.app-installation.v1' as const;
+export const UTOPIA_PACKAGE_CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/;
+export const UTOPIA_INSTALL_DISCLOSURE_LINES = [
+  'Utopia shows package data collections, providers, and permissions during install review.',
+  'No API keys, tokens, secrets, files, audio content, health data, contacts, email, phone, or location trails are collected.',
+] as const;
+export const UTOPIA_PUBLISH_DISCLOSURE_LINES = [
+  'Publish payloads should not include API keys, tokens, secrets, user records, prompts, files, audio, health data, contacts, email, phone, or location trails.',
+  'Publishers must request only capabilities that are needed and document required permissions and providers.',
+] as const;
 
 export type UtopiaRegistryPackage = Readonly<{
   id: string;
@@ -89,6 +98,8 @@ export type PackageInstallPreview = Readonly<{
   widgetsRequired: string[];
   pluginsRequired: string[];
   fallbacks: string[];
+  installDisclosures: readonly string[];
+  publishDisclosures: readonly string[];
   trust: {
     status: PackageInstallTrustStatus;
     checksum?: string;
@@ -132,9 +143,17 @@ export type AppInstallation = Readonly<{
   updatedAt: string;
 }>;
 
-const WONDER_INSTALL_HOST = 'install';
-const WONDER_UNIVERSAL_HOST = 'wonder.app';
-const CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/;
+export const UTOPIA_INSTALL_SCHEME = 'utopia:' as const;
+export const UTOPIA_INSTALL_HOST = 'install' as const;
+export const UTOPIA_REGISTRY_HOST = 'utoia.thetechcruise.com' as const;
+export const UTOPIA_INSTALL_URL_BASE = `https://${UTOPIA_REGISTRY_HOST}/install` as const;
+
+const LEGACY_WONDER_INSTALL_SCHEME = 'wonder:';
+const LEGACY_WONDER_INSTALL_HOST = 'install';
+const LEGACY_WONDER_UNIVERSAL_HOST = 'wonder.app';
+export function isCanonicalPackageChecksum(value: unknown): value is string {
+  return typeof value === 'string' && UTOPIA_PACKAGE_CHECKSUM_PATTERN.test(value);
+}
 
 export function parsePackageInstallTarget(input: string): PackageInstallTarget {
   const raw = input.trim();
@@ -147,11 +166,18 @@ export function parsePackageInstallTarget(input: string): PackageInstallTarget {
     throw new Error('install_url_invalid');
   }
 
-  if (parsed.protocol === 'wonder:' && parsed.hostname === WONDER_INSTALL_HOST) {
+  if (
+    (parsed.protocol === UTOPIA_INSTALL_SCHEME && parsed.hostname === UTOPIA_INSTALL_HOST)
+    || (parsed.protocol === LEGACY_WONDER_INSTALL_SCHEME && parsed.hostname === LEGACY_WONDER_INSTALL_HOST)
+  ) {
     return { source: 'deep_link', packageUrl: parseNestedPackageUrl(parsed) };
   }
 
-  if (parsed.protocol === 'https:' && parsed.hostname === WONDER_UNIVERSAL_HOST && parsed.pathname === '/install') {
+  if (
+    parsed.protocol === 'https:'
+    && (parsed.hostname === UTOPIA_REGISTRY_HOST || parsed.hostname === LEGACY_WONDER_UNIVERSAL_HOST)
+    && parsed.pathname === '/install'
+  ) {
     return { source: 'universal_link', packageUrl: parseNestedPackageUrl(parsed) };
   }
 
@@ -195,7 +221,7 @@ export function collectRegistryManifestValidationErrors(input: unknown): string[
         errors.push(`${path}.url ${error instanceof Error ? error.message : 'invalid'}`);
       }
     }
-    if (entry.checksum !== undefined && (!isText(entry.checksum) || !CHECKSUM_PATTERN.test(entry.checksum))) {
+    if (entry.checksum !== undefined && !isCanonicalPackageChecksum(entry.checksum)) {
       errors.push(`${path}.checksum must be sha256:<64 hex chars>`);
     }
     if (entry.description !== undefined && !isText(entry.description)) {
@@ -245,6 +271,11 @@ export function buildPackageInstallPreview(
   const nativeCapabilitySupport = pkg?.schemaVersion === 'wonder.app-package.v3'
     ? nativeCapabilitySupportFindings(pkg.nativeCapabilities)
     : [];
+  const dataCollections = pkg ? Object.keys(pkg.collections).sort() : [];
+  const providersRequested = pkg ? providerRequests(pkg) : [];
+  const nativePermissionsRequested = pkg
+    ? nativePermissionLabels(pkg)
+    : candidateNativePermissionLabels(candidate);
   const blocked = packageErrors.length > 0
     || compatibilityReasons.length > 0
     || trust.status === 'checksum_mismatch'
@@ -265,15 +296,19 @@ export function buildPackageInstallPreview(
       reasons: compatibilityReasons,
     },
     screensIncluded: pkg ? screenIds(pkg) : [],
-    dataCollections: pkg ? Object.keys(pkg.collections).sort() : [],
-    providersRequested: pkg ? providerRequests(pkg) : [],
-    nativePermissionsRequested: pkg
-      ? nativePermissionLabels(pkg)
-      : candidateNativePermissionLabels(candidate),
+    dataCollections,
+    providersRequested,
+    nativePermissionsRequested,
     nativeCapabilitySupport,
     widgetsRequired: pkg ? widgetRequests(pkg) : [],
     pluginsRequired: pkg ? pluginRequests(pkg) : [],
     fallbacks: pkg ? fallbackLabels(pkg) : [],
+    installDisclosures: buildInstallDisclosures({
+      dataCollections,
+      providersRequested,
+      nativePermissionsRequested,
+    }),
+    publishDisclosures: UTOPIA_PUBLISH_DISCLOSURE_LINES,
     trust: {
       status: trust.status,
       ...(expectedChecksum ? { checksum: expectedChecksum } : {}),
@@ -385,7 +420,7 @@ function resolveTrustStatus(expectedChecksum: string | undefined, computedChecks
   error?: string;
 } {
   if (!expectedChecksum) return { status: 'checksum_missing' };
-  if (!CHECKSUM_PATTERN.test(expectedChecksum)) {
+  if (!isCanonicalPackageChecksum(expectedChecksum)) {
     return { status: 'checksum_mismatch', error: 'checksum format invalid' };
   }
   if (computedChecksum && expectedChecksum === computedChecksum) return { status: 'checksum_verified' };
@@ -530,6 +565,33 @@ function nativePermissionLabels(pkg: AppPackage): string[] {
     if (typeof permission === 'string') return permission;
     return permission.permission;
   }));
+}
+
+function buildInstallDisclosures(input: {
+  dataCollections: readonly string[];
+  providersRequested: readonly string[];
+  nativePermissionsRequested: readonly string[];
+}): string[] {
+  const disclosures: string[] = [...UTOPIA_INSTALL_DISCLOSURE_LINES];
+  if (input.dataCollections.length) {
+    disclosures.push(`Data collections: ${input.dataCollections.join(', ')}`);
+  } else {
+    disclosures.push('No data collections declared.');
+  }
+
+  if (input.providersRequested.length) {
+    disclosures.push(`Providers: ${input.providersRequested.join(', ')}`);
+  } else {
+    disclosures.push('No external providers requested.');
+  }
+
+  if (input.nativePermissionsRequested.length) {
+    disclosures.push(`Native permissions: ${input.nativePermissionsRequested.join(', ')}`);
+  } else {
+    disclosures.push('No native permissions requested.');
+  }
+
+  return disclosures;
 }
 
 function candidateNativePermissionLabels(candidate: unknown): string[] {

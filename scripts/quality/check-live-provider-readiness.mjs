@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const evidenceDir = join(root, 'app', 'build', 'evidence');
 const evidencePath = join(evidenceDir, 'live-provider-readiness.json');
+const SHEETS_TOKEN_FILE_DEFAULT = join(root, 'build', 'evidence', 'live-workspace', 'google-sheets-token.json');
 mkdirSync(evidenceDir, { recursive: true });
 
 const PROOF_COMMANDS = {
@@ -31,6 +32,7 @@ const PROVIDER_REQUIREMENTS = {
   ],
   sheets: [
     { label: 'test spreadsheet', names: ['GOOGLE_SHEETS_TEST_SPREADSHEET_ID'] },
+    { label: 'oauth token source', oneOf: true, names: ['GOOGLE_SHEETS_ACCESS_TOKEN', 'GOOGLE_SHEETS_TOKEN_FILE'] },
     { label: 'account', oneOf: true, names: ['GOOGLE_SHEETS_TEST_ACCOUNT_ID', 'GOOGLE_ACCOUNT_ID'] },
     { label: 'oauth client id', names: ['GOOGLE_CLIENT_ID'] },
     { label: 'oauth client secret', names: ['GOOGLE_CLIENT_SECRET'] },
@@ -53,12 +55,17 @@ function runGuard(provider, env) {
 }
 
 function valuePresent(name, env) {
+  if (name === 'GOOGLE_SHEETS_TOKEN_FILE') {
+    const tokenFile = (env.GOOGLE_SHEETS_TOKEN_FILE || SHEETS_TOKEN_FILE_DEFAULT).trim();
+    return tokenFile.length > 0 && existsSync(tokenFile);
+  }
   return Boolean((env[name] || '').trim());
 }
 
 function evaluateRequirements(provider, env) {
   const requirements = [];
   let allReady = true;
+  const missingConfigs = [];
   for (const req of PROVIDER_REQUIREMENTS[provider]) {
     const present = req.names.map((name) => ({ name, present: valuePresent(name, env) }));
     const requiredMissing = req.oneOf
@@ -66,6 +73,7 @@ function evaluateRequirements(provider, env) {
       : present.some((entry) => !entry.present);
     if (requiredMissing) {
       allReady = false;
+      missingConfigs.push(...present.filter((entry) => !entry.present).map((entry) => entry.name));
     }
     requirements.push({
       label: req.label,
@@ -74,7 +82,7 @@ function evaluateRequirements(provider, env) {
       status: requiredMissing ? 'BLOCKED' : 'READY',
     });
   }
-  return { allReady, requirements };
+  return { allReady, requirements, missing_configs: missingConfigs };
 }
 
 function evaluateProvider(provider, env) {
@@ -87,6 +95,7 @@ function evaluateProvider(provider, env) {
     env_ready: envReady,
     guard,
     requirements: requirements.requirements,
+    missing_configs: requirements.missing_configs,
     proof_commands: PROOF_COMMANDS[provider],
   };
 }
@@ -96,9 +105,18 @@ const providers = {
   sheets: evaluateProvider('sheets', process.env),
 };
 const overallStatus = providers.notion.status === 'READY' && providers.sheets.status === 'READY' ? 'READY' : 'BLOCKED';
-const blockers = [];
-if (providers.notion.status !== 'READY') blockers.push('notion_not_ready');
-if (providers.sheets.status !== 'READY') blockers.push('sheets_not_ready');
+const blockers = [
+  ...new Set([
+    ...providers.notion.missing_configs,
+    ...providers.sheets.missing_configs,
+  ]),
+];
+if (overallStatus === 'BLOCKED' && providers.notion.status !== 'READY' && !providers.notion.missing_configs.length) {
+  blockers.push('notion_disposable_lane');
+}
+if (overallStatus === 'BLOCKED' && providers.sheets.status !== 'READY' && !providers.sheets.missing_configs.length) {
+  blockers.push('sheets_disposable_lane');
+}
 
 const payload = {
   proof: 'utopia_live_provider_readiness',
@@ -111,12 +129,15 @@ const payload = {
       disposable_lane: providers.notion.guard.status,
       env: providers.notion.requirements,
       proof_commands: providers.notion.proof_commands,
+      missing_configs: providers.notion.missing_configs,
     },
     sheets: {
       status: providers.sheets.status,
       disposable_lane: providers.sheets.guard.status,
       env: providers.sheets.requirements,
       proof_commands: providers.sheets.proof_commands,
+      missing_configs: providers.sheets.missing_configs,
+      oauth_readiness_command: './scripts/quality/run-google-sheets-live-proof.sh',
     },
   },
   proof_commands: [

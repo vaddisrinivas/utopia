@@ -123,7 +123,16 @@ const chatControlRuns = {
   'run-foreign': { status: 'running' as const, conversationId: 'thread-alpha-work', principalId: 'tenant-beta' },
 };
 
-const chatControlContext = {
+const retryThread = {
+  id: 'thread-alpha-work',
+  domain: 'work',
+  title: 'Work',
+  detail: 'work',
+  last_response_id: 'resp-1',
+  messages: [{ id: 'msg-user', role: 'user' as const, text: 'Where is milk?' }],
+};
+
+const chatControlContext: Parameters<typeof handleChatControlRoutes>[3] = {
   assertAuth: allowAuth,
   readJsonBody: async () => ({}),
   getAuthenticatedPrincipalId: () => 'tenant-alpha',
@@ -138,6 +147,43 @@ const chatControlContext = {
   getRunController: (runId: string) => (runId === 'run-active' ? new AbortController() : undefined),
   clearRunController: () => {},
   chatControlBodyLimitBytes: 64 * 1024,
+  getConversation: () => retryThread,
+  buildScopedChatRequest: ({ principalId, conversationId, idempotencyKey, message, domainId, retryOfMessageId }) => ({
+    conversationRunKey: `${principalId}\u0000${conversationId}`,
+    idempotencyNamespace: `${principalId}:${conversationId}:${idempotencyKey}`,
+    scopedIdempotencyKey: `${principalId}:${conversationId}:${idempotencyKey}:${message.length.toString()}:${domainId}:retry`,
+    operationFingerprint: `retry:${retryOfMessageId ?? ''}`,
+  }),
+  reserveScopedIdempotencyRecord: (_namespace, input) => ({
+    status: 'reserved' as const,
+    record: {
+      status: 'reserved',
+      reservationId: input.reservationId,
+      messageId: null,
+      runId: input.runId,
+      conversationId: input.conversationId,
+      principalId: input.principalId,
+      operationFingerprint: input.operationFingerprint,
+      created_at: '2000-01-01T00:00:00.000Z',
+      updated_at: '2000-01-01T00:00:00.000Z',
+    },
+  }),
+  resolveStoredPreviousResponseId: ({ storedConversationResponseId }) => storedConversationResponseId,
+  runServerChat: async (input) => ({
+    conversation_id: input.conversationId,
+    messages: [{ id: 'asst-retry', role: 'assistant', text: 'retry handled' }],
+    thread: {
+      id: input.conversationId,
+      title: retryThread.title,
+      detail: retryThread.detail,
+    },
+    run: {
+      id: input.runId,
+      status: 'completed' as const,
+      needs_retry: false,
+      aborted: false,
+    },
+  }),
 };
 
 const chatAuthFailContext = {
@@ -250,6 +296,54 @@ assert.equal(
   true,
 );
 assert.equal(chatStopAuthFailureResponse.statusCode, 401);
+
+assert.equal(
+  await handleChatControlRoutes(
+    { method: 'POST', url: '/chat/retry' },
+    createResponse(),
+    '/chat/threads',
+    chatControlContext as never,
+  ),
+  false,
+);
+
+const chatRetryMissingPayloadResponse = createResponse();
+assert.equal(
+  await handleChatControlRoutes(
+    { method: 'POST', url: '/chat/retry' },
+    chatRetryMissingPayloadResponse,
+    '/chat/retry',
+    chatControlContext as never,
+  ),
+  true,
+);
+assert.equal(chatRetryMissingPayloadResponse.statusCode, 400);
+assert.equal(parseJsonResponse(chatRetryMissingPayloadResponse).message, 'conversation_id and user_message_id required');
+
+const chatRetryHandledResponse = createResponse();
+assert.equal(
+  await handleChatControlRoutes(
+    { method: 'POST', url: '/chat/retry' },
+    chatRetryHandledResponse,
+    '/chat/retry',
+    {
+      ...chatControlContext,
+      readJsonBody: async () => ({ conversation_id: 'thread-alpha-work', user_message_id: 'msg-user' }),
+    } as never,
+  ),
+  true,
+);
+assert.equal(chatRetryHandledResponse.statusCode, 200);
+const chatRetryPayload = parseJsonResponse(chatRetryHandledResponse) as {
+  conversation_id?: string;
+  messages?: Array<{ id: string; role: string; text: string }>;
+  thread?: { id: string; title: string; detail: string };
+  run?: { id: string; status: string; needs_retry: boolean; aborted: boolean };
+};
+assert.equal(chatRetryPayload.conversation_id, 'thread-alpha-work');
+assert.equal(chatRetryPayload.run?.status, 'completed');
+assert.equal(chatRetryPayload.run?.needs_retry, false);
+assert.equal(chatRetryPayload.thread?.id, 'thread-alpha-work');
 
 assert.equal(await handlePackageRoutes({ method: 'GET', url: '/packages/active' }, createResponse(), '/packages/active', packageContext as never), true);
 assert.equal(await handleHealthConnectRoute({ method: 'GET' }, createResponse(), '/health/connect/snapshots', { assertAuth: allowAuth, readJsonBody: async () => ({}) }), true);

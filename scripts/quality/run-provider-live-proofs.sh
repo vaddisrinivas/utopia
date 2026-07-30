@@ -16,6 +16,19 @@ if [[ "${WONDERFOOD_LIVE_PROOF_SKIP_AGENT_ENV:-0}" != "1" &&
 fi
 
 missing=0
+missing_keys=()
+SHEETS_TOKEN_FILE="${GOOGLE_SHEETS_TOKEN_FILE:-$ROOT_DIR/build/evidence/live-workspace/google-sheets-token.json}"
+
+record_missing() {
+  local key
+  for key in "$@"; do
+    if [[ -z "${key}" ]]; then
+      continue
+    fi
+    missing_keys+=("$key")
+  done
+}
+
 if [[ -z "${SSL_CERT_FILE:-}" ]]; then
   cert_file="$(python3 - <<'PY' 2>/dev/null || true
 try:
@@ -42,6 +55,7 @@ require_one_of() {
   done
   if [[ "$found" -eq 0 ]]; then
     echo "Missing env for $label: one of $*" >&2
+    record_missing "$@"
     missing=1
   fi
 }
@@ -50,20 +64,39 @@ require_env() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then
     echo "Missing env: $name" >&2
+    record_missing "$name"
     missing=1
   fi
+}
+
+require_sheets_oauth_readiness() {
+  if [[ -n "${GOOGLE_SHEETS_ACCESS_TOKEN:-}" ]]; then
+    return
+  fi
+
+  if [[ -f "${SHEETS_TOKEN_FILE}" ]]; then
+    return
+  fi
+
+  echo "Missing env for sheets OAuth: one of GOOGLE_SHEETS_ACCESS_TOKEN, GOOGLE_SHEETS_TOKEN_FILE" >&2
+  echo "Run ./scripts/quality/run-google-sheets-live-proof.sh to complete browser OAuth for a disposable workbook." >&2
+  record_missing "GOOGLE_SHEETS_ACCESS_TOKEN" "GOOGLE_SHEETS_TOKEN_FILE"
+  missing=1
 }
 
 for provider in "${PROVIDERS[@]}"; do
   case "$provider" in
     notion)
       require_one_of notion-token NOTION_TOKEN NOTION_API_KEY
+      require_env NOTION_TEST_PAGE_ID
+      require_one_of notion-account NOTION_TEST_ACCOUNT_ID NOTION_WORKSPACE_ID
       ;;
     sheets|google-sheets)
-      if [[ -z "${GOOGLE_SHEETS_ACCESS_TOKEN:-}" ]]; then
-        require_env GOOGLE_CLIENT_ID
-        require_env GOOGLE_CLIENT_SECRET
-      fi
+      require_env GOOGLE_SHEETS_TEST_SPREADSHEET_ID
+      require_one_of sheets-account GOOGLE_SHEETS_TEST_ACCOUNT_ID GOOGLE_ACCOUNT_ID
+      require_sheets_oauth_readiness
+      require_env GOOGLE_CLIENT_ID
+      require_env GOOGLE_CLIENT_SECRET
       ;;
     postgres)
       require_one_of postgres-root POSTGRES_TEST_API_ROOT WONDERFOOD_POSTGRES_API_ROOT
@@ -78,6 +111,10 @@ for provider in "${PROVIDERS[@]}"; do
 done
 
 if [[ "$missing" -ne 0 ]]; then
+  if [[ "${#missing_keys[@]}" -gt 0 ]]; then
+    echo "Missing config names:" >&2
+    printf ' - %s\n' "${missing_keys[@]}" | sort -u >&2
+  fi
   echo "Live provider proof env is incomplete. Values were not printed." >&2
   exit 1
 fi

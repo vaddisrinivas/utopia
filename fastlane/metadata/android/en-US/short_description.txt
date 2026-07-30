@@ -1,1 +1,1 @@
-Local-first food planning with reviewable AI proposals.
+Local-first app runtime for personal tools and trusted app packages.

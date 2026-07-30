@@ -27,6 +27,7 @@ import {
   type AppPackageSourceScreen,
   type PackageCompilationResult,
 } from '@/packages/app-compiler';
+import { buildPackageInstallPreview } from '@/packages/shared/contracts/package-install';
 
 type BuilderStarter = {
   id: string;
@@ -95,6 +96,42 @@ type BuilderCapabilityStatus = {
   requiresNativeBridge: boolean;
 };
 
+type BuilderAdapterId = 'package-source' | 'json-forms' | 'puck';
+
+type BuilderAdapterContract = {
+  id: BuilderAdapterId;
+  label: string;
+  schemaUrl: string;
+  canonical: boolean;
+  persisted: boolean;
+  importSupported: boolean;
+  exportSupported: boolean;
+};
+
+type BuilderComponentRegistryEntry = {
+  canonicalWidgetKind: string;
+  jsonFormsKind: string;
+  puckKind: string;
+};
+
+type BuilderAdapterValidation = {
+  status: 'ok' | 'invalid';
+  issues: string[];
+};
+
+type JsonFormFieldSpec = {
+  field: string;
+  type: AppPackageSourceCollection['fields'][string]['type'];
+  required: boolean;
+  label: string | undefined;
+};
+
+type BuilderAdapterContracts = {
+  canonicalSchemaUrl: string;
+  adapters: BuilderAdapterContract[];
+  componentRegistry: BuilderComponentRegistryEntry[];
+};
+
 type BuilderGenerateResponse =
   | {
       status: 'ok';
@@ -129,9 +166,16 @@ type BuilderInfo = {
   archetypes: BuilderArchetypeDisplay[];
   capabilities: BuilderCapabilityStatus[];
   targetPlatforms: UtopiaRuntimePlatform[];
+  adapterContracts: BuilderAdapterContracts;
 };
 
 type BuilderCompileRequest = AppPackageSourceFolder;
+type CreatorInstallReviewRequest = {
+  source: BuilderCompileRequest | undefined;
+  sourceUrl: string | undefined;
+  expectedChecksum: string | undefined;
+  package: AppPackage | undefined;
+};
 type SuccessfulCompilation = Extract<PackageCompilationResult, { valid: true }>;
 type BuilderImportResponse =
   | {
@@ -169,6 +213,15 @@ type BuilderCompileResponse =
       preview: undefined;
       errors: { path: string; message: string }[];
     };
+type CreatorFailureCategory = typeof CREATOR_FAILURE_CATEGORIES[number];
+type BuilderCreatorReceiptInput = {
+  durationMs: number;
+  packageId: string;
+  packageVersion: string;
+  packageValid: boolean;
+  installOpened: boolean;
+  failureCategories?: unknown;
+};
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const STUBS_DIR = path.resolve(ROOT_DIR, 'tests', 'fixtures', 'package-source');
@@ -181,9 +234,61 @@ const DEFAULT_PORT = 4173;
 const MAX_SCREEN_COUNT = 12;
 const MIN_SCREEN_COUNT = 1;
 const DEFAULT_SCREEN_COUNT = 2;
+const PACKAGE_SOURCE_SCHEMA_URL = 'https://schemas.utopia.dev/wonder.package-source.v1.schema.json';
+const JSON_FORMS_SCHEMA_URL = 'https://schemas.utopia.dev/editors/json-forms.v1.schema.json';
+const PUCK_SCHEMA_URL = 'https://schemas.utopia.dev/editors/puck.v1.schema.json';
 
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
+const CREATOR_INSTALL_REVIEW_SOURCE_URL_PREFIX = 'https://local.utopia.creator-review';
+const CREATOR_FAILURE_CATEGORIES = [
+  'source_invalid',
+  'validation_failed',
+  'install_review_blocked',
+  'receipt_not_generated',
+] as const;
+const CREATOR_FAILURE_CATEGORY_SET = new Set<string>(CREATOR_FAILURE_CATEGORIES);
+
+const BUILDER_ADAPTER_CONTRACTS: BuilderAdapterContract[] = [
+  {
+    id: 'package-source',
+    label: 'Utopia package source',
+    schemaUrl: PACKAGE_SOURCE_SCHEMA_URL,
+    canonical: true,
+    persisted: true,
+    importSupported: true,
+    exportSupported: true,
+  },
+  {
+    id: 'json-forms',
+    label: 'JSON Forms',
+    schemaUrl: JSON_FORMS_SCHEMA_URL,
+    canonical: false,
+    persisted: false,
+    importSupported: true,
+    exportSupported: false,
+  },
+  {
+    id: 'puck',
+    label: 'Puck',
+    schemaUrl: PUCK_SCHEMA_URL,
+    canonical: false,
+    persisted: false,
+    importSupported: false,
+    exportSupported: false,
+  },
+];
+
+const BUILDER_COMPONENT_REGISTRY: BuilderComponentRegistryEntry[] = APP_PACKAGE_WIDGET_KINDS.map((widgetKind) => ({
+  canonicalWidgetKind: widgetKind,
+  jsonFormsKind: `jsonForms:${widgetKind}`,
+  puckKind: `puck:${widgetKind}`,
+}));
+
+const BUILDER_ADAPTER_BY_SCHEMA_URL = BUILDER_ADAPTER_CONTRACTS.reduce<Record<string, BuilderAdapterContract>>((acc, adapter) => {
+  acc[adapter.schemaUrl] = adapter;
+  return acc;
+}, {});
 
 const BUILDER_ARCHETYPES: BuilderArchetypeTemplate[] = [
   {
@@ -514,6 +619,18 @@ export function getArchetypeCapabilityStatuses(targetPlatforms: readonly unknown
   });
 }
 
+export function getBuilderAdapterContracts(): BuilderAdapterContracts {
+  return {
+    canonicalSchemaUrl: PACKAGE_SOURCE_SCHEMA_URL,
+    adapters: [...BUILDER_ADAPTER_CONTRACTS],
+    componentRegistry: [...BUILDER_COMPONENT_REGISTRY],
+  };
+}
+
+export function getBuilderComponentRegistry(): BuilderComponentRegistryEntry[] {
+  return [...BUILDER_COMPONENT_REGISTRY];
+}
+
 export function getBuilderInfo(): BuilderInfo {
   const starters = readBuilderManifest();
   return {
@@ -523,6 +640,7 @@ export function getBuilderInfo(): BuilderInfo {
     archetypes: getBuilderArchetypes(),
     capabilities: getArchetypeCapabilityStatuses(UTOPIA_RUNTIME_PLATFORMS),
     targetPlatforms: [...UTOPIA_RUNTIME_PLATFORMS],
+    adapterContracts: getBuilderAdapterContracts(),
   };
 }
 
@@ -560,6 +678,91 @@ export function parseBrowserBuilderArgs(argv: string[]): { host: string; port: n
   }
 
   return { host: DEFAULT_HOST, port };
+}
+
+export const ALLOWED_CREATOR_FAILURE_CATEGORIES = CREATOR_FAILURE_CATEGORIES;
+
+function toSecondsOrZero(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Number(Math.max(0, parsed / 1000).toFixed(3));
+}
+
+export function normalizeCreatorFailureCategories(rawFailureCategories: unknown): CreatorFailureCategory[] {
+  if (!Array.isArray(rawFailureCategories)) {
+    return [];
+  }
+  const isCreatorFailureCategory = (candidate: string): candidate is CreatorFailureCategory => (
+    CREATOR_FAILURE_CATEGORY_SET.has(candidate)
+  );
+  const normalized = rawFailureCategories
+    .map((candidate) => (typeof candidate === 'string' ? candidate.trim() : ''))
+    .filter((candidate): candidate is CreatorFailureCategory => candidate.length > 0 && isCreatorFailureCategory(candidate));
+  return [...new Set(normalized)];
+}
+
+export function buildCreatorStudyReceipt(input: BuilderCreatorReceiptInput) {
+  const durationSeconds = toSecondsOrZero(input.durationMs);
+  const packageValid = input.packageValid === true;
+  const duration = Number.isFinite(durationSeconds) && durationSeconds >= 0 ? durationSeconds : 0;
+  const checkedAt = new Date().toISOString();
+  const packageId = isText(input.packageId) ? input.packageId : 'local.creator.app';
+  const packageVersion = isText(input.packageVersion) ? input.packageVersion : '1.0.0';
+  const installOpened = input.installOpened === true;
+
+  return {
+    proof: 'creator_study_receipt',
+    checked_at: checkedAt,
+    duration_seconds: duration,
+    package: {
+      id: packageId,
+      version: packageVersion,
+      valid: packageValid,
+    },
+    package_valid: packageValid,
+    valid_package: packageValid,
+    install_opened: installOpened,
+    install: { opened: installOpened },
+    installation: { opened: installOpened },
+    unaided: false,
+    assistance: 'assisted',
+    provenance: {
+      actor: 'browser-builder',
+      reason: 'content-free assisted creator run',
+    },
+    failure_categories: normalizeCreatorFailureCategories(input.failureCategories),
+  };
+}
+
+function createInstallReviewSourceUrl(id: string, version: string): string {
+  return `${CREATOR_INSTALL_REVIEW_SOURCE_URL_PREFIX}/${encodeURIComponent(id || 'app')}/${encodeURIComponent(version || '1.0.0')}.package.json`;
+}
+
+function sanitizeCreatorInstallReviewRequest(payload: unknown): CreatorInstallReviewRequest {
+  if (!isRecord(payload)) throw new Error('install review request must be an object');
+
+  const requestedSourceUrl = isText(payload.sourceUrl) ? payload.sourceUrl : undefined;
+  const expectedChecksum = isText(payload.expectedChecksum) ? payload.expectedChecksum : undefined;
+
+  if (looksLikePackageSource(payload.source) && isRecord(payload.source)) {
+    return { source: payload.source, sourceUrl: requestedSourceUrl, expectedChecksum, package: undefined };
+  }
+
+  if (isRecord(payload.package) && (payload.package.schemaVersion === 'wonder.app-package.v2' || payload.package.schemaVersion === 'wonder.app-package.v3')) {
+    const pkg = payload.package as AppPackage;
+    return {
+      source: undefined,
+      sourceUrl: requestedSourceUrl ?? createInstallReviewSourceUrl(isText(pkg.id) ? pkg.id : 'local.creator.app', isText(pkg.version) ? pkg.version : '1.0.0'),
+      expectedChecksum,
+      package: pkg,
+    };
+  }
+
+  if (looksLikePackageSource(payload.source)) {
+    return { source: payload.source, sourceUrl: requestedSourceUrl, expectedChecksum: expectedChecksum, package: undefined };
+  }
+
+  throw new Error('install review request missing valid source or package');
 }
 
 export function compileBuilderSource(source: BuilderCompileRequest): BuilderCompileResponse {
@@ -854,6 +1057,341 @@ export function looksLikePackageSource(rawPayload: unknown): rawPayload is Build
   return true;
 }
 
+function getSchemaUrlFromPayload(rawPayload: unknown): string | undefined {
+  if (!isRecord(rawPayload)) {
+    return undefined;
+  }
+  if (isText(rawPayload.$schema)) {
+    return rawPayload.$schema;
+  }
+  if (isText(rawPayload.schema) && rawPayload.schema.startsWith('http')) {
+    return rawPayload.schema;
+  }
+  return undefined;
+}
+
+function detectEditorAdapterFromPayload(rawPayload: unknown): BuilderAdapterContract | undefined {
+  const schemaUrl = getSchemaUrlFromPayload(rawPayload);
+  if (!schemaUrl) {
+    return undefined;
+  }
+  return BUILDER_ADAPTER_BY_SCHEMA_URL[schemaUrl];
+}
+
+function validateJsonFormsPayload(rawPayload: unknown): BuilderAdapterValidation {
+  if (!isRecord(rawPayload)) {
+    return {
+      status: 'invalid',
+      issues: ['json-forms payload must be an object'],
+    };
+  }
+
+  const hasSchema = isRecord(rawPayload.schema) || Array.isArray(rawPayload.schema);
+  const hasUiSchema = isRecord(rawPayload.uischema) || Array.isArray(rawPayload.uischema);
+  if (!hasSchema || !hasUiSchema) {
+    return {
+      status: 'invalid',
+      issues: ['json-forms payload should include schema and uischema sections'],
+    };
+  }
+
+  return {
+    status: 'ok',
+    issues: [],
+  };
+}
+
+function validatePuckPayload(rawPayload: unknown): BuilderAdapterValidation {
+  if (!isRecord(rawPayload)) {
+    return {
+      status: 'invalid',
+      issues: ['puck payload must be an object'],
+    };
+  }
+
+  if (!isRecord(rawPayload.root) && !isRecord(rawPayload.content) && !isRecord(rawPayload.contentTree)) {
+    return {
+      status: 'invalid',
+      issues: ['puck payload should include a root/content/contentTree node'],
+    };
+  }
+
+  return {
+    status: 'ok',
+    issues: [],
+  };
+}
+
+function parseJsonFormsScope(scope: unknown): string | undefined {
+  if (!isText(scope)) {
+    return undefined;
+  }
+  const match = scope.match(/^#?\/?properties\/([^/]+)$/);
+  return match?.[1];
+}
+
+function mapJsonFormsFieldType(type: unknown, format: unknown): 'text' | 'number' | 'boolean' | 'timestamp' | 'json' | undefined {
+  if (!isText(type)) {
+    return undefined;
+  }
+  if (type === 'integer' || type === 'number') {
+    return 'number';
+  }
+  if (type === 'boolean') {
+    return 'boolean';
+  }
+  if (type === 'object' || type === 'array') {
+    return 'json';
+  }
+  if (type === 'string' && isText(format) && (format === 'date-time' || format === 'date')) {
+    return 'timestamp';
+  }
+  if (type === 'string') {
+    return 'text';
+  }
+  return undefined;
+}
+
+function collectJsonFormsControlPaths(uischema: unknown, schemaFields: Set<string>, issues: string[]): string[] {
+  const order: string[] = [];
+
+  const traverse = (node: unknown): void => {
+    if (!isRecord(node)) {
+      return;
+    }
+    const elements = node.elements;
+    if (Array.isArray(elements)) {
+      for (const element of elements) {
+        traverse(element);
+      }
+      return;
+    }
+
+    const scope = parseJsonFormsScope(node.scope);
+    if (!scope) {
+      return;
+    }
+
+    if (!schemaFields.has(scope)) {
+      issues.push(`uischema references unknown schema field "${scope}"`);
+      return;
+    }
+
+    if (!order.includes(scope)) {
+      order.push(scope);
+    }
+  };
+
+  traverse(uischema);
+  return order;
+}
+
+function parseJsonFormsSubset(rawPayload: unknown): BuilderImportResponse {
+  if (!isRecord(rawPayload) || !isRecord(rawPayload.schema) || !isRecord(rawPayload.uischema)) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms payload should include schema and uischema objects'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  if (rawPayload.schema.type !== 'object') {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms conversion subset requires root schema type "object"'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  const rawProperties = rawPayload.schema.properties;
+  if (!isRecord(rawProperties)) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms schema.properties must be an object'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  const schemaFieldNames = Object.keys(rawProperties);
+  if (schemaFieldNames.length === 0) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms schema must include at least one field'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  const rawRequired = Array.isArray(rawPayload.schema.required) ? rawPayload.schema.required : [];
+  const required = new Set(rawRequired.filter(isText));
+  const fields: Array<{ field: string; type: JsonFormFieldSpec['type']; required: boolean; label: string | undefined }> = [];
+  const issues: string[] = [];
+
+  for (const fieldName of schemaFieldNames) {
+    const rawField = rawProperties[fieldName];
+    if (!isRecord(rawField)) {
+      issues.push(`json-forms field "${fieldName}" must be an object`);
+      continue;
+    }
+
+    if (rawField.type === 'object' && rawField.properties !== undefined) {
+      issues.push(`json-forms field "${fieldName}" is outside supported type/object shape`);
+      continue;
+    }
+
+    const mappedType = mapJsonFormsFieldType(rawField.type, rawField.format);
+    if (!mappedType) {
+      issues.push(`json-forms field "${fieldName}" uses unsupported type`);
+      continue;
+    }
+
+    fields.push({
+      field: fieldName,
+      type: mappedType,
+      required: required.has(fieldName),
+      label: isText(rawField.title) ? rawField.title : undefined,
+    });
+  }
+
+  if (fields.length === 0) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['no supported fields found in json-forms schema'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  const uiSchemaFields = collectJsonFormsControlPaths(rawPayload.uischema, new Set(fields.map((field) => field.field)), issues);
+  if (uiSchemaFields.length === 0) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms uischema should include control scopes under elements'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  if (issues.length > 0) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: issues,
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
+
+  const appLabel = isText(rawPayload.schema.title) ? rawPayload.schema.title : 'Imported JSON Forms';
+  const orderedFields = [...uiSchemaFields, ...fields.map((field) => field.field).filter((field) => !uiSchemaFields.includes(field))];
+  const fieldRecord = Object.fromEntries(fields.map((field) => [
+    field.field,
+      {
+      type: field.type,
+      required: field.required,
+    },
+  ]));
+
+  return {
+    status: 'source',
+    mode: 'package-source',
+    source: {
+      app: {
+        schemaVersion: 'wonder.package-source.v1',
+        id: makeSafeId(appLabel),
+        version: '1.0.0',
+        label: appLabel,
+        homeSurface: 'form-home',
+      },
+      collections: {
+        form: {
+          id: 'form',
+          fields: fieldRecord,
+        },
+      },
+      queries: {
+        formList: {
+          from: 'form',
+          limit: 20,
+        },
+      },
+      screens: {
+        'form-home': {
+          label: `${appLabel} list`,
+          collections: ['form'],
+          query: 'formList',
+          mode: 'list',
+          fields: orderedFields,
+        },
+      },
+    } as BuilderCompileRequest,
+  };
+}
+
+function validateEditorPayload(rawPayload: unknown, adapter: BuilderAdapterContract): BuilderAdapterValidation {
+  if (adapter.id === 'json-forms') {
+    return validateJsonFormsPayload(rawPayload);
+  }
+  if (adapter.id === 'puck') {
+    return validatePuckPayload(rawPayload);
+  }
+  return { status: 'ok', issues: [] };
+}
+
+function makeAdapterUnsupportedResponse(adapter: BuilderAdapterContract, validation: BuilderAdapterValidation): BuilderImportResponse {
+  const details = validation.status === 'invalid'
+    ? [...validation.issues]
+    : ['canonical format is wonder.package-source.v1 for persistence and export'];
+  return {
+    status: 'unsupported',
+    mode: 'unsupported',
+    reason: 'adapter import/export is not yet supported',
+    details,
+    warnings: [
+      `adapter-schema=${adapter.schemaUrl}`,
+      `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+      'canonical persistence is package-source only',
+    ],
+  };
+}
+
 export function parseBuilderImportPayload(rawPayload: unknown): BuilderImportResponse {
   if (!isRecord(rawPayload)) {
     return {
@@ -872,7 +1410,57 @@ export function parseBuilderImportPayload(rawPayload: unknown): BuilderImportRes
     };
   }
 
-  if (rawPayload.schemaVersion !== 'wonder.app-package.v2' && rawPayload.schemaVersion !== 'wonder.app-package.v3') {
+  if (rawPayload.schemaVersion === 'wonder.app-package.v2' || rawPayload.schemaVersion === 'wonder.app-package.v3') {
+    const validationIssues = collectAppPackageValidationIssues(rawPayload as AppPackage).map(
+      (issue) => `${issue.category}: ${issue.message}`,
+    );
+    if (validationIssues.length > 0) {
+      return {
+        status: 'unsupported',
+        mode: 'unsupported',
+        reason: 'compiled payload must pass app-package validation first',
+        details: validationIssues,
+        warnings: [],
+      };
+    }
+
+    const conversion = convertCompiledPackageToSource(rawPayload as AppPackage);
+    if (conversion.status === 'unsupported') {
+      return conversion;
+    }
+
+    const packageChecksum = sha256Canonical(rawPayload);
+    const recompiled = compileBuilderSource(conversion.source);
+    if (recompiled.status === 'invalid') {
+      return {
+        status: 'unsupported',
+        mode: 'unsupported',
+        reason: 'lossless conversion failed after decompile',
+        details: recompiled.errors.map((error) => `${error.path}: ${error.message}`),
+        warnings: [],
+      };
+    }
+
+    if (recompiled.checksum !== packageChecksum) {
+      return {
+        status: 'unsupported',
+        mode: 'unsupported',
+        reason: 'import cannot be converted without data loss',
+        details: [`compiled checksum: ${packageChecksum}`, `recompiled checksum: ${recompiled.checksum}`],
+        warnings: [],
+      };
+    }
+
+    return {
+      status: 'compiled',
+      mode: 'compiled-package',
+      source: conversion.source,
+      sourceChecksum: recompiled.checksum,
+      packageChecksum,
+    };
+  }
+
+  if (rawPayload.schemaVersion !== undefined) {
     return {
       status: 'unsupported',
       mode: 'unsupported',
@@ -882,53 +1470,26 @@ export function parseBuilderImportPayload(rawPayload: unknown): BuilderImportRes
     };
   }
 
-  const validationIssues = collectAppPackageValidationIssues(rawPayload as AppPackage).map(
-    (issue) => `${issue.category}: ${issue.message}`,
-  );
-  if (validationIssues.length > 0) {
+  const adapter = detectEditorAdapterFromPayload(rawPayload);
+  if (!adapter) {
     return {
       status: 'unsupported',
       mode: 'unsupported',
-      reason: 'compiled payload must pass app-package validation first',
-      details: validationIssues,
+      reason: 'unsupported payload schema',
+      details: ['expected source or adapter schema payload with a recognized $schema'],
       warnings: [],
     };
   }
 
-  const conversion = convertCompiledPackageToSource(rawPayload as AppPackage);
-  if (conversion.status === 'unsupported') {
-    return conversion;
+  const validation = validateEditorPayload(rawPayload, adapter);
+  if (adapter.id === 'json-forms') {
+    return parseJsonFormsSubset(rawPayload);
   }
 
-  const packageChecksum = sha256Canonical(rawPayload);
-  const recompiled = compileBuilderSource(conversion.source);
-  if (recompiled.status === 'invalid') {
-    return {
-      status: 'unsupported',
-      mode: 'unsupported',
-      reason: 'lossless conversion failed after decompile',
-      details: recompiled.errors.map((error) => `${error.path}: ${error.message}`),
-      warnings: [],
-    };
+  if (validation.status === 'invalid') {
+    return makeAdapterUnsupportedResponse(adapter, validation);
   }
-
-  if (recompiled.checksum !== packageChecksum) {
-    return {
-      status: 'unsupported',
-      mode: 'unsupported',
-      reason: 'import cannot be converted without data loss',
-      details: [`compiled checksum: ${packageChecksum}`, `recompiled checksum: ${recompiled.checksum}`],
-      warnings: [],
-    };
-  }
-
-  return {
-    status: 'compiled',
-    mode: 'compiled-package',
-    source: conversion.source,
-    sourceChecksum: recompiled.checksum,
-    packageChecksum,
-  };
+  return makeAdapterUnsupportedResponse(adapter, { status: 'ok', issues: [] });
 }
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
@@ -1073,6 +1634,92 @@ function routeRequest(req: IncomingMessage, res: ServerResponse): Promise<void> 
           reason: error instanceof Error ? error.message : String(error),
           warnings: [],
         } as BuilderImportResponse);
+      });
+  }
+
+  if (req.method === 'POST' && cleanUrl === '/api/install-review') {
+    return collectBody(req)
+      .then((bodyText) => {
+        const payload = sanitizeCreatorInstallReviewRequest(parseJsonBody(bodyText));
+        const normalizedSource = payload.source;
+        const compiled = normalizedSource ? compileBuilderSource(normalizedSource) : undefined;
+        const packageCandidate = payload.package ?? compiled?.package;
+
+        if (!packageCandidate || !isRecord(packageCandidate)) {
+          throw new Error('install review request missing installable package');
+        }
+        if (compiled && compiled.status === 'invalid') {
+          throw new Error('install review request source must compile for preview');
+        }
+        if (payload.expectedChecksum && compiled?.checksum && payload.expectedChecksum !== compiled.checksum) {
+          throw new Error('install review checksum mismatch');
+        }
+
+        const sourceUrl = payload.sourceUrl
+          || createInstallReviewSourceUrl(isText(packageCandidate.id) ? packageCandidate.id : 'local.creator.app', isText(packageCandidate.version) ? packageCandidate.version : '1.0.0');
+        const preview = buildPackageInstallPreview(packageCandidate, {
+          sourceUrl,
+          ...(compiled?.checksum ? { expectedChecksum: compiled.checksum } : {}),
+          ...(payload.expectedChecksum ? { expectedChecksum: payload.expectedChecksum } : {}),
+        });
+
+        writeJsonResponse(res, 200, {
+          status: preview.status,
+          preview,
+          ...(preview.validationErrors.length ? { validationErrors: preview.validationErrors } : {}),
+        });
+      })
+      .catch((error) => {
+        writeJsonResponse(res, 400, {
+          status: 'blocked',
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      });
+  }
+
+  if (req.method === 'POST' && cleanUrl === '/api/creator-receipt') {
+    return collectBody(req)
+      .then((bodyText) => {
+        const payload = parseJsonBody(bodyText);
+        if (!isRecord(payload)) {
+          throw new Error('request body must be an object');
+        }
+        const source = looksLikePackageSource(payload.source) ? payload.source : undefined;
+        const compiled = source ? compileBuilderSource(source) : undefined;
+        const packageNode = isRecord(payload.package) ? payload.package : undefined;
+        const packageId = isText(packageNode?.id)
+          ? packageNode.id
+          : source?.app?.id
+            ? source.app.id
+            : 'local.creator.app';
+        const packageVersion = isText(packageNode?.version)
+          ? packageNode.version
+          : source?.app?.version
+            ? source.app.version
+            : '1.0.0';
+
+        const packageValid = packageNode?.valid === true
+          || payload.packageValid === true
+          || compiled?.status === 'valid';
+        const installOpened = payload.installOpened === true
+          || (isRecord(payload.install) && payload.install?.opened === true)
+          || (isRecord(payload.installation) && payload.installation?.opened === true);
+        const durationMs = isFiniteNumber(payload.durationMs) ? payload.durationMs : 0;
+
+        writeJsonResponse(res, 200, buildCreatorStudyReceipt({
+          durationMs,
+          packageId,
+          packageVersion: packageVersion || '1.0.0',
+          packageValid: packageValid,
+          installOpened,
+          failureCategories: payload.failureCategories ?? payload.failure_categories,
+        }));
+      })
+      .catch((error) => {
+        writeJsonResponse(res, 400, {
+          status: 'blocked',
+          reason: error instanceof Error ? error.message : String(error),
+        });
       });
   }
 
@@ -1298,6 +1945,10 @@ function writeJsonResponse(res: ServerResponse, status: number, payload: unknown
 
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -618,7 +618,9 @@ function normalizeFields(input: unknown): Record<string, unknown> {
   if (Array.isArray(input)) {
     return Object.fromEntries(input.map((value, index) => {
       const id = isRecord(value) && typeof value.id === 'string' ? value.id : `field-${index + 1}`;
-      return [slugify(id).replace(/-/g, '_'), value];
+      if (!isRecord(value)) return [slugify(id).replace(/-/g, '_'), value];
+      const { id: _sourceFieldId, ...field } = value;
+      return [slugify(id).replace(/-/g, '_'), field];
     }));
   }
   return isRecord(input) ? input : {};

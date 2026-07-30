@@ -9,6 +9,7 @@ import {
   buildPackageInstallApprovalReceipt,
   buildPackageInstallPreview,
   parsePackageInstallTarget,
+  UTOPIA_PUBLISH_DISCLOSURE_LINES,
   validateRegistryManifest,
 } from '@/packages/shared/contracts/package-install';
 import { resolveRegistrySignatureTrust } from '@/packages/shared/contracts/package-trust';
@@ -45,8 +46,16 @@ const validV3Package = JSON.parse(readFileSync(path.join(validationFixtureDir, '
 
 describe('package install link and registry contracts', () => {
   it('parses deep links, universal links, and direct HTTPS package URLs', () => {
+    expect(parsePackageInstallTarget('utopia://install?url=https%3A%2F%2Fexample.com%2Fapps%2Fdemo.package.json')).toEqual({
+      source: 'deep_link',
+      packageUrl: 'https://example.com/apps/demo.package.json',
+    });
     expect(parsePackageInstallTarget('wonder://install?url=https%3A%2F%2Fexample.com%2Fapps%2Fdemo.package.json')).toEqual({
       source: 'deep_link',
+      packageUrl: 'https://example.com/apps/demo.package.json',
+    });
+    expect(parsePackageInstallTarget('https://utoia.thetechcruise.com/install?url=https%3A%2F%2Fexample.com%2Fapps%2Fdemo.package.json')).toEqual({
+      source: 'universal_link',
       packageUrl: 'https://example.com/apps/demo.package.json',
     });
     expect(parsePackageInstallTarget('https://wonder.app/install?url=https%3A%2F%2Fexample.com%2Fapps%2Fdemo.package.json')).toEqual({
@@ -216,6 +225,13 @@ describe('package install link and registry contracts', () => {
       approvalLabel: 'Review required',
     });
     expect(packageInstallSignatureLabel(result.preview)).toBe('Signature verified (demo-key-1)');
+    expect(result.preview.installDisclosures).toEqual(expect.arrayContaining([
+      'Utopia shows package data collections, providers, and permissions during install review.',
+      'Data collections: task',
+      'Providers: provider:notion',
+      'No native permissions requested.',
+    ]));
+    expect(result.preview.publishDisclosures).toEqual(UTOPIA_PUBLISH_DISCLOSURE_LINES);
     expect(buildPackageInstallReviewViewModel(result.preview)).toMatchObject({
       title: 'Demo Shelf',
       identityRows: [

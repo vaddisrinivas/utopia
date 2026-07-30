@@ -1158,122 +1158,12 @@ const server = createServer({ maxHeaderSize: MAX_HEADER_BYTES }, async (req: any
       activeRunControllers.delete(runId);
     },
     chatControlBodyLimitBytes: CHAT_CONTROL_BODY_LIMIT_BYTES,
+    getConversation,
+    buildScopedChatRequest,
+    reserveScopedIdempotencyRecord,
+    resolveStoredPreviousResponseId,
+    runServerChat: async (input) => runServerChat(input),
   })) {
-    return;
-  }
-
-  if (req.method === 'POST' && path === '/chat/retry') {
-    const auth = assertAuth(req, res);
-    if (!auth) {
-      return;
-    }
-
-    let payload: {
-      conversation_id?: string;
-      user_message_id?: string;
-      idempotency_key?: string;
-      previous_response_id?: string;
-    };
-    try {
-      payload = await readJsonBody(req, CHAT_CONTROL_BODY_LIMIT_BYTES);
-    } catch (error) {
-      if (handleBodyReadError(res, error)) return;
-      badRequest(res, 'Invalid JSON');
-      return;
-    }
-
-    if (!payload.conversation_id || !payload.user_message_id) {
-      badRequest(res, 'conversation_id and user_message_id required');
-      return;
-    }
-
-    const conversationId = payload.conversation_id;
-    const userMessageId = payload.user_message_id;
-    const principalId = getAuthenticatedPrincipalId(auth);
-    const thread = getConversation(payload.conversation_id, principalId);
-    if (!thread) {
-      badRequest(res, 'conversation not found');
-      return;
-    }
-    const target = thread.messages.find((message) => message.id === payload.user_message_id && message.role === 'user') as
-      | ({ text: string } & { id: string; role: 'user' | 'assistant' })
-      | undefined;
-    if (!target) {
-      badRequest(res, 'target user message not found');
-      return;
-    }
-    const scopedRequest = buildScopedChatRequest({
-      principalId,
-      conversationId,
-      idempotencyKey: payload.idempotency_key ?? `${conversationId}:${userMessageId}:retry`,
-      message: target.text,
-      domainId: thread.domain,
-      operation: 'retry',
-      retryOfMessageId: userMessageId,
-      preview: false,
-    });
-    const retryRunId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const reservation = reserveScopedIdempotencyRecord(scopedRequest.idempotencyNamespace, {
-      reservationId: randomUUID(),
-      runId: retryRunId,
-      conversationId,
-      principalId,
-      operationFingerprint: scopedRequest.operationFingerprint,
-    });
-    if (reservation.status !== 'reserved') {
-      const existing = reservation.record;
-      if (reservation.status === 'conflict') {
-        conflict(res, 'Idempotency key already used for a different retry operation in this conversation.');
-        return;
-      }
-      const prior = existing.messageId
-        ? getConversation(existing.conversationId, principalId)?.messages.find((item) => item.id === existing.messageId)
-        : null;
-      if (reservation.status === 'completed' && prior) {
-        ok(res, {
-          conversation_id: conversationId,
-          messages: [prior],
-          thread: {
-            id: thread.id,
-            title: thread.title,
-            detail: thread.detail,
-          },
-          run: {
-            id: existing.runId,
-            status: 'completed' as const,
-            needs_retry: false,
-            aborted: false,
-          },
-          warnings: ['Idempotency key replayed; returned prior answer.'],
-        } satisfies ChatRunResponse);
-        return;
-      }
-      conflict(res, 'An identical retry operation is already in progress for this conversation.');
-      return;
-    }
-    const previousResponseId = resolveStoredPreviousResponseId({
-      storedConversationResponseId: thread.last_response_id,
-    });
-
-    const wrapped = await runServerChat({
-      principalId,
-      conversationId,
-      message: target.text,
-      threadTitle: thread.title,
-      detail: thread.detail,
-      idempotencyKey: scopedRequest.scopedIdempotencyKey,
-      idempotencyNamespace: scopedRequest.idempotencyNamespace,
-      reservationId: reservation.record.reservationId,
-      operationFingerprint: scopedRequest.operationFingerprint,
-      domainId: thread.domain,
-      runId: retryRunId,
-      previousResponseId,
-      retryOfMessageId: userMessageId,
-      userMessageId,
-      appendUserMessage: false,
-    });
-
-    ok(res, wrapped);
     return;
   }
 

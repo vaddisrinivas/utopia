@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -10,13 +10,6 @@ import { DEFAULT_APP_INSTALLATION_ID } from '../../packages/shared/contracts/app
 
 type Json = Record<string, unknown>;
 
-for (const provider of ['notion', 'sheets']) {
-  execFileSync(process.execPath, ['scripts/quality/require-disposable-lane.mjs', 'provider', provider], {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-  });
-}
-
 const evidenceDir = process.env.PROVIDER_WRITEBACK_OUT
   ? join(process.cwd(), process.env.PROVIDER_WRITEBACK_OUT)
   : join(process.cwd(), 'app', 'build', 'evidence', 'live-workspace');
@@ -24,6 +17,25 @@ mkdirSync(evidenceDir, { recursive: true });
 const stamp = Math.floor(Date.now() / 1000);
 const evidencePath = join(evidenceDir, `direct_provider_writeback-${stamp}.json`);
 const noSecret = true;
+
+function ensureDisposableLane(provider: string) {
+  const result = spawnSync(process.execPath, ['scripts/quality/require-disposable-lane.mjs', 'provider', provider], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+    const reason = output ? output.split('\n')[0] : 'No guard output.';
+    throw new Error(`Disposable lane guard blocked for ${provider}: ${reason}`);
+  }
+}
+
+const disposableLaneGuarded = new Set<string>();
+function ensureGuardedProvider(provider: string) {
+  if (disposableLaneGuarded.has(provider)) return;
+  ensureDisposableLane(provider);
+  disposableLaneGuarded.add(provider);
+}
 
 function mask(value: string | null | undefined) {
   const raw = String(value || '');
@@ -105,6 +117,7 @@ async function provisionNotionDataSource(token: string) {
 }
 
 async function runNotionProof() {
+  ensureGuardedProvider('notion');
   const token = process.env.NOTION_TOKEN?.trim() || process.env.NOTION_API_KEY?.trim() || '';
   if (!token) return { provider: 'notion', status: 'skipped', reason: 'missing_token' };
 
@@ -356,6 +369,7 @@ async function ensureUtopiaCanonicalSheet(token: string, spreadsheetId: string) 
 }
 
 async function runSheetsProof() {
+  ensureGuardedProvider('sheets');
   const token = await refreshGoogleTokenFromCache();
   if (!token) return { provider: 'google_sheets', status: 'skipped', reason: 'missing_token' };
   const spreadsheetId = await ensureSheetsWorkbook(token);

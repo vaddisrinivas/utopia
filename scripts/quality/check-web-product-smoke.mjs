@@ -6,7 +6,7 @@ import { currentGit } from './evidence-provenance.mjs';
 import { ensureWebBaseUrl } from './web-static-server.mjs';
 
 const root = process.cwd();
-const baseUrl = process.env.LIFEOS_WEB_BASE_URL || 'http://127.0.0.1:8094';
+const baseUrl = process.env.UTOPIA_WEB_BASE_URL || process.env.LIFEOS_WEB_BASE_URL || 'http://127.0.0.1:8094';
 const outDir = join(root, 'app', 'build', 'evidence', 'web-product-smoke');
 
 const chromeCandidates = [
@@ -43,64 +43,17 @@ const routes = [
   {
     name: 'home',
     path: '/',
-    must: ['LIFEOS / HOME', 'Ask with context', 'Review queue', 'Life spaces', 'Recent updates', 'Open Sources'],
-    forbidden: ['Record not found'],
+    must: ['APP LIBRARY', 'Review apps and installs', 'Install review', 'Install from link'],
   },
   {
-    name: 'food',
-    path: '/food',
-    must: ['Today', 'Dinner first. Waste less. Buy only what you need.', 'Tonight', 'Use first', 'Still needed', 'Kitchen', 'Plan', 'Shop'],
-    forbidden: ['Record not found', 'Edit package', 'DATA PLANE', 'Tune layout', 'Food dashboard', 'Food collection atlas', 'Kitchen lab', 'Advanced', 'Source and provenance', 'Package controls', 'Sync health'],
-    inspect: async (page) => {
-      for (const [tab, text] of [
-        ['Kitchen', 'Pantry and fridge'],
-        ['Plan', 'Meals and recipes'],
-        ['Shop', 'To buy'],
-        ['Today', 'Tonight'],
-      ]) {
-        await page.getByRole('tab', { name: new RegExp(tab) }).click();
-        await page.waitForFunction((needle) => document.body?.innerText?.includes(needle), text);
-      }
-    },
+    name: 'install',
+    path: '/install',
+    must: ['APP LIBRARY', 'Review apps and installs', 'Install review', 'Install from link'],
   },
   {
-    name: 'search',
-    path: '/search',
-    must: ['LIFEOS / SEARCH', 'Search food.', 'Quick actions', 'Ask Food AI', 'Add food'],
-  },
-  {
-    name: 'capture',
-    path: '/capture',
-    must: ['LIFEOS / ADD', 'Add food.', 'INBOX FIRST', 'Food', 'Save capture'],
-    forbidden: ['this phase', 'inbox (preview)', 'session fallback'],
-  },
-  {
-    name: 'sources',
-    path: '/sources',
-    must: ['LIFEOS / SOURCES', 'Your food data homes.', 'LOCAL FIRST', 'Pull what you want. Keep control.', 'What Food Chat can cite'],
-  },
-  {
-    name: 'chat',
-    path: '/chat',
-    must: ['Ask Wonder'],
-    mustByViewport: {
-      desktop: ['Ask Wonder', 'Ask, compare, plan, then act.', 'Sources in context', 'Assistant route', 'Undo'],
-      mobile: ['Ask Wonder', 'New conversation', 'I’m ready. Ask what to cook, what to use first, or what to buy.'],
-    },
-  },
-  {
-    name: 'config',
-    path: '/config',
-    must: ['Active package contract', 'Screen Builder', 'Collections', 'MCP contract', 'Visual identity editor', 'Operating view order'],
-  },
-  {
-    name: 'settings',
-    path: '/settings',
-    must: ['Advanced'],
-    mustByViewport: {
-      desktop: ['LIFEOS / CONNECTIONS', 'Food workspace settings', 'Configure food, sources, and app preferences.', 'Local answers first', 'No external sources', 'Advanced'],
-      mobile: ['Settings', 'Food · comfortable', 'Wonder AI', 'Food data', 'Health', 'Advanced'],
-    },
+    name: 'apps-not-found',
+    path: '/apps/does-not-exist',
+    must: ['App not found', 'This installation is missing or unavailable.'],
   },
 ];
 
@@ -211,7 +164,7 @@ await webServer.close();
 
 const evidence = {
   proof: 'utopia_web_product_smoke',
-  scope: 'food_debug_app_only',
+  scope: 'app_library_core',
   pass: results.every((result) => result.ok),
   baseUrl,
   checked_at: new Date().toISOString(),

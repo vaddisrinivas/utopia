@@ -2,14 +2,31 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-node "$ROOT_DIR/scripts/quality/require-disposable-lane.mjs" provider sheets
-: "${GOOGLE_SHEETS_TEST_SPREADSHEET_ID:?Set GOOGLE_SHEETS_TEST_SPREADSHEET_ID to an explicit disposable workbook}"
-SPREADSHEET_ID="$GOOGLE_SHEETS_TEST_SPREADSHEET_ID"
-SCOPE="https://www.googleapis.com/auth/spreadsheets"
+SPREADSHEET_ID="${GOOGLE_SHEETS_TEST_SPREADSHEET_ID:-}"
+SCOPE="https://www.googleapis.com/auth/spreadsheets openid https://www.googleapis.com/auth/userinfo.email"
 REDIRECT_PORT="${GOOGLE_OAUTH_REDIRECT_PORT:-8765}"
 REDIRECT_URI="http://127.0.0.1:${REDIRECT_PORT}/callback"
 TOKEN_FILE="${GOOGLE_SHEETS_TOKEN_FILE:-${ROOT_DIR}/build/evidence/live-workspace/google-sheets-token.json}"
+GOOGLE_SHEETS_PROVISION_DISPOSABLE="${GOOGLE_SHEETS_PROVISION_DISPOSABLE:-0}"
 mkdir -p "$(dirname "$TOKEN_FILE")"
+
+redact_id() {
+  local value="${1:-}"
+  if [[ -z "$value" ]]; then
+    echo "<missing>"
+    return
+  fi
+  if (( ${#value} <= 8 )); then
+    echo "********"
+    return
+  fi
+  echo "${value:0:4}...${value: -4}"
+}
+
+if [[ "$GOOGLE_SHEETS_PROVISION_DISPOSABLE" != "0" && "$GOOGLE_SHEETS_PROVISION_DISPOSABLE" != "1" ]]; then
+  echo "GOOGLE_SHEETS_PROVISION_DISPOSABLE must be 0 or 1; received $GOOGLE_SHEETS_PROVISION_DISPOSABLE." >&2
+  exit 1
+fi
 
 if [[ -z "${GOOGLE_SHEETS_ACCESS_TOKEN:-}" && -s "$TOKEN_FILE" ]]; then
   : "${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required to refresh cached Google Sheets token}"
@@ -153,6 +170,53 @@ if [[ -z "${GOOGLE_SHEETS_ACCESS_TOKEN:-}" ]]; then
   echo "Google Sheets access token is missing after OAuth." >&2
   exit 1
 fi
+
+if [[ -z "$SPREADSHEET_ID" && "$GOOGLE_SHEETS_PROVISION_DISPOSABLE" == "1" ]]; then
+  SPREADSHEET_ID="$(GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" python3 - <<'PY'
+import json, os, urllib.request
+req = urllib.request.Request(
+    'https://sheets.googleapis.com/v4/spreadsheets',
+    data=json.dumps({'properties': {'title': 'Utopia Disposable Provider Proof'}}).encode(),
+    headers={'Authorization': 'Bearer ' + os.environ['GOOGLE_SHEETS_ACCESS_TOKEN'], 'Content-Type': 'application/json'},
+    method='POST',
+)
+with urllib.request.urlopen(req, timeout=30) as response:
+    print(json.load(response)['spreadsheetId'])
+PY
+)"
+  echo "Created disposable Google Sheets target: $(redact_id "$SPREADSHEET_ID")"
+elif [[ -z "$SPREADSHEET_ID" ]]; then
+  echo "Set GOOGLE_SHEETS_TEST_SPREADSHEET_ID or GOOGLE_SHEETS_PROVISION_DISPOSABLE=1." >&2
+  exit 1
+else
+  echo "Using Google Sheets target: $(redact_id "$SPREADSHEET_ID")"
+fi
+
+if [[ -z "${GOOGLE_SHEETS_TEST_ACCOUNT_ID:-${GOOGLE_ACCOUNT_ID:-}}" ]]; then
+  GOOGLE_ACCOUNT_ID="$(GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" python3 - <<'PY'
+import json, os, urllib.request
+req = urllib.request.Request('https://openidconnect.googleapis.com/v1/userinfo', headers={'Authorization': 'Bearer ' + os.environ['GOOGLE_SHEETS_ACCESS_TOKEN']})
+with urllib.request.urlopen(req, timeout=30) as response:
+    print(json.load(response)['sub'])
+PY
+)"
+fi
+
+GOOGLE_SHEETS_TEST_ACCOUNT_ID="${GOOGLE_SHEETS_TEST_ACCOUNT_ID:-${GOOGLE_ACCOUNT_ID:-}}"
+if [[ -z "${WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY:-}" ]]; then
+  WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY="$(node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('base64url'))")"
+fi
+if [[ -z "${WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS:-}" ]]; then
+  WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS="$(GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" GOOGLE_SHEETS_TEST_ACCOUNT_ID="$GOOGLE_SHEETS_TEST_ACCOUNT_ID" WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY="$WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY" node --input-type=module - <<'NODE'
+import { providerAuthorizationDigest } from './scripts/quality/require-disposable-lane.mjs';
+console.log(`DISPOSABLE_PROVIDER_ONLY:hmac-sha256:${providerAuthorizationDigest('sheets', process.env.GOOGLE_SHEETS_TEST_SPREADSHEET_ID, process.env.GOOGLE_SHEETS_TEST_ACCOUNT_ID, process.env.WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY)}`);
+NODE
+)"
+fi
+
+GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" \
+GOOGLE_SHEETS_TEST_ACCOUNT_ID="$GOOGLE_SHEETS_TEST_ACCOUNT_ID" \
+node "$ROOT_DIR/scripts/quality/require-disposable-lane.mjs" provider sheets
 
 cd "$ROOT_DIR"
 GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" \

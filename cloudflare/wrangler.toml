@@ -1,0 +1,37 @@
+name = "utopia-registry"
+main = "utopia-registry-worker.ts"
+compatibility_date = "2026-07-29"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[vars]
+REGISTRY_HOST = "utoia.thetechcruise.com"
+ANDROID_PACKAGE_NAME = "app.utopia"
+IOS_APP_ID = "TEAMID.app.utopia"
+REGISTRY_WRITE_MODE = "disabled"
+
+[[routes]]
+pattern = "utoia.thetechcruise.com"
+custom_domain = true
+
+[[r2_buckets]]
+binding = "PACKAGES"
+bucket_name = "utopia-packages"
+
+[[analytics_engine_datasets]]
+binding = "TELEMETRY"
+dataset = "utopia_telemetry"
+
+[env.staging]
+workers_dev = true
+routes = []
+
+[env.staging.vars]
+REGISTRY_HOST = ""
+REGISTRY_WRITE_MODE = "disabled"
+ANDROID_PACKAGE_NAME = "app.utopia"
+IOS_APP_ID = "TEAMID.app.utopia"
+
+[[env.staging.r2_buckets]]
+binding = "PACKAGES"
+bucket_name = "utopia-packages-staging"

@@ -1,131 +1,112 @@
-# Utopia Runtime Proof Checklist
+# Utopia Golden Loop Checklist
 
-## Wave -1: Blocking Gates
+## Completed Foundation
 
-- [x] Record branch, HEAD, tracked diff, and untracked inventory.
-- [x] Classify current dirty paths without modifying them.
-- [x] Recommend relocating all 50 matrix-backed app directories unchanged to
-  `tests/fixtures/adversarial-apps/`.
-- [x] Keep the separate Workout Logger proof seed under `apps/`, but unproven.
-- [x] Receive yes/no user decision for the recommended relocation.
-- [x] Receive and persist Expo UI scope authorization.
-- [x] Keep `packages/domain-shared` forbidden without separate approval.
-- [x] Select baseline commit `18af6fe`.
+- [x] Shared Household Board generic package fixture.
+- [x] Deterministic compile and server/artifact validation.
+- [x] Reviewed install, scoped write, update, rollback, and data preservation.
+- [x] Tamper, approval mismatch, capability escalation, registry signature, and
+      telemetry privacy tests.
+- [x] Deterministic local sync contract.
+- [x] Strict creator and Android x2/web/macOS receipt validators.
+- [x] Web and Android exports.
+- [x] Production audit at zero vulnerabilities.
+- [x] Single `npm run proof:golden-loop` evidence report.
+- [x] Separate `npm run proof:golden-loop:virtual` local lab for non-device,
+      non-Expo automation rehearsal.
+- [x] Separate `npm run proof:golden-loop:clean-snapshot` candidate snapshot
+      proof using a temporary Git index.
 
-## Worktrees
+## P0: Proof Accuracy
 
-- [x] Create isolated Workout Logger and Focus Intervals worker worktrees.
-- [x] Start both worktrees from the approved working-tree state.
-- [x] Run Workout Logger with `gpt-5.3-codex-spark`.
-- [x] Run Focus Intervals with `gpt-5.4-mini`.
-- [x] Inspect both worker commits before applying their scoped deltas.
-- [x] Start the 10-minute coordinator monitor.
+- [x] Split platform integration from store-release readiness.
+- [x] Enforce zero app-specific runtime/widget code in the proof.
+- [x] Add remote-package-source outage behavior to required local stages.
+- [x] Add backup/device-loss restore to required local stages.
+- [x] Add capability grant/use/revoke to required local stages.
+- [x] Add clean-checkout reproducibility stage. Final execution remains blocked
+      until the integrated dirty tree is committed.
 
-## Wave 0: Repository Truth
+## P1: Network Transport Proof
 
-- [x] Run and fix or classify `check:sync-merge`.
-- [ ] If blocked, assign Evidence worker, reproducer, and post-Wave-2 revisit.
-- [x] Relocate approved adversarial stubs out of `apps/`.
-- [x] Classify proven, reference, fixture, probe, and expected-boundary entries.
-- [x] Make scorecard product counts include only proven bundled apps.
-- [x] Ratchet domain debt and per-app runtime delta.
-- [x] Archive the 211 KB file-by-file review outside active root docs.
-- [x] Preserve Habit Grid and Audio Loop sentinels.
-- [x] Pass Wave 0 checks.
+- [x] Select one reference transport behind the existing sync contract.
+- [x] Run the transport as a separate localhost process with durable storage.
+- [x] Implement the adapter without changing package semantics.
+- [x] Prove tenant isolation, buffered writes, conflict, rollback replay,
+      tombstones, cursors, reconnect, and convergence.
+- [x] Emit a redacted Git-bound network transport receipt.
+- [ ] Drive this transport from Android x2, web, and macOS; localhost proof alone
+      is not multi-surface sync evidence.
 
-## Wave 1: Pantry Spike
+## P1: Surface Execution
 
-- [x] Start two-day time box.
-- [x] Rebuild one pantry screen from plausible generic primitives.
-- [x] Prove the composition with one unrelated collection.
-- [x] Demonstrate every new primitive on that unrelated screen in the same spike.
-- [x] Record domain-reference reduction from 9 to 8.
-- [x] Preserve Food source round-trip.
-- [x] Preserve Habit Grid package-only status.
-- [x] Preserve Audio Loop behavior.
-- [x] Classify `PASS`.
-- [x] Stop after the bounded spike.
+- [x] Define one guarded shell-proof protocol used by every surface, requiring
+      hashed raw observations rather than self-reported lifecycle booleans.
+- [x] Repair web smoke assertions for current exported routes.
+- [x] Add a real-browser, fail-closed web lifecycle driver. Install now executes;
+      write, update, rollback, and reference-sync controls remain blocked.
+- [ ] Emit a real web lifecycle receipt.
+- [x] Produce a runnable macOS `.app` with a Git-bound artifact receipt.
+- [x] Add a fail-closed macOS lifecycle harness bound to the `.app` hash and
+      canonical shell-proof protocol.
+- [ ] Produce a real macOS lifecycle receipt from the running app.
+- [x] Add a guarded Android x2 proof driver for dedicated test APKs, explicit
+      emulators, redacted observations, and canonical per-device receipts.
+- [ ] Build/install one artifact on two clean Android emulators.
+- [ ] Run the same live scenario using four distinct installation IDs.
+- [ ] Pass the strict multi-surface receipt validator.
+- [x] Generate virtual Android x2/web/macOS-shaped receipts without using real
+      devices or Expo UI hooks.
+- [x] Define the `goldenLoopDebug` command protocol and validate install, write,
+      disconnect/reconnect, update, rollback, backup/restore,
+      capability grant/revoke, and checksum command shapes.
+- [x] Require a random per-run token and redacted command traces.
+- [x] Reject arbitrary commands, external endpoints, unsafe argument keys, SQL,
+      files, URLs, and code payloads.
+- [x] Mark virtual receipts as not real device/shell proof and keep the strict
+      receipt validator fail-closed against them.
 
-## Wave 2: Expressions
+## P2: Human And Reproducibility Evidence
 
-- [x] Create canonical shared expression fixture corpus first.
-- [x] Fix decimal precision, rounding, ordering, error, and serialization policy.
-- [x] Run the same corpus in client and server tests.
-- [x] Define the smallest bounded expression/query contract.
-- [x] Add depth, record, relation, operation, cycle, and numeric budgets.
-- [x] Add structured deterministic errors.
-- [x] Implement Expense Splitter balances and settlements package-only.
-- [x] Implement Split Rent weighted allocation package-only.
-- [x] Add client/server parity fixtures.
-- [x] Reject arbitrary code and app-named runtime operations.
-- [x] Reject `settlementCalculator`.
-- [x] Pass focused expression tests.
-- [x] Pass shared regression checks.
-- [x] Integrate Wave 2 before starting Wave 3.
+- [ ] Build one browser flow: describe, generate, validate, preview, local install,
+      and export.
+- [x] Keep the creator AI key in browser memory only.
+- [x] Add duration and redacted failure-category recording.
+- [x] Add clean-checkout CI with lockfile install, isolated cache, and private
+      environment stripping.
+- [ ] Run one unaided creator session in 600 seconds or less.
+- [ ] Validate the creator receipt.
+- [ ] Reproduce local Golden stages from a clean checkout.
+- [x] Create a candidate commit object from the dirty filesystem without staging
+      main.
+- [ ] Make final `npm run proof:golden-loop` pass. Current local platform stages
+      pass; creator, clean checkout, cross-runtime, and multi-surface evidence block.
+- [ ] Use `npm run proof:golden-loop:virtual` as a local rehearsal only; it does
+      not close real receipts, clean checkout, or unaided creator proof.
 
-## Wave 3: Flows and Timers
+## Required Checks
 
-- [x] Define bounded persisted `stepFlow`.
-- [x] Define resilient `durationTimer`.
-- [x] Implement UTC plus monotonic timer policy.
-- [x] Test background/foreground.
-- [x] Test process kill before expiry.
-- [x] Test reopening four hours after expiry.
-- [x] Test device restart.
-- [x] Test clock rollback and forward jump.
-- [x] Test DST boundary.
-- [x] Test cancel/retry race and duplicate resume.
-- [x] Test app update during an active session.
-- [x] Implement Workout Logger package-only.
-- [x] Reject `workoutTimer`.
-- [x] Pass focused flow/timer tests.
-- [x] Pass shared regression checks.
+- [x] `npm run check:golden-loop`
+- [x] `npm run config:validate`
+- [x] `npm run typecheck`
+- [x] `npm run doctor`
+- [x] `npm run export:web`
+- [x] `npm run export:android`
+- [x] `npm run phase3:check:chat-send`
+- [x] `npm run phase3:check:chat-rollback-idempotency`
+- [x] `git diff --check`
 
-## Week 5: Flow Validation
+## Deferred
 
-- [x] Implement Focus Intervals as an unrelated timed flow package-only.
-- [x] Reuse the existing flow/timer contract without app-specific semantics.
-- [x] Classify `PASS`: the second app required no missing generic semantic.
-- [x] Pass shared regression checks.
+- Store signing and physical-device release evidence.
+- iOS parity.
+- Additional apps, widgets, providers, builders, and marketplace features.
+- External security review and adoption campaigns.
 
-## Ten-Minute Loop
+## User Decision Gates
 
-- [x] Read each active worker with current status.
-- [x] Check commits, diff summary, tests, and blockers.
-- [x] Do not interrupt progressing work.
-- [x] Do not duplicate implementation.
-- [x] Inspect completed commits before integration.
-- [x] Notify only on failure, completion, conflict, decision, or external action.
-- [x] No stagnant-worker escalation was needed.
-
-## Final Acceptance
-
-- [x] Repository counts are honest.
-- [x] Pantry spike has an explicit `PASS` outcome.
-- [x] Expense Splitter is package-only.
-- [x] Split Rent is package-only.
-- [x] Workout Logger is package-only.
-- [x] Focus Intervals is package-only as the Week 5 generality proof.
-- [x] Habit Grid and Audio Loop remain green.
-- [x] No domain-specific primitive was introduced.
-- [x] Required checks pass.
-- [x] Complete integration diff reviewed.
-- [x] Monitor deleted.
-- [x] Parked roadmap retained for the next iteration after proof contracts stabilized.
-- [ ] User decides commit, squash, merge, and push.
-
-## Parked
-
-- [ ] Capability broker and signed extensions.
-- [ ] App Library expansion.
-- [ ] Browser and visual builders.
-- [ ] Self-hosted package editor.
-- [ ] Data-home UX and provider OAuth.
-- [ ] Sync vendor selection and shared-device product.
-- [ ] Shared workspace collections with per-installation grants:
-  - [ ] keep parked until expression/query scope, flows, broker, data-home policy, and sync roles are proven.
-  - [ ] enforce grants at DB/store layer.
-  - [ ] start with shared `people`, `events`, `media`, `tags`; keep meals/workouts/body metrics namespaced until proven by independent apps.
-  - [ ] support `read`, `append`, `own-writes`, `write`.
-  - [ ] make uninstall delete app-private data only; shared data survives separately.
-- [ ] Broad CI and cross-platform release closure.
+- [ ] Approve committing the exact integrated tree before final clean-checkout proof.
+- [ ] Approve a narrow Expo runtime test hook only if external drivers cannot
+      exercise the real lifecycle through existing interfaces. The web driver now
+      proves this hook is required for write, update, rollback, and reference sync.
+- [ ] Supply one genuinely unaided external creator for the final authoring receipt.

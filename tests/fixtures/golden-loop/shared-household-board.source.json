@@ -1,0 +1,113 @@
+{
+  "app": {
+    "schemaVersion": "wonder.package-source.v1",
+    "id": "shared-household-board",
+    "version": "1.0.0",
+    "label": "Shared Household Board",
+    "homeSurface": "today"
+  },
+  "collections": [
+    {
+      "id": "task",
+      "fields": [
+        { "id": "owner", "type": "text", "required": false, "indexed": true },
+        { "id": "status", "type": "text", "required": true, "indexed": true },
+        { "id": "due_at", "type": "timestamp", "required": false, "indexed": true },
+        { "id": "routine", "type": "text", "required": false, "indexed": true }
+      ]
+    },
+    {
+      "id": "expense",
+      "fields": [
+        { "id": "amount", "type": "number", "required": true, "indexed": true },
+        { "id": "paid_by", "type": "text", "required": true, "indexed": true },
+        { "id": "participants", "type": "json", "required": true, "indexed": false },
+        { "id": "spent_at", "type": "timestamp", "required": true, "indexed": true }
+      ]
+    },
+    {
+      "id": "member",
+      "fields": [
+        { "id": "role", "type": "text", "required": false, "indexed": true },
+        { "id": "active", "type": "boolean", "required": true, "indexed": true }
+      ]
+    }
+  ],
+  "queries": [
+    { "id": "today_tasks", "from": "task", "limit": 100 },
+    { "id": "recent_expenses", "from": "expense", "limit": 100 },
+    { "id": "members", "from": "member", "limit": 50 }
+  ],
+  "screens": [
+    {
+      "id": "today",
+      "label": "Today",
+      "subtitle": "Shared work and routines.",
+      "collections": ["task"],
+      "query": "today_tasks",
+      "mode": "board",
+      "fields": ["title", "owner", "status", "due_at"],
+      "components": [
+        {
+          "kind": "widget",
+          "widget": "kanbanBoard",
+          "props": {
+            "collection": "task",
+            "groupBy": "status"
+          }
+        },
+        {
+          "kind": "widget",
+          "widget": "formCard",
+          "props": {
+            "collection": "task"
+          }
+        }
+      ]
+    },
+    {
+      "id": "expenses",
+      "label": "Expenses",
+      "subtitle": "Shared spending without a special-purpose widget.",
+      "collections": ["expense"],
+      "query": "recent_expenses",
+      "mode": "table",
+      "fields": ["title", "amount", "paid_by", "spent_at"],
+      "components": [
+        {
+          "kind": "widget",
+          "widget": "dataTable",
+          "props": {
+            "collection": "expense"
+          }
+        },
+        {
+          "kind": "widget",
+          "widget": "chartBlock",
+          "props": {
+            "collection": "expense",
+            "valueField": "amount"
+          }
+        }
+      ]
+    },
+    {
+      "id": "people",
+      "label": "People",
+      "subtitle": "Members participating in this board.",
+      "collections": ["member"],
+      "query": "members",
+      "mode": "list",
+      "fields": ["title", "role", "active"],
+      "components": [
+        {
+          "kind": "widget",
+          "widget": "checklistCard",
+          "props": {
+            "collection": "member"
+          }
+        }
+      ]
+    }
+  ]
+}

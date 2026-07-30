@@ -187,11 +187,11 @@
     <main>
       <section class="card">
         <h1>Utopia Package Browser Builder</h1>
-        <p class="muted">Local editor with live compile feedback, package-source-focused UI mode, and raw JSON advanced mode.</p>
+        <p class="muted">Local editor with live compile feedback, canonical package-source saves, and adapter-aware import validation (JSON Forms conversion enabled).</p>
         <div class="row">
           <label for="starter" style="margin-right: 4px;">Starter</label>
           <select id="starter"></select>
-          <label for="importSource" style="margin-left: 8px;">Import package JSON</label>
+          <label for="importSource" style="margin-left: 8px;">Import package/adapter JSON</label>
           <input id="importSource" type="file" accept="application/json" />
           <button id="exportSource">Export source JSON</button>
           <button id="downloadPackage" disabled>Download compiled package</button>
@@ -329,6 +329,27 @@
         <h2>Compile preview</h2>
         <pre id="previewOutput">No compile result yet.</pre>
       </section>
+
+      <section class="card">
+        <h2>Creator lane</h2>
+        <label for="creatorAppName">App name</label>
+        <input id="creatorAppName" class="wide" placeholder="Shared Household Board" />
+        <label for="creatorPurpose">App purpose</label>
+        <textarea id="creatorPurpose" rows="3">Create a shared household board with tasks, routines, expenses, and member notes.</textarea>
+        <label for="creatorArchetype">Archetype</label>
+        <select id="creatorArchetype" class="wide"></select>
+        <label for="creatorAiKey">AI key (kept in browser memory only)</label>
+        <input id="creatorAiKey" type="password" autocomplete="off" />
+        <div class="row" style="margin-top: 8px;">
+          <button id="creatorGenerate">Describe → generate</button>
+          <button id="creatorValidate">Validate</button>
+          <button id="creatorPreview" disabled>Preview install review</button>
+          <button id="creatorOpenReview" disabled>Open local install review</button>
+          <button id="creatorReceipt" disabled>Download creator receipt</button>
+        </div>
+        <div id="creatorStatus" class="muted" style="margin-top: 8px;">creator idle</div>
+        <pre id="creatorOutput">No creator output yet.</pre>
+      </section>
     </main>
 
     <script>
@@ -370,11 +391,29 @@
         validationStatus: document.getElementById('validationStatus'),
         validationOutput: document.getElementById('validationOutput'),
         previewOutput: document.getElementById('previewOutput'),
+        creatorAppName: document.getElementById('creatorAppName'),
+        creatorPurpose: document.getElementById('creatorPurpose'),
+        creatorArchetype: document.getElementById('creatorArchetype'),
+        creatorAiKey: document.getElementById('creatorAiKey'),
+        creatorGenerate: document.getElementById('creatorGenerate'),
+        creatorValidate: document.getElementById('creatorValidate'),
+        creatorPreview: document.getElementById('creatorPreview'),
+        creatorOpenReview: document.getElementById('creatorOpenReview'),
+        creatorReceipt: document.getElementById('creatorReceipt'),
+        creatorStatus: document.getElementById('creatorStatus'),
+        creatorOutput: document.getElementById('creatorOutput'),
       };
 
       let compileTimer;
       let lastCompiledPackage;
       let lastCompileRequest = 0;
+      let creatorStartAt = null;
+      let creatorFailureSet = new Set();
+      let lastCreatorPackageValid = false;
+      let lastCreatorInstallOpened = false;
+      let lastCreatorReview = null;
+      let creatorAiKey = '';
+      const creatorFailureAllowlist = ['source_invalid', 'validation_failed', 'install_review_blocked', 'receipt_not_generated'];
 
       function isObject(value) {
         return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -383,6 +422,65 @@
       function setStatus(text, kind = 'muted') {
         elements.validationStatus.textContent = text;
         elements.validationStatus.className = kind === 'ok' ? 'ok' : kind === 'warn' ? 'warn' : 'muted';
+      }
+
+      function setCreatorStatus(text, kind = 'muted') {
+        if (!elements.creatorStatus) return;
+        elements.creatorStatus.textContent = text;
+        elements.creatorStatus.className = kind === 'ok' ? 'ok' : kind === 'warn' ? 'warn' : 'muted';
+      }
+
+      function nowCreatorMs() {
+        if (creatorStartAt === null) return 0;
+        return Date.now() - creatorStartAt;
+      }
+
+      function allowedCreatorFailures() {
+        return ['source_invalid', 'validation_failed', 'install_review_blocked', 'receipt_not_generated'];
+      }
+
+      function normalizeCreatorFailure(value) {
+        if (typeof value !== 'string') return null;
+        const candidate = value.trim();
+        return allowedCreatorFailures().includes(candidate) ? candidate : null;
+      }
+
+      function setCreatorFailure(category) {
+        const normalized = normalizeCreatorFailure(category);
+        if (!normalized) return;
+        creatorFailureSet.add(normalized);
+      }
+
+      function clearCreatorState() {
+        creatorFailureSet = new Set();
+        lastCreatorPackageValid = false;
+        lastCreatorInstallOpened = false;
+        lastCreatorReview = null;
+      }
+
+      function selectedCreatorTargets() {
+        return getSelectedGuidedTargets();
+      }
+
+      function getSelectedCreatorCapabilities() {
+        return Array.from(elements.guidedCapabilities.querySelectorAll('input[type="checkbox"]:checked'))
+          .map((input) => input.value)
+          .filter((value) => typeof value === 'string' && value);
+      }
+
+      function setCreatorControlsEnabled(enabled) {
+        elements.creatorValidate.disabled = !enabled;
+        elements.creatorPreview.disabled = !enabled;
+        elements.creatorOpenReview.disabled = !enabled;
+        elements.creatorReceipt.disabled = !enabled;
+      }
+
+      function beginCreatorFlow() {
+        creatorStartAt = Date.now();
+        clearCreatorState();
+        lastCreatorPackageValid = false;
+        lastCompiledPackage = undefined;
+        setCreatorControlsEnabled(false);
       }
 
       function safeJson(value, fallback) {
@@ -932,6 +1030,266 @@
         }
       }
 
+      function normalizeHttpsUrl(value) {
+        if (typeof value !== 'string') {
+          return null;
+        }
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return null;
+        }
+
+        try {
+          const parsed = new URL(trimmed);
+          if (parsed.protocol !== 'https:') {
+            return null;
+          }
+          if (parsed.hostname === 'local.utopia.creator-review') {
+            return null;
+          }
+          return parsed.toString();
+        } catch {
+          return null;
+        }
+      }
+
+      function buildCreatorInstallReviewUrl(sourceUrl) {
+        const packageUrl = normalizeHttpsUrl(sourceUrl);
+        if (!packageUrl) {
+          return null;
+        }
+        const installUrl = new URL('/install', window.location.origin);
+        installUrl.searchParams.set('url', packageUrl);
+        return installUrl.toString();
+      }
+
+      function serializeCreatorReceiptPayload(source, packageNode, durationMs) {
+        return {
+          source,
+          package: packageNode,
+          packageValid: Boolean(packageNode),
+          installOpened: lastCreatorInstallOpened,
+          durationMs,
+          failureCategories: Array.from(creatorFailureSet),
+        };
+      }
+
+      function renderCreatorArchetypes() {
+        if (!elements.creatorArchetype) return;
+        elements.creatorArchetype.innerHTML = '';
+        (builderInfo?.archetypes || []).forEach((archetype) => {
+          const option = document.createElement('option');
+          option.value = archetype.id;
+          option.textContent = `${archetype.label} (${archetype.id})`;
+          elements.creatorArchetype.appendChild(option);
+        });
+        if (elements.creatorArchetype.options.length > 0) {
+          elements.creatorArchetype.value = elements.creatorArchetype.options[0].value;
+        }
+      }
+
+      async function runCreatorGenerate() {
+        try {
+          clearCreatorState();
+          const archetype = elements.creatorArchetype?.value || elements.guidedArchetype?.value;
+          const appName = typeof elements.creatorAppName?.value === 'string' && elements.creatorAppName.value.trim()
+            ? elements.creatorAppName.value.trim()
+            : 'Shared household board';
+          const appPurpose = typeof elements.creatorPurpose?.value === 'string' && elements.creatorPurpose.value.trim()
+            ? elements.creatorPurpose.value.trim()
+            : 'Community household routines.';
+          const response = await fetch('/api/archetype-generate', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              appName,
+              appPurpose,
+              screenCount: 2,
+              archetype,
+              targetPlatforms: selectedCreatorTargets(),
+              demoData: true,
+              selectedCapabilityIds: getSelectedCreatorCapabilities(),
+            }),
+          });
+          const result = await response.json();
+
+          if (result.status !== 'ok') {
+            setCreatorFailure('source_invalid');
+            setCreatorStatus('creator generate blocked', 'warn');
+            elements.creatorOutput.textContent = JSON.stringify(result, null, 2);
+            setCreatorControlsEnabled(false);
+            return;
+          }
+
+          if (creatorStartAt === null) {
+            beginCreatorFlow();
+          }
+          hydrateFromSource(result.source);
+          elements.creatorOutput.textContent = JSON.stringify({
+            status: result.status,
+            archetype,
+            selectedCapabilities: result.selectedCapabilities,
+            warnings: result.warnings,
+          }, null, 2);
+          setCreatorStatus('creator generated source', 'ok');
+          setCreatorControlsEnabled(true);
+          lastCreatorPackageValid = false;
+          void validateCreatorSource();
+        } catch (error) {
+          setCreatorFailure('source_invalid');
+          setCreatorStatus('creator generate failed', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+          setCreatorControlsEnabled(false);
+        }
+      }
+
+      async function validateCreatorSource() {
+        try {
+          const source = collectSourceFromFormOrThrow();
+          const result = await fetch('/api/compile', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(source),
+          });
+          const compiled = await result.json();
+
+          if (compiled.status === 'valid') {
+            lastCreatorPackageValid = true;
+            lastCompiledPackage = compiled.package;
+            elements.creatorOutput.textContent = JSON.stringify({
+              status: 'valid',
+              packageId: compiled.package.id,
+              packageVersion: compiled.package.version,
+              checksum: compiled.checksum,
+            }, null, 2);
+            setCreatorStatus('creator source valid', 'ok');
+            setCreatorControlsEnabled(true);
+            return compiled;
+          }
+
+          setCreatorStatus('creator source invalid', 'warn');
+          setCreatorFailure('validation_failed');
+          elements.creatorOutput.textContent = JSON.stringify(compiled.errors, null, 2);
+          lastCreatorPackageValid = false;
+          setCreatorControlsEnabled(false);
+          return null;
+        } catch (error) {
+          setCreatorFailure('validation_failed');
+          setCreatorStatus('creator validate failed', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+          setCreatorControlsEnabled(false);
+          return null;
+        }
+      }
+
+      async function previewCreatorInstallReview() {
+        try {
+          const compiled = await validateCreatorSource();
+          if (!compiled || !compiled.package) {
+            throw new Error('creator source requires valid package');
+          }
+
+          const response = await fetch('/api/install-review', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              package: compiled.package,
+              expectedChecksum: compiled.checksum,
+            }),
+          });
+          const preview = await response.json();
+
+          if (preview.status !== 'ready_for_review') {
+            setCreatorFailure('install_review_blocked');
+            setCreatorStatus('creator install review blocked', 'warn');
+            elements.creatorOutput.textContent = JSON.stringify(preview, null, 2);
+            lastCreatorReview = null;
+            setCreatorControlsEnabled(true);
+            return;
+          }
+
+          lastCreatorReview = preview;
+          elements.creatorOutput.textContent = JSON.stringify(preview, null, 2);
+          setCreatorStatus('creator install review ready', 'ok');
+          setCreatorControlsEnabled(true);
+        } catch (error) {
+          setCreatorFailure('install_review_blocked');
+          setCreatorStatus('creator install review failed', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      async function openCreatorInstallReview() {
+        try {
+          lastCreatorInstallOpened = false;
+
+          if (!lastCreatorReview) {
+            await previewCreatorInstallReview();
+          }
+          if (!lastCreatorReview || lastCreatorReview.status !== 'ready_for_review') {
+            throw new Error('creator review missing');
+          }
+
+          const installReviewUrl = buildCreatorInstallReviewUrl(lastCreatorReview.preview?.sourceUrl);
+          if (!installReviewUrl) {
+            setCreatorFailure('install_review_blocked');
+            throw new Error('creator review requires https package URL');
+          }
+
+          window.open(installReviewUrl, '_blank', 'noopener');
+          lastCreatorInstallOpened = true;
+          setCreatorStatus('creator install review opened', 'ok');
+          elements.creatorOutput.textContent = JSON.stringify({
+            status: 'install_review_opened',
+            app: lastCreatorReview.preview?.appName || 'shared household board',
+          }, null, 2);
+        } catch (error) {
+          setCreatorFailure('install_review_blocked');
+          setCreatorStatus('creator install review open failed', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      async function downloadCreatorReceipt() {
+        try {
+          if (creatorStartAt === null) {
+            beginCreatorFlow();
+          }
+
+          const source = collectSourceFromForm();
+          if (source.error) {
+            throw new Error(source.error);
+          }
+
+          let compiled = lastCompiledPackage;
+          if (!compiled || !lastCreatorPackageValid) {
+            const result = await validateCreatorSource();
+            if (!result || !result.package) {
+              throw new Error('creator needs a valid package before receipt');
+            }
+            compiled = result.package;
+          }
+
+          const response = await fetch('/api/creator-receipt', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(serializeCreatorReceiptPayload(source.source, compiled, nowCreatorMs())),
+          });
+
+          const receipt = await response.json();
+          if (response.status !== 200) {
+            throw new Error(receipt?.reason || 'creator receipt blocked');
+          }
+
+          buildDownload('creator-study-receipt.json', receipt);
+          setCreatorStatus('creator receipt downloaded', 'ok');
+        } catch (error) {
+          setCreatorFailure('receipt_not_generated');
+          setCreatorStatus('creator receipt blocked', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+        }
+      }
+
       function setWidgetKindOptions() {
         elements.widgetKind.innerHTML = '';
         elements.widgetKindEditor.innerHTML = '';
@@ -1103,6 +1461,35 @@
           const version = lastCompiledPackage.version ?? '1.0.0';
           buildDownload(`${appId}-${version}.package.json`, lastCompiledPackage);
         });
+
+        elements.creatorGenerate?.addEventListener('click', () => {
+          beginCreatorFlow();
+          setCreatorStatus('creator generate in progress...');
+          void runCreatorGenerate();
+        });
+
+        elements.creatorValidate?.addEventListener('click', () => {
+          setCreatorStatus('creator validate in progress...');
+          void validateCreatorSource();
+        });
+
+        elements.creatorPreview?.addEventListener('click', () => {
+          setCreatorStatus('creator preview in progress...');
+          void previewCreatorInstallReview();
+        });
+
+        elements.creatorOpenReview?.addEventListener('click', () => {
+          void openCreatorInstallReview();
+        });
+
+        elements.creatorReceipt?.addEventListener('click', () => {
+          void downloadCreatorReceipt();
+        });
+
+        elements.creatorAiKey?.addEventListener('input', (event) => {
+          const target = event.target;
+          creatorAiKey = isObject(target) && 'value' in target ? String(target.value) : '';
+        });
       }
 
       async function loadStarter(id) {
@@ -1146,6 +1533,7 @@
 
         elements.starterSelect.value = info.defaultStarter;
         elements.guidedArchetype.value = info.archetypes[0]?.id || '';
+        renderCreatorArchetypes();
         void refreshGuidedCapabilities();
       }
 

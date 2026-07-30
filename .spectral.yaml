@@ -1,0 +1,38 @@
+extends: []
+rules:
+  schema-suite-has-id:
+    description: "Schema suite cases must declare schemaId"
+    message: "schemaId is required"
+    severity: error
+    given: "$[*]"
+    then:
+      field: schemaId
+      function: truthy
+  schema-suite-has-description:
+    description: "Schema suite cases must include a non-empty description"
+    message: "description is required"
+    severity: error
+    given: "$[*]"
+    then:
+      field: description
+      function: truthy
+  schema-suite-test-case-has-description:
+    description: "Schema suite tests must include a non-empty description"
+    message: "test case description is required"
+    severity: error
+    given: "$[*].tests[*]"
+    then:
+      field: description
+      function: truthy
+  schema-suite-schema-id-pattern:
+    description: "Schema IDs must follow schema IDs used by the app package suite"
+    message: "schemaId must match wonder app package schema id format"
+    severity: error
+    given: "$[*]"
+    then:
+      field: schemaId
+      function: enumeration
+      functionOptions:
+        values:
+          - https://wonder.local/schemas/app-package/v2
+          - https://wonder.local/schemas/app-package/v3

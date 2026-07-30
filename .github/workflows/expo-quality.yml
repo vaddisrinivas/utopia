@@ -38,6 +38,39 @@ jobs:
       - name: Install server dependencies
         run: npm ci --prefix server --no-audit --no-fund
 
+      - name: Install pinned supply-chain scanners
+        env:
+          OSV_SCANNER_VERSION: v1.9.1
+          SYFT_VERSION: v1.14.3
+        run: |
+          set -euo pipefail
+          export GOBIN="${RUNNER_TEMP}/utopia-scan-tools/bin"
+          mkdir -p "$GOBIN"
+          echo "$GOBIN" >> "$GITHUB_PATH"
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@${OSV_SCANNER_VERSION}
+          go install github.com/anchore/syft/v1/cmd/syft@${SYFT_VERSION}
+          go version
+          osv-scanner --version
+          syft version
+
+      - name: Run OSV gate
+        env:
+          QUALITY_GATE_ROOT: ${{ github.workspace }}
+          OSV_SCANNER_CMD: osv-scanner
+          OSV_SCANNER_ARGS: --recursive . --format json
+          OSV_REPORT_PATH: app/build/evidence/osv-report.json
+          OSV_GATE_POLICY_PATH: scripts/quality/security/osv-gate-policy.json
+        run: node scripts/quality/security/check-osv-gate.mjs
+
+      - name: Run SBOM gate
+        env:
+          QUALITY_GATE_ROOT: ${{ github.workspace }}
+          SYFT_CMD: syft
+          SYFT_ARGS: . -o json
+          RELEASE_SBOM_PATH: app/build/evidence/sbom.json
+          SBOM_GATE_POLICY_PATH: scripts/quality/sbom/sbom-policy.json
+        run: node scripts/quality/sbom/check-sbom-gate.mjs
+
       - name: Validate domain package
         run: npm run config:validate
 
@@ -63,4 +96,6 @@ jobs:
           path: |
             dist/web
             dist/android
+            app/build/evidence/osv-report.json
+            app/build/evidence/sbom.json
           if-no-files-found: error

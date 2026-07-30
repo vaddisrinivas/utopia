@@ -2,7 +2,7 @@
   "expo": {
     "name": "Utopia",
     "slug": "manasa",
-    "description": "A local-first AI food workspace for pantry, meals, recipes, shopping, and trusted source sync.",
+    "description": "A local-first app runtime for personal tools, family workflows, small-group apps, and trusted package installs.",
     "version": "1.0.0",
     "platforms": [
       "web",
@@ -16,7 +16,10 @@
     "ios": {
       "bundleIdentifier": "app.utopia",
       "buildNumber": "1",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:utoia.thetechcruise.com"
+      ]
     },
     "android": {
       "package": "app.utopia",
@@ -27,6 +30,23 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "utoia.thetechcruise.com",
+              "pathPrefix": "/install"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "predictiveBackGestureEnabled": true,
       "permissions": [
         "android.permission.RECORD_AUDIO"
