@@ -13,7 +13,9 @@ import {
   parseBrowserBuilderArgs,
   ALLOWED_CREATOR_FAILURE_CATEGORIES,
   buildCreatorStudyReceipt,
+  sanitizeCreatorReceiptPayload,
   normalizeCreatorFailureCategories,
+  normalizePublicPackageUrl,
   readStarterSource,
 } from '@/scripts/package/browser-package-builder';
 
@@ -50,6 +52,18 @@ describe('package browser builder', () => {
   it('parses port override from args', () => {
     expect(parseBrowserBuilderArgs([])).toEqual({ host: '127.0.0.1', port: 4173 });
     expect(parseBrowserBuilderArgs(['--port', '4444'])).toEqual({ host: '127.0.0.1', port: 4444 });
+  });
+
+  it('accepts public HTTPS package URLs and rejects private or credential-bearing URLs', () => {
+    expect(normalizePublicPackageUrl('https://raw.githubusercontent.com/vaddisrinivas/utopia/main/apps/demo.json'))
+      .toBe('https://raw.githubusercontent.com/vaddisrinivas/utopia/main/apps/demo.json');
+    expect(normalizePublicPackageUrl('https://utoia.thetechcruise.com/p/demo.json#preview'))
+      .toBe('https://utoia.thetechcruise.com/p/demo.json');
+    expect(normalizePublicPackageUrl('http://example.com/demo.json')).toBeNull();
+    expect(normalizePublicPackageUrl('https://user:password@example.com/demo.json')).toBeNull();
+    expect(normalizePublicPackageUrl('https://127.0.0.1/demo.json')).toBeNull();
+    expect(normalizePublicPackageUrl('https://service.internal/demo.json')).toBeNull();
+    expect(normalizePublicPackageUrl('https://local.utopia.creator-review/demo.json')).toBeNull();
   });
 
   it('compiles starter sources through builder contract', () => {
@@ -252,6 +266,63 @@ describe('package browser builder', () => {
     }
   });
 
+  it('rejects secret-shaped source fields and values before compilation', () => {
+    const source = clone(readStarterSource('plants-lite')) as Record<string, any>;
+    source.app.providerTemplateFields = { apiKey: 'sk-test-secret-value-1234' };
+
+    const result = compileBuilderSource(source as any);
+
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.errors).toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('secret-shaped field names') }),
+        expect.objectContaining({ message: expect.stringContaining('secret-shaped content') }),
+      ]));
+    }
+  });
+
+  it('rejects malformed JSON Forms controls and prototype-shaped fields', () => {
+    const converted = parseBuilderImportPayload({
+      $schema: 'https://schemas.utopia.dev/editors/json-forms.v1.schema.json',
+      schema: {
+        type: 'object',
+        properties: {
+          __proto__: { type: 'string' },
+          title: { type: 'string' },
+        },
+        required: ['missing'],
+      },
+      uischema: {
+        type: 'VerticalLayout',
+        elements: [{ type: 'Control', scope: 'properties/title' }],
+      },
+    });
+
+    expect(converted.status).toBe('unsupported');
+    if (converted.status === 'unsupported') {
+      expect(converted.details?.join('\n')).toMatch(/required|scope|subset/i);
+      expect(converted.warnings).toContain('canonical persistence is package-source only');
+    }
+  });
+
+  it('rejects unknown archetype capabilities instead of silently emitting them', () => {
+    const result = generateArchetypeSource({
+      appName: 'Unknown capability',
+      appPurpose: 'Adversarial input',
+      screenCount: 1,
+      archetype: 'records',
+      targetPlatforms: ['web'],
+      demoData: false,
+      selectedCapabilityIds: ['not-a-real-capability'],
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.blockedCapabilityIds).toContain('not-a-real-capability');
+      expect(result.reason).toContain('unknown capability ids');
+    }
+  });
+
   it('reports archetype capability truth with target platforms', () => {
     const statuses = getArchetypeCapabilityStatuses(['web']);
     const contacts = statuses.find((capability) => capability.id === 'contacts-access');
@@ -411,6 +482,36 @@ describe('package browser builder', () => {
     expect(ALLOWED_CREATOR_FAILURE_CATEGORIES).toContain('install_review_blocked');
   });
 
+  it('sanitizes creator receipt inputs and rejects inconsistent payloads', () => {
+    const source = clone(readStarterSource('plants-lite'));
+    const compiled = compileBuilderSource(source);
+    expect(compiled.status).toBe('valid');
+    if (compiled.status !== 'valid') return;
+
+    const payload = sanitizeCreatorReceiptPayload({
+      source,
+      package: compiled.package,
+      durationMs: 180_000,
+      installOpened: true,
+      sourceUrl: 'https://raw.githubusercontent.com/vaddisrinivas/utopia/main/packages/manifest.json',
+    });
+    expect(payload.package.id).toBe('plants-lite');
+    expect(payload.packageValid).toBe(true);
+
+    expect(() => sanitizeCreatorReceiptPayload({
+      package: compiled.package,
+      durationMs: 900_000,
+      installOpened: true,
+    })).toThrow('creator receipt duration must be between 0 and 600000 ms');
+
+    expect(() => sanitizeCreatorReceiptPayload({
+      source,
+      package: { ...compiled.package, id: 'different-app-id' },
+      durationMs: 1_000,
+      installOpened: false,
+    })).toThrow('creator receipt source/package id mismatch');
+  });
+
   it('does not persist creator AI key in fetch payloads or storage-backed sinks', () => {
     const html = readBrowserBuilderHtml();
     const serializedBodies = Array.from(html.matchAll(/body:\s*JSON\.stringify\(([\s\S]*?)\)/g));
@@ -418,6 +519,9 @@ describe('package browser builder', () => {
     expect(serializedBodies.every((entry) => !entry[1].includes('creatorAiKey'))).toBe(true);
     expect(html).not.toContain('localStorage.');
     expect(html).not.toContain('sessionStorage.');
+    expect(html).toContain('function clearCreatorAiKey()');
+    expect(html).toContain("window.addEventListener('pagehide', clearCreatorAiKey");
+    expect(serializedBodies.every((entry) => !entry[1].includes('Authorization'))).toBe(true);
   });
 
   it('opens creator install review via /install handoff only when package URL is https', () => {
@@ -433,13 +537,55 @@ describe('package browser builder', () => {
       '\n      function serializeCreatorReceiptPayload(source, packageNode, durationMs) {',
     );
 
-    expect(openReviewBlock).toContain('buildCreatorInstallReviewUrl');
+    expect(openReviewBlock).toContain('currentCreatorInstallLink');
     expect(openReviewBlock).toContain('window.open(installReviewUrl');
-    expect(openReviewBlock).toContain('lastCreatorReview.preview?.sourceUrl');
+    expect(openReviewBlock).not.toContain('lastCreatorReview.preview?.sourceUrl');
     expect(openReviewBlock).not.toContain('lastCreatorReview.sourceUrl');
     expect(installUrlBlock).toContain('new URL(\'/install\', window.location.origin)');
     expect(installUrlBlock).toContain('searchParams.set(\'url\'');
     expect(openReviewBlock).toContain('setCreatorFailure(\'install_review_blocked\')');
     expect(openReviewBlock).not.toContain('createObjectURL');
+  });
+
+  it('keeps the browser URL guard aligned with public package URL policy', () => {
+    const html = readBrowserBuilderHtml();
+    const guard = extractCreatorBuilderFunction(
+      html,
+      '      function normalizeHttpsUrl(value) {',
+      '\n      function buildCreatorInstallReviewUrl(sourceUrl) {',
+    );
+    expect(guard).toContain("parsed.protocol !== 'https:'");
+    expect(guard).toContain('parsed.username');
+    expect(guard).toContain("hostname.endsWith('.internal')");
+    expect(guard).toContain('privateIpv4');
+  });
+
+  it('keeps the creator flow explicit from description through source export and install link', () => {
+    const html = readBrowserBuilderHtml();
+
+    expect(html).toContain('id="creatorDataHome"');
+    expect(html).toContain('id="creatorSourceUrl"');
+    expect(html).toContain('id="creatorExport"');
+    expect(html).toContain('id="creatorCopyLink"');
+    expect(html).toContain('preferredDataHome: elements.creatorDataHome?.value');
+    expect(html).toContain('{ sourceUrl: elements.creatorSourceUrl.value.trim() }');
+    expect(html).toContain('canonical package source exported');
+    expect(html).toContain('install link requires a real HTTPS package source URL');
+    expect(html).toContain('nativePermissionsRequested');
+    expect(html).toContain('providersRequested');
+    expect(html).toContain('installDisclosures');
+  });
+
+  it('does not turn a local preview placeholder into an install link', () => {
+    const html = readBrowserBuilderHtml();
+    const linkBlock = extractCreatorBuilderFunction(
+      html,
+      '      function currentCreatorInstallLink() {',
+      '\n      function renderCreatorReviewSummary',
+    );
+
+    expect(linkBlock).toContain('elements.creatorSourceUrl?.value');
+    expect(linkBlock).toContain('buildCreatorInstallReviewUrl');
+    expect(html).toContain('A local build can be exported immediately. An install link is created only for a real HTTPS package URL');
   });
 });

@@ -26,9 +26,11 @@ function runVirtualLab(outputPath: string) {
     cwd: root,
     encoding: 'utf8',
     env: {
-      ...process.env,
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      TMPDIR: process.env.TMPDIR,
       UTOPIA_GOLDEN_LOOP_VIRTUAL_LAB_PATH: outputPath,
-    },
+    } as unknown as NodeJS.ProcessEnv,
   });
 
   return {

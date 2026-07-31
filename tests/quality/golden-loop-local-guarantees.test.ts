@@ -18,6 +18,10 @@ import {
 } from '@/src/db/app-package-registry';
 import { exportRecoverySnapshot, runMigrations } from '@/src/db/migrations';
 import { importRecoverySnapshot } from '@/src/db/recovery';
+import {
+  loadCapabilityDecisionPort,
+  upsertCapabilityConsentLedgerRecord,
+} from '@/src/db/capability-consent-ledger';
 import { getRecordForInstallation } from '@/src/db/records';
 import { createPackageInstallFetcher, fetchPackageInstallCandidate } from '@/src/domain/package-install';
 import { loadAppPackage } from '@/src/domain/package-loader';
@@ -245,7 +249,7 @@ describe('golden loop local guarantees', () => {
       }),
     ).toMatchObject({
       ok: false,
-      error: { code: 'package_capability_package_not_granted', kind: 'audio-recorder' },
+      error: { code: 'package_capability_consent_required', kind: 'audio-recorder' },
     });
 
     const grantedPackage = makeV3CapabilityPackage(['expo-audio'], ['expo-audio'], '1.1.0');
@@ -270,8 +274,27 @@ describe('golden loop local guarantees', () => {
       installationId,
       activePackage: loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
     };
+    const grantedPackageChecksum = sha256Canonical(grantRuntime.activePackage);
+    await upsertCapabilityConsentLedgerRecord(db as any, {
+      schemaVersion: 'utopia.capability-consent-ledger.v1',
+      installationId,
+      packageId: grantRuntime.activePackage.id,
+      packageVersion: grantRuntime.activePackage.version,
+      packageChecksum: grantedPackageChecksum,
+      capability: 'native.audio-recorder',
+      scope: ['record'],
+      decision: 'allow',
+      decidedBy: 'golden-loop-test',
+      decidedAt: '2026-07-30T00:01:02.000Z',
+      createdAt: '2026-07-30T00:01:02.000Z',
+      updatedAt: '2026-07-30T00:01:02.000Z',
+    });
+    const grantRuntimeWithConsent = {
+      ...grantRuntime,
+      capabilityDecisionPort: await loadCapabilityDecisionPort(db as any, installationId),
+    };
     expect(
-      requestWidgetCapability(grantRuntime, {
+      requestWidgetCapability(grantRuntimeWithConsent, {
         kind: 'audio-recorder',
         action: 'record',
       }),
@@ -314,7 +337,7 @@ describe('golden loop local guarantees', () => {
       }),
     ).toMatchObject({
       ok: false,
-      error: { code: 'package_capability_package_not_granted', kind: 'audio-recorder' },
+      error: { code: 'package_capability_consent_required', kind: 'audio-recorder' },
     });
   });
 });

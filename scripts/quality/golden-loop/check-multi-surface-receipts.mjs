@@ -94,6 +94,7 @@ function compareSurfaceSets(surfaceKey, blockers, records, selector) {
 
 function summarizeSurface(record) {
   return {
+    run_id: record.run_id,
     proof: record.proof,
     status: record.status,
     pass: record.pass,
@@ -111,6 +112,10 @@ function summarizeSurface(record) {
 
 function checkShellEvidence(blockers, records) {
   for (const record of records) {
+    if (!record.run_id) {
+      blockers.push(`missing_run_id:${record.requested_path}`);
+    }
+
     if (!record.shell_proof || !record.shell_proof.pass) {
       blockers.push(`missing_or_blocked_shell_protocol:${record.requested_path}`);
       continue;
@@ -170,6 +175,8 @@ function checkShellEvidence(blockers, records) {
   if (new Set(convergenceSets).size > 1) {
     blockers.push(`convergence_operation_ids_mismatch:${convergenceSets.join('||')}`);
   }
+
+  compareSurfaceSets('run_id', blockers, records, (record) => record.run_id);
 }
 
 function main() {
@@ -177,6 +184,9 @@ function main() {
 
   const blockers = [];
   const current = currentGit(root);
+  const expectedRunId = process.env.UTOPIA_GOLDEN_LOOP_RUN_ID
+    || process.env.GOLDEN_LOOP_RUN_ID
+    || null;
 
   const android = normalizeAndroidInput(process.env.UTOPIA_MULTI_SURFACE_ANDROID_RECEIPTS ?? '');
   if (android.entries.length !== REQUIRED_ANDROID_COUNT) {
@@ -211,6 +221,13 @@ function main() {
   };
 
   const allReceipts = [...androidReceipts, web, macos];
+  const runIds = allReceipts.map((entry) => entry.run_id).filter((value) => typeof value === 'string' && value.trim().length > 0);
+  if (expectedRunId && runIds.some((runId) => runId !== expectedRunId)) {
+    blockers.push(`run_id_mismatch_expected:${expectedRunId}:${runIds.join('|')}`);
+  } else if (runIds.length === 0) {
+    blockers.push('missing_run_id');
+  }
+
   const checksumValues = allReceipts
     .map((entry) => entry.shell_proof?.package?.checksum)
     .filter(Boolean);
@@ -257,6 +274,7 @@ function main() {
     status_reason: status === 'PASS'
       ? 'all multi-surface execution receipts present and validated'
       : `blocked:${blockers.join('|')}`,
+    run_id: runIds[0] ?? null,
   };
 
   writeFileSync(outPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');

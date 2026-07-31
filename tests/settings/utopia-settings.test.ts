@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   defaultUtopiaSettings,
@@ -7,8 +7,35 @@ import {
   updateUtopiaRuntimePreferences,
   updateUtopiaSourceProviderSettings,
 } from '@/src/settings/utopia-settings';
+import { clearBrowserCredentialState, readSettingsValue, writeSettingsValue } from '@/src/settings/settings-storage.web';
 
 describe('Utopia settings helpers', () => {
+  it('keeps browser credentials out of localStorage while retaining them in memory', async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+
+    const settings = JSON.stringify({
+      ai: { primary: { apiKey: 'sk-browser-secret' } },
+      notion: { token: 'notion-secret' },
+      postgres: { databaseUrl: 'postgres://secret' },
+      runtime: { theme: 'dark' },
+    });
+    await writeSettingsValue(settings);
+
+    expect(storage.get('utopia.settings.v1')).not.toContain('sk-browser-secret');
+    expect(storage.get('utopia.settings.v1')).not.toContain('notion-secret');
+    expect(storage.get('utopia.settings.v1')).not.toContain('postgres://secret');
+    await expect(readSettingsValue()).resolves.toBe(settings);
+
+    clearBrowserCredentialState();
+    await expect(readSettingsValue()).resolves.not.toContain('sk-browser-secret');
+    vi.unstubAllGlobals();
+  });
+
   it('updates persistent theme and density preferences without changing AI keys', () => {
     const base = updateUtopiaAiProviderProfile(defaultUtopiaSettings, 'primary', {
       enabled: true,

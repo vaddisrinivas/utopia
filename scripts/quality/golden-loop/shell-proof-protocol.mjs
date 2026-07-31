@@ -158,6 +158,39 @@ function parseObservationOperations(root, observation, blockers, index) {
         return null;
       }
 
+      const operationObserver = asObject(operation.observer) || asObject(operation.execution_observer) || {};
+      const operationKind = asString(operationObserver.kind)
+        || asString(operationObserver.observer_kind)
+        || asString(operationObserver.type)
+        || observerKind;
+      const operationCommand = asString(operationObserver.command)
+        || asString(observation.command)
+        || asString(observer.command)
+        || asString(observer.identity);
+      const operationDriver = asString(operationObserver.driver)
+        || asString(operationObserver.driver_id)
+        || asString(observation.driver)
+        || asString(observation.driver_id)
+        || asString(observer.driver)
+        || asString(observer.identity_id);
+
+      const operationArtifact = asObject(operation.artifact) || {};
+      const operationArtifactSha = asString(operationArtifact.sha256)
+        || `sha256:${artifact.sha256}`;
+      const operationArtifactBytes = Number.isInteger(operationArtifact.bytes) ? operationArtifact.bytes : artifact.bytes;
+      const operationArtifactPath = asString(operationArtifact.path) || artifact.path;
+
+      if (!operationKind) blockers.push(`missing_operation_observer_kind:${index}:${opIndex}`);
+      if (!operationCommand) blockers.push(`missing_operation_observer_command:${index}:${opIndex}`);
+      if (!operationDriver) blockers.push(`missing_operation_observer_driver:${index}:${opIndex}`);
+      if (!operationArtifactPath) blockers.push(`missing_operation_artifact:${index}:${opIndex}`);
+      if (!operationArtifactSha || !operationArtifactSha.startsWith('sha256:')) {
+        blockers.push(`invalid_operation_artifact_sha256:${index}:${opIndex}`);
+      }
+      if (!Number.isInteger(operationArtifactBytes) || operationArtifactBytes < 0) {
+        blockers.push(`invalid_operation_artifact_bytes:${index}:${opIndex}`);
+      }
+
       const status = asString(operation.status) || 'observed';
       if (!OPERATION_STATUS_VALUES.has(status) && status !== 'observed') {
         blockers.push(`invalid_operation_status:${index}:${opId}`);
@@ -179,14 +212,85 @@ function parseObservationOperations(root, observation, blockers, index) {
           command,
           driver,
         },
+        provenance: {
+          kind: operationKind,
+          command: operationCommand,
+          driver: operationDriver,
+          source_timestamp: sourceTimestamp,
+        },
         artifact: {
-          path: artifact.path,
-          sha256: `sha256:${artifact.sha256}`,
-          bytes: artifact.bytes,
+          path: operationArtifactPath,
+          sha256: operationArtifactSha,
+          bytes: operationArtifactBytes,
         },
       };
     })
     .filter(Boolean);
+}
+
+function collectTransportObservedOperations(payload, blockers, label) {
+  const operationIds = new Set();
+  const addString = (candidate) => {
+    const value = asString(candidate);
+    if (value) operationIds.add(value);
+  };
+  const operations = payload?.operations;
+  if (!Array.isArray(operations) && operations !== undefined) {
+    blockers.push(`invalid_${label}_operations_payload`);
+  }
+
+  if (Array.isArray(operations)) {
+    for (const rawOperation of operations) {
+      const operation = asObject(rawOperation);
+      if (!operation) {
+        if (rawOperation != null) {
+          blockers.push(`invalid_${label}_operation_payload`);
+        }
+        continue;
+      }
+
+      const opId = asString(operation.op_id)
+        || asString(operation.operation_id)
+        || asString(operation.id);
+      if (!opId) {
+        continue;
+      }
+
+      const status = asString(operation.status) || 'observed';
+      if (!OPERATION_STATUS_VALUES.has(status) && status !== 'observed') {
+        blockers.push(`invalid_${label}_operation_status:${opId}`);
+      }
+
+      const timestamp = asString(operation.timestamp) || asString(operation.at) || asString(payload?.timestamp);
+      if (!timestamp || Number.isNaN(Date.parse(timestamp))) {
+        blockers.push(`invalid_${label}_operation_timestamp:${opId}`);
+      }
+
+      operationIds.add(opId);
+    }
+  }
+
+  addString(payload?.operationId);
+  addString(payload?.operation_id);
+  addString(payload?.reconciled_operation_id);
+  addString(payload?.reconciled_operation);
+  addString(payload?.rollback_operation_id);
+  addString(payload?.reconciledOperationId);
+  if (Array.isArray(payload?.operation_ids)) {
+    for (const operationId of payload.operation_ids) addString(operationId);
+  }
+  if (Array.isArray(payload?.rollback_operation_ids)) {
+    for (const operationId of payload.rollback_operation_ids) addString(operationId);
+  }
+  if (Array.isArray(payload?.reconciled_operation_ids)) {
+    for (const operationId of payload.reconciled_operation_ids) addString(operationId);
+  }
+
+  if (operationIds.size === 0) {
+    blockers.push(`missing_${label}_operation_ids`);
+  }
+
+  return [...operationIds];
 }
 
 function resolveObservedOperations(receipt, root, blockers) {
@@ -207,6 +311,8 @@ function resolveObservedOperations(receipt, root, blockers) {
   const operationIds = [];
   const seen = new Set();
   const deduped = [];
+  const operationProvenance = new Map();
+
   for (const operation of allOperations) {
     if (!operation.op_id) continue;
     if (seen.has(operation.op_id)) {
@@ -216,10 +322,26 @@ function resolveObservedOperations(receipt, root, blockers) {
     seen.add(operation.op_id);
     operationIds.push(operation.op_id);
     deduped.push(operation);
+    operationProvenance.set(operation.op_id, {
+      source_timestamp: operation.source_timestamp,
+      timestamp: operation.timestamp,
+      status: operation.status,
+      observer: operation.provenance?.kind ? {
+        kind: operation.provenance.kind,
+        command: operation.provenance.command,
+        driver: operation.provenance.driver,
+      } : operation.observer,
+      artifact: operation.artifact,
+    });
   }
 
   if (operationIds.length === 0) blockers.push('no_valid_executed_operations');
-  return { operations: deduped, operationIds: new Set(operationIds), operationIdsList: operationIds };
+  return {
+    operations: deduped,
+    operationIds: new Set(operationIds),
+    operationIdsList: operationIds,
+    operationProvenance,
+  };
 }
 
 function resolvePackageInfo(receipt, blockers) {
@@ -280,7 +402,7 @@ function resolvePackageInfo(receipt, blockers) {
   };
 }
 
-function resolveTransport(receipt, blockers, root) {
+function resolveTransport(receipt, blockers, root, operationIdSet = new Set(), operationProvenance = new Map()) {
   const shell = asObject(receipt.shell) || {};
   const execution = asObject(receipt.execution) || {};
   const claimed = execution.sync_claimed === true || shell.sync_claimed === true || receipt.sync_claimed === true;
@@ -299,6 +421,24 @@ function resolveTransport(receipt, blockers, root) {
   const transportObservation = transportCandidate
     ? resolveArtifactReference(transportCandidate, 'transport', blockers, root, 'transport')
     : null;
+  let observedOperationIds = [];
+  if (transportObservation) {
+    const payload = parseJsonArtifact(root, transportObservation, 'transport', blockers);
+    const payloadSession = asString(payload?.session) || asString(payload?.session_id);
+    const payloadEndpoint = asString(payload?.endpoint) || asString(payload?.base_url);
+    const payloadOperations = collectTransportObservedOperations(payload, blockers, 'transport');
+    observedOperationIds = payloadOperations;
+    if (payloadSession !== session) blockers.push('transport_observation_session_mismatch');
+    if (payloadEndpoint !== endpoint) blockers.push('transport_observation_endpoint_mismatch');
+    if (observedOperationIds.length === 0) blockers.push('missing_transport_observed_operations');
+    for (const operationId of observedOperationIds) {
+      if (!operationIdSet.has(operationId)) blockers.push(`transport_operation_not_executed:${operationId}`);
+      if (!operationProvenance.has(operationId)) blockers.push(`transport_operation_missing_provenance:${operationId}`);
+    }
+    if (Number.isInteger(transport.operation_count) && transport.operation_count !== observedOperationIds.length) {
+      blockers.push(`transport_observation_operation_count_mismatch:${observedOperationIds.length}:${transport.operation_count}`);
+    }
+  }
 
   return {
     sync_claimed: true,
@@ -312,10 +452,11 @@ function resolveTransport(receipt, blockers, root) {
       sha256: `sha256:${transportObservation.sha256}`,
       bytes: transportObservation.bytes,
     } : null,
+    observed_operation_ids: observedOperationIds,
   };
 }
 
-function resolveConvergence(receipt, operationIdSet, blockers, transport, root) {
+function resolveConvergence(receipt, operationIdSet, blockers, transport, root, operationProvenance = new Map()) {
   const shell = asObject(receipt.shell) || {};
   const execution = asObject(receipt.execution) || {};
   const convergence = asObject(shell.convergence) || asObject(execution.convergence) || asObject(receipt.convergence) || {};
@@ -323,11 +464,13 @@ function resolveConvergence(receipt, operationIdSet, blockers, transport, root) 
   const operationIds = asStringArray(convergence.operation_ids, 'convergence_operation_ids', blockers);
   for (const opId of operationIds) {
     if (!operationIdSet.has(opId)) blockers.push(`convergence_operation_not_executed:${opId}`);
+    if (!operationProvenance.has(opId)) blockers.push(`convergence_operation_missing_provenance:${opId}`);
   }
 
   const rollbackOperationIds = asStringArray(convergence.rollback_operation_ids, 'rollback_operation_ids', blockers)
     .filter((opId) => {
       if (!operationIdSet.has(opId)) blockers.push(`rollback_operation_not_executed:${opId}`);
+      if (!operationProvenance.has(opId)) blockers.push(`rollback_operation_missing_provenance:${opId}`);
       return true;
     });
 
@@ -339,6 +482,9 @@ function resolveConvergence(receipt, operationIdSet, blockers, transport, root) 
 
   const reconciled = asString(convergence.reconciled_operation_id) || asString(convergence.winner_op_id);
   if (reconciled && !operationIdSet.has(reconciled)) blockers.push(`reconciled_operation_not_executed:${reconciled}`);
+  if (reconciled && !operationProvenance.has(reconciled)) {
+    blockers.push(`reconciled_operation_missing_provenance:${reconciled}`);
+  }
 
   if (operationIds.length === 0) blockers.push('missing_convergence_operation_ids');
 
@@ -395,6 +541,9 @@ function resolveConvergence(receipt, operationIdSet, blockers, transport, root) 
       ])) {
         if (!observedOperationIds.has(operationId)) {
           blockers.push(`convergence_operation_not_in_transport_observation:${operationId}`);
+        }
+        if (!operationProvenance.has(operationId)) {
+          blockers.push(`convergence_transport_operation_missing_provenance:${operationId}`);
         }
       }
     }
@@ -513,12 +662,25 @@ export function validateShellProofReceipt(receipt, {
   );
   if (!durableDataChecksum) blockers.push('missing_durable_data_checksum');
 
-  const transport = resolveTransport(receipt, blockers, root);
+  const transport = resolveTransport(
+    receipt,
+    blockers,
+    root,
+    operationIdSet,
+    observed.operationProvenance,
+  );
   if (requireTransport && transport?.sync_claimed && (!transport.endpoint || !transport.session)) {
     blockers.push('missing_transport_session_or_endpoint');
   }
 
-  const convergence = resolveConvergence(receipt, operationIdSet, blockers, transport, root);
+  const convergence = resolveConvergence(
+    receipt,
+    operationIdSet,
+    blockers,
+    transport,
+    root,
+    observed.operationProvenance,
+  );
 
   const scenario = asObject(receipt.lifecycle?.scenario) || asObject(receipt.scenario);
   const scenarioId = asString(scenario?.scenario_id) || asString(receipt.scenario_id);

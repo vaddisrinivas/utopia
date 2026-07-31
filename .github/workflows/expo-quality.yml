@@ -42,6 +42,7 @@ jobs:
         env:
           OSV_SCANNER_VERSION: v1.9.1
           SYFT_VERSION: v1.14.3
+          GITLEAKS_VERSION: v8.28.0
         run: |
           set -euo pipefail
           export GOBIN="${RUNNER_TEMP}/utopia-scan-tools/bin"
@@ -49,11 +50,21 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
           go install github.com/google/osv-scanner/v2/cmd/osv-scanner@${OSV_SCANNER_VERSION}
           go install github.com/anchore/syft/v1/cmd/syft@${SYFT_VERSION}
+          go install github.com/gitleaks/gitleaks/v8@${GITLEAKS_VERSION}
           go version
           osv-scanner --version
           syft version
+          gitleaks version
+
+      - name: Check workflow action permissions
+        id: action-permissions
+        env:
+          QUALITY_GATE_ROOT: ${{ github.workspace }}
+          ACTION_PERMISSIONS_REPORT_PATH: app/build/evidence/action-permissions.json
+        run: node scripts/quality/security/check-action-permissions-gate.mjs
 
       - name: Run OSV gate
+        id: osv
         env:
           QUALITY_GATE_ROOT: ${{ github.workspace }}
           OSV_SCANNER_CMD: osv-scanner
@@ -63,6 +74,7 @@ jobs:
         run: node scripts/quality/security/check-osv-gate.mjs
 
       - name: Run SBOM gate
+        id: sbom
         env:
           QUALITY_GATE_ROOT: ${{ github.workspace }}
           SYFT_CMD: syft
@@ -70,6 +82,27 @@ jobs:
           RELEASE_SBOM_PATH: app/build/evidence/sbom.json
           SBOM_GATE_POLICY_PATH: scripts/quality/sbom/sbom-policy.json
         run: node scripts/quality/sbom/check-sbom-gate.mjs
+
+      - name: Run Gitleaks gate
+        id: gitleaks
+        env:
+          QUALITY_GATE_ROOT: ${{ github.workspace }}
+          GITLEAKS_CMD: gitleaks
+          GITLEAKS_REPORT_PATH: app/build/evidence/gitleaks-report.json
+        run: node scripts/quality/security/check-gitleaks-gate.mjs
+
+      - name: Fail security lane on blocked gate
+        if: always()
+        env:
+          ACTION_PERMISSIONS_OUTCOME: ${{ steps.action-permissions.outcome }}
+          OSV_OUTCOME: ${{ steps.osv.outcome }}
+          SBOM_OUTCOME: ${{ steps.sbom.outcome }}
+          GITLEAKS_OUTCOME: ${{ steps.gitleaks.outcome }}
+        run: |
+          test "$ACTION_PERMISSIONS_OUTCOME" = success
+          test "$OSV_OUTCOME" = success
+          test "$SBOM_OUTCOME" = success
+          test "$GITLEAKS_OUTCOME" = success
 
       - name: Validate domain package
         run: npm run config:validate
@@ -90,6 +123,7 @@ jobs:
         run: npm run export:android
 
       - name: Upload export evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: expo-exports
@@ -98,4 +132,6 @@ jobs:
             dist/android
             app/build/evidence/osv-report.json
             app/build/evidence/sbom.json
+            app/build/evidence/gitleaks-report.json
+            app/build/evidence/action-permissions.json
           if-no-files-found: error

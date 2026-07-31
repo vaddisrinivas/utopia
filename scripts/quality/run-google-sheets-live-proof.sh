@@ -8,6 +8,8 @@ REDIRECT_PORT="${GOOGLE_OAUTH_REDIRECT_PORT:-8765}"
 REDIRECT_URI="http://127.0.0.1:${REDIRECT_PORT}/callback"
 TOKEN_FILE="${GOOGLE_SHEETS_TOKEN_FILE:-${ROOT_DIR}/build/evidence/live-workspace/google-sheets-token.json}"
 GOOGLE_SHEETS_PROVISION_DISPOSABLE="${GOOGLE_SHEETS_PROVISION_DISPOSABLE:-0}"
+GOOGLE_SHEETS_SCENARIO_COMMAND="${GOOGLE_SHEETS_SCENARIO_COMMAND:-$ROOT_DIR/scripts/quality/run-google-sheets-scenario-proof.sh}"
+PROVISIONED_DISPOSABLE_SHEET=0
 mkdir -p "$(dirname "$TOKEN_FILE")"
 
 redact_id() {
@@ -27,6 +29,54 @@ if [[ "$GOOGLE_SHEETS_PROVISION_DISPOSABLE" != "0" && "$GOOGLE_SHEETS_PROVISION_
   echo "GOOGLE_SHEETS_PROVISION_DISPOSABLE must be 0 or 1; received $GOOGLE_SHEETS_PROVISION_DISPOSABLE." >&2
   exit 1
 fi
+
+validate_provider_auth_key() {
+  local key_value="${1:-}"
+  if [[ -z "$key_value" ]]; then
+    return
+  fi
+  if (( ${#key_value} < 32 )); then
+    echo "WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY must be at least 32 characters when provided explicitly." >&2
+    exit 1
+  fi
+}
+
+cleanup_disposable_sheet() {
+  if [[ "$PROVISIONED_DISPOSABLE_SHEET" != "1" ]]; then
+    return
+  fi
+  GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" \
+  GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" \
+  python3 - <<'PY'
+import json
+import os
+import urllib.error
+import urllib.parse
+import urllib.request
+import sys
+
+token = os.environ['GOOGLE_SHEETS_ACCESS_TOKEN']
+spreadsheet_id = os.environ['GOOGLE_SHEETS_TEST_SPREADSHEET_ID']
+request = urllib.request.Request(
+    'https://www.googleapis.com/drive/v3/files/' + urllib.parse.quote(spreadsheet_id, safe=''),
+    data=json.dumps({'trashed': True}).encode(),
+    headers={
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+    },
+    method='PATCH',
+)
+try:
+    with urllib.request.urlopen(request, timeout=30) as response:
+        response.read()
+except urllib.error.HTTPError as error:
+    if error.code not in (404, 410):
+        print(f"Unable to archive disposable sheet: HTTP {error.code}", file=sys.stderr)
+except Exception as error:
+    print(f"Unable to archive disposable sheet: {error}", file=sys.stderr)
+PY
+}
+trap cleanup_disposable_sheet EXIT
 
 if [[ -z "${GOOGLE_SHEETS_ACCESS_TOKEN:-}" && -s "$TOKEN_FILE" ]]; then
   : "${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required to refresh cached Google Sheets token}"
@@ -166,12 +216,19 @@ PY
 )"
 fi
 
+if [[ -z "${WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY:-}" ]]; then
+  WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY="$(node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('base64url'))")"
+else
+  validate_provider_auth_key "$WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY"
+fi
+
 if [[ -z "${GOOGLE_SHEETS_ACCESS_TOKEN:-}" ]]; then
   echo "Google Sheets access token is missing after OAuth." >&2
   exit 1
 fi
 
 if [[ -z "$SPREADSHEET_ID" && "$GOOGLE_SHEETS_PROVISION_DISPOSABLE" == "1" ]]; then
+  PROVISIONED_DISPOSABLE_SHEET=1
   SPREADSHEET_ID="$(GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" python3 - <<'PY'
 import json, os, urllib.request
 req = urllib.request.Request(
@@ -203,9 +260,6 @@ PY
 fi
 
 GOOGLE_SHEETS_TEST_ACCOUNT_ID="${GOOGLE_SHEETS_TEST_ACCOUNT_ID:-${GOOGLE_ACCOUNT_ID:-}}"
-if [[ -z "${WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY:-}" ]]; then
-  WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY="$(node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('base64url'))")"
-fi
 if [[ -z "${WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS:-}" ]]; then
   WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS="$(GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" GOOGLE_SHEETS_TEST_ACCOUNT_ID="$GOOGLE_SHEETS_TEST_ACCOUNT_ID" WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY="$WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY" node --input-type=module - <<'NODE'
 import { providerAuthorizationDigest } from './scripts/quality/require-disposable-lane.mjs';
@@ -216,9 +270,21 @@ fi
 
 GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" \
 GOOGLE_SHEETS_TEST_ACCOUNT_ID="$GOOGLE_SHEETS_TEST_ACCOUNT_ID" \
+WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY="$WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY" \
+WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS="$WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS" \
 node "$ROOT_DIR/scripts/quality/require-disposable-lane.mjs" provider sheets
 
-cd "$ROOT_DIR"
-GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" \
-GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" \
-./gradlew :app:testPlayDebugUnitTest --tests 'app.utopia.sync.UtopiaLiveWorkspaceProofTest.liveGoogleSheetsWorkspaceExportsSeedRowsAndReadsThemBack'
+if [[ "$PROVISIONED_DISPOSABLE_SHEET" == "1" ]]; then
+  (
+    cd "$ROOT_DIR"
+    GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" \
+    GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" \
+    WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS="$WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS" \
+    "$GOOGLE_SHEETS_SCENARIO_COMMAND"
+  )
+else
+  cd "$ROOT_DIR"
+  GOOGLE_SHEETS_ACCESS_TOKEN="$GOOGLE_SHEETS_ACCESS_TOKEN" \
+  GOOGLE_SHEETS_TEST_SPREADSHEET_ID="$SPREADSHEET_ID" \
+  ./gradlew :app:testPlayDebugUnitTest --tests 'app.utopia.sync.UtopiaLiveWorkspaceProofTest.liveGoogleSheetsWorkspaceExportsSeedRowsAndReadsThemBack'
+fi

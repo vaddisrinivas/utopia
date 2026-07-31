@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { handleHealthConnectRoute } from '../src/routes/health-connect';
 import { handlePackageRoutes } from '../src/routes/package-routes';
 import { handleProviderRoutes } from '../src/routes/provider-routes';
-import { handleChatQueryRoutes } from '../src/routes/chat-routes';
+import { handleChatQueryRoutes, handleChatRoutes } from '../src/routes/chat-routes';
 import { handleMcpRoutes } from '../src/routes/mcp-routes';
 import { handleChatControlRoutes } from '../src/routes/chat-control-routes';
 
@@ -99,7 +99,7 @@ const chatContext = {
       detail: 'work',
     },
   ],
-  getConversation: (threadId: string) => {
+  getConversation: (threadId: string, _principalId: string) => {
     if (threadId !== 'thread-alpha-work') return null;
     return {
       id: 'thread-alpha-work',
@@ -115,6 +115,67 @@ const chatContext = {
     if (principalId !== 'tenant-alpha' || conversationId !== 'active-run') return null;
     return { run: { status: 'running' }, runId: 'run-active' };
   },
+};
+
+const chatSendHandlingContext: Parameters<typeof handleChatRoutes>[3] = {
+  ...chatContext,
+  getConversation: (threadId: string) => {
+    if (threadId !== 'thread-alpha-work') return null;
+    return {
+      id: 'thread-alpha-work',
+      domain: 'work',
+      title: 'Work',
+      detail: 'work',
+      updated_at: '2020-01-01T00:00:00.000Z',
+      messages: [],
+      last_response_id: null,
+    };
+  },
+  listConversations: () => chatContext.listConversations(),
+  ensureConversation: (threadId: string, domainId: string, title: string, _principalId: string) => ({
+    id: threadId,
+    domain: domainId,
+    title,
+    detail: 'work',
+    messages: [],
+    last_response_id: null,
+  }),
+  upsertConversation: (input) => ({
+    id: input.id,
+    domain: input.domain,
+    title: input.title,
+    detail: input.detail,
+    messages: [],
+  }),
+  resolveStoredPreviousResponseId: ({ storedConversationResponseId }) => storedConversationResponseId,
+  readJsonBody: async () => ({
+    thread_id: 'thread-alpha-work',
+    message: 'How is rice?',
+  }),
+  chatControlService: {
+    reserveScopedIdempotencyRecord: () => ({
+      status: 'reserved',
+      record: {
+        status: 'reserved',
+        reservationId: 'reservation-id',
+        messageId: null,
+        runId: 'run-1',
+        conversationId: 'thread-alpha-work',
+        principalId: 'tenant-alpha',
+        operationFingerprint: 'operation-fp',
+        created_at: '2000-01-01T00:00:00.000Z',
+        updated_at: '2000-01-01T00:00:00.000Z',
+      },
+    }),
+    execute: async () => ({
+      conversation_id: 'thread-alpha-work',
+      messages: [{ id: 'asst-1', role: 'assistant', text: 'reply' }],
+      thread: { id: 'thread-alpha-work', title: 'Work', detail: 'work' },
+      run: { id: 'run-1', status: 'completed', needs_retry: false, aborted: false },
+      warnings: [],
+    }),
+    markRunFailed: () => ({ status: 'cancelled', conversationId: 'thread-alpha-work', principalId: 'tenant-alpha' } as never),
+  } as never,
 };
 
 const chatControlRuns = {
@@ -184,6 +245,11 @@ const chatControlContext: Parameters<typeof handleChatControlRoutes>[3] = {
       aborted: false,
     },
   }),
+  upsertConversation: (input) => ({
+    ...retryThread,
+    ...input,
+    updated_at: '2000-01-01T00:00:00.000Z',
+  }),
 };
 
 const chatAuthFailContext = {
@@ -207,6 +273,13 @@ assert.equal(await handleHealthConnectRoute({ method: 'GET' }, createResponse(),
 assert.equal(await handleChatQueryRoutes({ method: 'GET', url: '/chat/threads' }, createResponse(), '/chat/threads', chatContext as never), true);
 assert.equal(await handleChatQueryRoutes({ method: 'GET', url: '/chat/x' }, createResponse(), '/chat/x', chatContext as never), false);
 assert.equal(await handleChatQueryRoutes({ method: 'GET', url: '/chat/threads' }, createResponse(), '/chat/threads', chatAuthFailContext as never), true);
+const chatSendOwnershipResponse = createResponse();
+assert.equal(
+  await handleChatRoutes({ method: 'POST', url: '/chat/send' }, chatSendOwnershipResponse, '/chat/send', chatSendHandlingContext),
+  true,
+);
+assert.equal(chatSendOwnershipResponse.statusCode, 200);
+assert.equal(parseJsonResponse(chatSendOwnershipResponse).conversation_id, 'thread-alpha-work');
 
 const threadFilterResponse = createResponse();
 assert.equal(await handleChatQueryRoutes({ method: 'GET', url: '/chat/threads?domain=work' }, threadFilterResponse, '/chat/threads', chatContext as never), true);
@@ -344,6 +417,35 @@ assert.equal(chatRetryPayload.conversation_id, 'thread-alpha-work');
 assert.equal(chatRetryPayload.run?.status, 'completed');
 assert.equal(chatRetryPayload.run?.needs_retry, false);
 assert.equal(chatRetryPayload.thread?.id, 'thread-alpha-work');
+
+const chatActionMissingPayloadResponse = createResponse();
+assert.equal(
+  await handleChatControlRoutes(
+    { method: 'POST', url: '/chat/action' },
+    chatActionMissingPayloadResponse,
+    '/chat/action',
+    chatControlContext as never,
+  ),
+  true,
+);
+assert.equal(chatActionMissingPayloadResponse.statusCode, 400);
+assert.equal(parseJsonResponse(chatActionMissingPayloadResponse).message, 'conversation_id and action required');
+
+const chatUndoMissingActionResponse = createResponse();
+assert.equal(
+  await handleChatControlRoutes(
+    { method: 'POST', url: '/chat/undo' },
+    chatUndoMissingActionResponse,
+    '/chat/undo',
+    {
+      ...chatControlContext,
+      readJsonBody: async () => ({ action_id: 'missing-action' }),
+    } as never,
+  ),
+  true,
+);
+assert.equal(chatUndoMissingActionResponse.statusCode, 400);
+assert.equal(parseJsonResponse(chatUndoMissingActionResponse).message, 'action not found');
 
 assert.equal(await handlePackageRoutes({ method: 'GET', url: '/packages/active' }, createResponse(), '/packages/active', packageContext as never), true);
 assert.equal(await handleHealthConnectRoute({ method: 'GET' }, createResponse(), '/health/connect/snapshots', { assertAuth: allowAuth, readJsonBody: async () => ({}) }), true);

@@ -24,6 +24,18 @@ export type SchemaValidationEntry = Readonly<{
   validate: ValidateFunction;
 }>;
 
+export type SchemaFixture = Readonly<{
+  id: string;
+  schema: JsonSchema;
+  data: unknown;
+  expected: boolean;
+}>;
+
+export type SchemaFixtureResult = Readonly<SchemaFixture & {
+  actual: boolean;
+  errors: readonly ErrorObject[];
+}>;
+
 export function getSchemaValidator(schema: JsonSchema): ValidateFunction {
   const cacheKey = cacheKeyFromSchema(schema);
   const cached = validatorCache.get(cacheKey);
@@ -36,6 +48,14 @@ export function getSchemaValidator(schema: JsonSchema): ValidateFunction {
 
 export function clearSchemaValidatorCache(): void {
   validatorCache.clear();
+}
+
+export function runSchemaFixtureCorpus(fixtures: readonly SchemaFixture[]): SchemaFixtureResult[] {
+  return fixtures.map((fixture) => {
+    const validate = getSchemaValidator(fixture.schema);
+    const actual = Boolean(validate(fixture.data));
+    return { ...fixture, actual, errors: validate.errors ?? [] };
+  });
 }
 
 export function mapAjvValidationErrors(validate: ValidateFunction, fallbackPath = '/'): string[] {

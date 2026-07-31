@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   assertPackageInstallApprovalMatchesPreview,
@@ -23,6 +23,8 @@ import {
   BUNDLED_SPLIT_RENT_PACKAGE_URL,
   BUNDLED_WORKOUT_LOGGER_PACKAGE_URL,
   BUNDLED_UTOPIA_REGISTRY_URL,
+  PACKAGE_INSTALL_FETCH_TIMEOUT_MS,
+  PACKAGE_INSTALL_MAX_BODY_BYTES,
   buildAppInstallationLifecycleViewModel,
   buildPackageInstallReviewViewModel,
   buildPackageInstallPreviewWithSignatureVerification,
@@ -77,6 +79,30 @@ describe('package install link and registry contracts', () => {
 
     await expect(fetchPackageInstallCandidate('http://example.com/app.package.json', fetcher)).rejects.toThrow('install_url_must_be_https');
     expect(called).toBe(false);
+  });
+
+  it('bounds remote fetches and rejects redirects, non-JSON, and oversized bodies', async () => {
+    vi.useFakeTimers();
+    try {
+      const pendingFetcher = createPackageInstallFetcher(async () => new Promise(() => {}));
+      const pending = pendingFetcher('https://example.com/apps/demo.package.json');
+      const pendingExpectation = expect(pending).rejects.toThrow('package_fetch_timeout');
+      await vi.advanceTimersByTimeAsync(PACKAGE_INSTALL_FETCH_TIMEOUT_MS);
+      await pendingExpectation;
+
+      const response = (overrides: Record<string, unknown>) => ({
+        ok: true,
+        status: 200,
+        headers: { get: (name: string) => name === 'content-type' ? 'application/json' : null },
+        text: async () => '{}',
+        ...overrides,
+      });
+      await expect(fetchPackageInstallCandidate('https://example.com/apps/demo.package.json', async () => response({ redirected: true }))).rejects.toThrow('package_fetch_redirected');
+      await expect(fetchPackageInstallCandidate('https://example.com/apps/demo.package.json', async () => response({ headers: { get: () => 'text/html' } }))).rejects.toThrow('package_fetch_not_json');
+      await expect(fetchPackageInstallCandidate('https://example.com/apps/demo.package.json', async () => response({ text: async () => 'x'.repeat(PACKAGE_INSTALL_MAX_BODY_BYTES + 1) }))).rejects.toThrow('package_fetch_body_too_large');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('validates registry manifest and fetches registry JSON through an injected fetcher', async () => {
@@ -205,7 +231,7 @@ describe('package install link and registry contracts', () => {
         checksum,
         computedChecksum: checksum,
         publisher,
-        signatureStatus: 'signature_verified',
+        signatureStatus: 'signature_present_untrusted',
         signatureAlgorithm: 'ecdsa-p256-sha256',
         signatureKeyId: 'demo-key-1',
         signatureSignedAt: '2026-07-28T00:00:00.000Z',
@@ -215,16 +241,19 @@ describe('package install link and registry contracts', () => {
     expect(result.preview.dataCollections).toEqual(['task']);
     expect(result.preview.providersRequested).toEqual(['provider:notion']);
     expect(result.preview.widgetsRequired).toEqual(['metricTile']);
-    expect(packageInstallTrustLabel(result.preview)).toBe('Checksum and signature verified');
+    expect(packageInstallTrustLabel(result.preview)).toBe('Checksum verified');
     expect(packageInstallTrustSummary(result.preview)).toMatchObject({
       statusLabel: 'Ready for review',
-      trustLabel: 'Checksum and signature verified',
-      trustTone: 'verified',
+      trustLabel: 'Checksum verified',
+      trustTone: 'unknown',
       publisherLabel: 'Demo Publisher',
-      signatureLabel: 'Signature verified (demo-key-1)',
+      signatureLabel: 'Signature present but publisher is untrusted (demo-key-1)',
+      selfSignatureLabel: 'Signature present but publisher is untrusted (demo-key-1)',
+      publisherTrustLabel: 'Publisher is not trusted by Utopia',
+      tufMetadataLabel: 'TUF metadata missing',
       approvalLabel: 'Review required',
     });
-    expect(packageInstallSignatureLabel(result.preview)).toBe('Signature verified (demo-key-1)');
+    expect(packageInstallSignatureLabel(result.preview)).toBe('Signature present but publisher is untrusted (demo-key-1)');
     expect(result.preview.installDisclosures).toEqual(expect.arrayContaining([
       'Utopia shows package data collections, providers, and permissions during install review.',
       'Data collections: task',
@@ -292,13 +321,15 @@ describe('package install link and registry contracts', () => {
       computedChecksum: checksum,
       signatureStatus: 'signature_invalid',
     });
-    expect(preview.validationErrors).toContain('signature verification failed');
+    expect(preview.validationErrors).toEqual(expect.arrayContaining([
+      expect.stringContaining('signature verification failed'),
+    ]));
     expect(packageInstallTrustLabel(preview)).toBe('Publisher signature invalid');
     expect(packageInstallSignatureLabel(preview)).toBe('Signature invalid');
     expect(() => buildPackageInstallApprovalReceipt(preview, 'test-user')).toThrow('package_install_preview_blocked');
   });
 
-  it('verifies registry signatures through a trusted publisher key policy', async () => {
+  it('does not treat a legacy policy or embedded key as publisher trust', async () => {
     const signature = await signPackageFixture(packageFixture, 'demo-key-1');
     const { publicKey, ...signatureWithoutInlineKey } = signature;
     const registryPackage = {
@@ -331,11 +362,144 @@ describe('package install link and registry contracts', () => {
     const preview = await buildPackageInstallPreviewWithSignatureVerification(packageFixture, {
       sourceUrl: 'https://example.com/apps/demo.package.json',
       registryPackage,
-      trustPolicy,
     });
 
     expect(preview.status).toBe('ready_for_review');
-    expect(preview.trust.signatureStatus).toBe('signature_verified');
+    expect(preview.trust.signatureStatus).toBe('signature_present_untrusted');
+    expect(preview.trust.publisherTrustStatus).toBe('unknown');
+    expect(preview.trust.tufMetadata.status).toBe('missing');
+    expect(packageInstallSignatureLabel(preview)).toContain('publisher is untrusted');
+  });
+
+  it('blocks expired registry trust metadata before install approval', () => {
+    const checksum = sha256Canonical(packageFixture);
+    const preview = buildPackageInstallPreview(packageFixture, {
+      sourceUrl: 'https://example.com/apps/demo.package.json',
+      expectedChecksum: checksum,
+      registryPackage: {
+        ...registryFixture.packages[0],
+        checksum,
+        publisher: { id: 'demo.publisher' },
+      },
+      registryTrustMetadata: {
+        root: {
+          schemaVersion: 'utopia.extension-trust-root.v1',
+          version: 4,
+          expires: '2026-07-29T00:00:00.000Z',
+          rootKeyId: 'root-key',
+          delegatedPublishers: [],
+          signature: { algorithm: 'ecdsa-p256-sha256', keyId: 'root-key', value: 'root-signature', signedAt: '2026-07-20T00:00:00.000Z' },
+        },
+        targets: [{
+          schemaVersion: 'utopia.extension-trust-targets.v1',
+          publisherId: 'demo.publisher',
+          version: 7,
+          expires: '2026-08-30T00:00:00.000Z',
+          delegatedSigningKeyIds: ['publisher-key'],
+          signature: { algorithm: 'ecdsa-p256-sha256', keyId: 'publisher-key', value: 'targets-signature', signedAt: '2026-07-20T00:00:00.000Z' },
+        }],
+      },
+      trustNow: '2026-07-30T00:00:00.000Z',
+    });
+
+    expect(preview.status).toBe('blocked');
+    expect(preview.trust.tufMetadata).toMatchObject({
+      status: 'blocked',
+      rootVersion: 4,
+    });
+    expect(preview.validationErrors).toContain('trust.root expired');
+    expect(packageInstallTrustSummary(preview).tufMetadataLabel).toContain('TUF metadata blocked');
+  });
+
+  it('blocks registry trust metadata below the persisted rollback floor', () => {
+    const checksum = sha256Canonical(packageFixture);
+    const preview = buildPackageInstallPreview(packageFixture, {
+      sourceUrl: 'https://example.com/apps/demo.package.json',
+      expectedChecksum: checksum,
+      registryPackage: {
+        ...registryFixture.packages[0],
+        checksum,
+        publisher: { id: 'demo.publisher' },
+      },
+      registryTrustMetadata: {
+        root: {
+          schemaVersion: 'utopia.extension-trust-root.v1',
+          version: 4,
+          expires: '2026-08-30T00:00:00.000Z',
+          rootKeyId: 'root-key',
+          delegatedPublishers: [{
+            publisherId: 'demo.publisher',
+            extensionIdPatterns: ['*'],
+            delegatedSigningKeyIds: ['publisher-key'],
+          }],
+          signature: { algorithm: 'ecdsa-p256-sha256', keyId: 'root-key', value: 'root-signature', signedAt: '2026-07-20T00:00:00.000Z' },
+        },
+        targets: [{
+          schemaVersion: 'utopia.extension-trust-targets.v1',
+          publisherId: 'demo.publisher',
+          version: 7,
+          expires: '2026-08-30T00:00:00.000Z',
+          delegatedSigningKeyIds: ['publisher-key'],
+          signature: { algorithm: 'ecdsa-p256-sha256', keyId: 'publisher-key', value: 'targets-signature', signedAt: '2026-07-20T00:00:00.000Z' },
+        }],
+      },
+      trustFloor: {
+        minimumAcceptedRootVersion: 5,
+        minimumAcceptedTargetsVersionByPublisher: { 'demo.publisher': 8 },
+      },
+      trustNow: '2026-07-30T00:00:00.000Z',
+    });
+
+    expect(preview.status).toBe('blocked');
+    expect(preview.trust.tufMetadata.status).toBe('blocked');
+    expect(preview.validationErrors).toEqual(expect.arrayContaining([
+      'trust.root version rollback',
+      'trust.targets[0] version rollback',
+    ]));
+  });
+
+  it('shows structurally valid but unverified TUF metadata without granting a green trust tone', () => {
+    const checksum = sha256Canonical(packageFixture);
+    const preview = buildPackageInstallPreview(packageFixture, {
+      sourceUrl: 'https://example.com/apps/demo.package.json',
+      expectedChecksum: checksum,
+      registryPackage: {
+        ...registryFixture.packages[0],
+        checksum,
+        publisher: { id: 'demo.publisher' },
+      },
+      registryTrustMetadata: {
+        root: {
+          schemaVersion: 'utopia.extension-trust-root.v1',
+          version: 6,
+          expires: '2026-08-30T00:00:00.000Z',
+          rootKeyId: 'root-key',
+          delegatedPublishers: [{
+            publisherId: 'demo.publisher',
+            extensionIdPatterns: ['*'],
+            delegatedSigningKeyIds: ['publisher-key'],
+          }],
+          signature: { algorithm: 'ecdsa-p256-sha256', keyId: 'root-key', value: 'root-signature', signedAt: '2026-07-20T00:00:00.000Z' },
+        },
+        targets: [{
+          schemaVersion: 'utopia.extension-trust-targets.v1',
+          publisherId: 'demo.publisher',
+          version: 9,
+          expires: '2026-08-30T00:00:00.000Z',
+          delegatedSigningKeyIds: ['publisher-key'],
+          signature: { algorithm: 'ecdsa-p256-sha256', keyId: 'publisher-key', value: 'targets-signature', signedAt: '2026-07-20T00:00:00.000Z' },
+        }],
+      },
+      trustNow: '2026-07-30T00:00:00.000Z',
+    });
+
+    expect(preview.status).toBe('ready_for_review');
+    expect(preview.trust.tufMetadata).toMatchObject({
+      status: 'present_unverified',
+      rootVersion: 6,
+      targetsVersion: 9,
+    });
+    expect(packageInstallTrustSummary(preview)).toMatchObject({ trustTone: 'unknown' });
   });
 
   it('blocks signed registry packages when the public key is not in the trust root', async () => {
@@ -349,27 +513,16 @@ describe('package install link and registry contracts', () => {
         publicKey: 'not-the-trusted-key',
       },
     };
-    const trustPolicy = {
-      schemaVersion: 'utopia.trust-policy.v1' as const,
-      name: 'Test Trust Root',
-      trustedKeys: [{
-        publisherId: 'demo.publisher',
-        keyId: 'demo-key-1',
-        algorithm: 'ecdsa-p256-sha256' as const,
-        publicKey: signature.publicKey,
-        status: 'trusted' as const,
-      }],
-    };
-
     const preview = await buildPackageInstallPreviewWithSignatureVerification(packageFixture, {
       sourceUrl: 'https://example.com/apps/demo.package.json',
       registryPackage,
-      trustPolicy,
     });
 
     expect(preview.status).toBe('blocked');
     expect(preview.trust.signatureStatus).toBe('signature_invalid');
-    expect(preview.validationErrors).toContain('signature publicKey does not match trusted key');
+    expect(preview.validationErrors).toEqual(expect.arrayContaining([
+      expect.stringContaining('signature verification failed'),
+    ]));
   });
 
   it('keeps unknown remote packages review-only and checksum-unverified', () => {

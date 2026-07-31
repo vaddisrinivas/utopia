@@ -103,6 +103,26 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+export function nextActionForAndroidBlock(reason, detail = {}) {
+  if (reason === 'missing:android_golden_loop_opt_in') return 'Set UTOPIA_ANDROID_GOLDEN_LOOP=1 and provide emulator serials.';
+  if (reason === 'missing:android_emulator_serials') return 'Launch two Android emulators and set UTOPIA_ANDROID_GOLDEN_LOOP_SERIALS to two emulator-<port> IDs.';
+  if (reason === 'invalid:android_apk_hash_match') return 'Use distinct APKs for v1 and v2, then set APK_PATH_V1 and APK_PATH_V2.';
+  if (reason === 'missing:android_package_id') return 'Set UTOPIA_ANDROID_PACKAGE_ID to your golden-loop package id.';
+  if (reason === 'invalid:android_package_id') return 'Set UTOPIA_ANDROID_PACKAGE_ID to a package ending with .goldenloop.';
+  if (reason === 'missing:android_apk_v1_file' || reason === 'missing:android_apk_v2_file') return 'Upload APK artifacts and set APK_PATH_V1 / APK_PATH_V2.';
+  if (reason === 'invalid:android_apk_v1_hash' || reason === 'invalid:android_apk_v2_hash') return 'Regenerate APK hashes and set APK_V1_SHA256 / APK_V2_SHA256.';
+  if (reason === 'missing:android_golden_loop_debug_bridge') return 'Verify UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN and bridge command are configured.';
+  if (reason === 'missing:android_sqlite_query') return 'Ensure adb can access app databases or reinstall debug APK with same package id.';
+  if (reason === 'missing:android_installation_rows') return 'Check that the app wrote persistent installation rows before each transition.';
+  if (reason === 'missing:golden_loop_debug_token') return 'Set UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN (or EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN).';
+  if (reason === 'missing:android_package_name') return 'Install the target package before running the lane.';
+  if (String(reason).startsWith('missing:adb')) return 'Install Android platform tools and ensure ADB is on PATH.';
+  if (String(reason).startsWith('missing:sqlite')) return 'Install sqlite3 and ensure sqlite is on PATH.';
+  if (reason.includes('missing_app_database') || reason.includes('android_db_snapshot_failed')) return 'Check app is installed and database-backed instrumentation is available.';
+  if (reason.startsWith('invalid:android_shell_proof_receipt')) return 'Open android per-device shell proof and fix shell-proof blockers.';
+  return 'Rerun the lane after fixing blocked prerequisites.';
+}
+
 function parseArgv(argv = []) {
   const out = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -1143,6 +1163,7 @@ async function run() {
         ...report,
         status: 'BLOCKED',
         proof: SHELL_PROOF_PROTOCOL,
+        next_action: nextActionForAndroidBlock(error.reason, error.detail),
         blocker: {
           reason: error.reason,
           detail: error.detail,

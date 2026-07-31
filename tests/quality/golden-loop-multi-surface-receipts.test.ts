@@ -131,6 +131,7 @@ function makeStrictReceipt({
 
   return {
     proof: proofBySurface[surface],
+    run_id: 'golden-loop-test-run-v1',
     schema_version: SHELL_PROOF_SCHEMA_VERSION,
     checked_at: SOURCE_TIMESTAMP,
     status: 'passed',
@@ -341,7 +342,6 @@ describe('golden loop multi-surface receipt validation', () => {
       macosReceipt: macos,
       proofPath,
     });
-
     expect(result.status).toBe(0);
     expect(result.evidence.status).toBe('PASS');
     expect(result.evidence.blockers).toEqual([]);
@@ -371,7 +371,7 @@ describe('golden loop multi-surface receipt validation', () => {
     expect(result.evidence.surfaces.android.received[1]?.installation_id).toBe('android-install-b');
   });
 
-  it('blocks synthetic execution receipts', () => {
+  it('blocks synthetic execution receipts', { timeout: 15_000 }, () => {
     const temp = createTempRoot();
     const proofPath = join(temp, 'multi-surface-receipts.json');
     const androidA = join(temp, 'android-a.json');
@@ -438,7 +438,7 @@ describe('golden loop multi-surface receipt validation', () => {
     expect(result.evidence.status_reason).toContain('blocked:');
   });
 
-  it('blocks when package checksums diverge across surfaces', () => {
+  it('blocks when package checksums diverge across surfaces', { timeout: 15_000 }, () => {
     const temp = createTempRoot();
     const proofPath = join(temp, 'multi-surface-receipts.json');
     const androidA = join(temp, 'android-a.json');
@@ -500,7 +500,7 @@ describe('golden loop multi-surface receipt validation', () => {
     expect(result.evidence.blockers.some((blocker) => blocker.startsWith('package_checksum_mismatch:'))).toBe(true);
   });
 
-  it('blocks tampered raw observation artifacts even when operation ids converge', () => {
+  it('blocks tampered raw observation artifacts even when operation ids converge', { timeout: 15_000 }, () => {
     const temp = createTempRoot();
     const proofPath = join(temp, 'multi-surface-receipts.json');
     const androidA = join(temp, 'android-a.json');

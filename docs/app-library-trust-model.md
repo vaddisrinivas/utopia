@@ -18,6 +18,8 @@ These are the live contract points the app library should speak in:
 - Install target parsing: `parsePackageInstallTarget()`
 - Install preview: `buildPackageInstallPreview()`
 - Trust state: `PackageInstallTrustStatus`
+- Publisher trust state: `PackageInstallPublisherTrustStatus`
+- TUF metadata state: `PackageInstallTufMetadataStatus`
 - Approval receipt: `buildPackageInstallApprovalReceipt()`
 - Approval match check: `assertPackageInstallApprovalMatchesPreview()`
 - App install record: `AppInstallation`
@@ -32,6 +34,9 @@ Important enforcement today:
 - Registry signatures with public keys are cryptographically verified in the install fetch path.
 - Missing signatures do not block old packages.
 - Invalid signature metadata or failed signature verification blocks install review.
+- A valid self-signature never proves publisher trust by itself.
+- Publisher trust is accepted only from the installed trust root/store; a package-supplied key is shown as untrusted.
+- Expired, rolled-back, or publisher-mismatched TUF metadata blocks install review.
 - Approval receipts are real.
 - Runtime compatibility blocks install.
 - Validation errors block install.
@@ -127,7 +132,7 @@ The preview should surface:
 - Widgets required
 - Plugins required
 - Fallbacks
-- Trust state and checksum details
+  - Checksum integrity, self-signature, publisher trust, and TUF metadata as separate rows
 - Validation errors
 
 Approval should only happen when:
@@ -217,6 +222,19 @@ Contract mapping:
 - `hashPackageInstallPreview()`
 - `hashPackageInstallApprovalReceipt()`
 
+## Trust state meanings
+
+The preview deliberately shows four separate facts:
+
+| Preview field | Meaning | Install effect |
+| --- | --- | --- |
+| `trust.status` | Package bytes match the registry checksum | Mismatch blocks; missing remains review-only |
+| `trust.signatureStatus` | The package's own signature is structurally/cryptographically valid | Invalid blocks; valid does not identify a trusted publisher |
+| `trust.publisherTrustStatus` | The signer is accepted by Utopia's installed publisher trust root | `blocked` blocks; `untrusted` and `unknown` stay visibly review-only |
+| `trust.tufMetadata` | Registry root/targets metadata state and version floor | Expired, rolled back, or missing delegation blocks; missing metadata is explicit |
+
+`present_unverified` TUF metadata means the shape and freshness checks passed, but this preview path has not verified the metadata signature. It must not receive a green trust tone.
+
 ## Signatures
 
 Signature metadata and cryptographic verification are implemented in the current registry and preview contracts.
@@ -229,13 +247,13 @@ Current contract shape:
 - Preview exposes `trust.signatureStatus`.
 - Preview exposes signature algorithm, key id, and signed time when present.
 - Missing signature means `signature_missing`.
-- Present well-formed signature metadata means `signature_present`.
+- Present well-formed signature metadata means `signature_present_untrusted` until verification runs.
 - Cryptographically verified signature means `signature_verified`.
 - Malformed signature metadata means `signature_invalid` and blocks review.
 - Failed cryptographic verification means `signature_invalid` and blocks review.
 - Keep checksum verification even if signatures exist.
 - For curated registries, resolve `publisher.id + signature.keyId + algorithm` against `UtopiaTrustPolicy` before treating a signature as trusted.
-- A package-provided public key is acceptable for verification only when it matches a trusted policy key.
+- A package-provided public key can support self-signature verification, but it cannot establish publisher trust.
 
 Why both matter:
 

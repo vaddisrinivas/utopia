@@ -176,6 +176,33 @@ describe('reference app renderer', () => {
     }
   });
 
+  it('maps navigation and record-list widgets from surface composition', () => {
+    const spec = buildJsonRenderSpec({
+      title: 'Navigation',
+      screen: 'custom',
+      records: [],
+      ui: {
+        schemaVersion: 'a2ui.v0_9',
+        defaultScreen: 'custom',
+        screens: {
+          custom: {
+            title: 'Navigation surface',
+            components: [
+              { kind: 'action', placement: 'top', action: { label: 'Open', route: '/settings', payload: { route: '/settings' } } },
+              { kind: 'action', placement: 'fab', action: { label: 'Capture', route: '/record/new', payload: { route: '/record/new' } } },
+              { kind: 'recordList', title: 'Search', props: { searchable: true } },
+            ] as any[],
+          },
+        },
+      } satisfies A2UiSurface,
+    });
+
+    const elementTypes = Object.values(spec.elements).map((element) => element.type);
+    expect(elementTypes).toContain('ScreenHeaderWidget');
+    expect(elementTypes).toContain('FloatingActionWidget');
+    expect(elementTypes).toContain('SearchableRecordListWidget');
+  });
+
   it('uses galleryGrid as a generic inventory surface with item details', () => {
     const spec = buildJsonRenderSpec({
       title: 'Workshop',
@@ -686,6 +713,20 @@ describe('reference app renderer', () => {
     expect(source).not.toMatch(/\bshopping\b/);
     expect(source).not.toContain('Ask Wonder');
     expect(source).not.toMatch(/\bWonder\b/);
+  });
+
+  it('keeps local file widgets in a bounded neutral family', () => {
+    const parentSource = readFileSync('src/presentation/json-render-widgets.tsx', 'utf8');
+    const familySource = readFileSync('src/presentation/widgets/file-widgets.tsx', 'utf8');
+
+    expect(parentSource).toContain("from '@/src/presentation/widgets/file-widgets'");
+    expect(parentSource).not.toContain('function FilePickerWidget');
+    expect(parentSource).not.toContain('function FileExportWidget');
+    expect(familySource).toContain('requestWidgetCapability');
+    expect(familySource).toContain("{ kind: 'file-picker', action: 'choose'");
+    expect(familySource).toContain("{ kind: 'file-export', action: 'export'");
+    expect(familySource).not.toMatch(/@\/src\/(db|chat|providers|health|settings)\//);
+    expect(familySource.split('\n')).toHaveLength(232);
   });
 });
 

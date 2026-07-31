@@ -34,6 +34,21 @@ export type CapabilityConsentLedgerDecisionState = Readonly<{
   revokedReason?: string;
 }>;
 
+export type CapabilityDecisionInput = Readonly<{
+  installationId: string;
+  packageId: string;
+  packageVersion: string;
+  packageChecksum: string;
+  capability: string;
+  scope: readonly string[];
+}>;
+
+export type CapabilityDecision = 'allow' | 'deny' | 'missing' | 'revoked' | 'checksum_mismatch';
+
+export type CapabilityDecisionPort = Readonly<{
+  decide(input: CapabilityDecisionInput): CapabilityDecision;
+}>;
+
 const LEDGER_SCOPE_SEPARATOR = '|';
 
 export function buildCapabilityConsentLedgerScope(input: readonly string[]): string[] {
@@ -194,10 +209,41 @@ export function getCapabilityConsentLedgerState(input: CapabilityConsentRecord):
   };
 }
 
+export function createCapabilityDecisionPort(
+  records: readonly CapabilityConsentRecord[],
+): CapabilityDecisionPort {
+  return {
+    decide(input) {
+      const scope = buildCapabilityConsentLedgerScope(input.scope);
+      const candidates = records.filter((record) => (
+        record.installationId === input.installationId
+        && record.packageId === input.packageId
+        && record.capability === input.capability
+        && buildCapabilityConsentLedgerScope(record.scope).join(LEDGER_SCOPE_SEPARATOR) === scope.join(LEDGER_SCOPE_SEPARATOR)
+      ));
+      const exact = candidates.find((record) => (
+        record.packageVersion === input.packageVersion
+        && record.packageChecksum === input.packageChecksum
+      ));
+      if (exact) {
+        const state = getCapabilityConsentLedgerState(exact);
+        if (state.isRevoked) return 'revoked';
+        return state.effectiveDecision === 'allow' ? 'allow' : 'deny';
+      }
+      if (candidates.length > 0) return 'checksum_mismatch';
+      return 'missing';
+    },
+  };
+}
+
 export function buildCapabilityConsentRecordSnapshotText(input: CapabilityConsentRecord): string {
   const canonical = canonicalCapabilityConsentRecord(input);
   const scope = canonical.scope.join(LEDGER_SCOPE_SEPARATOR);
-  return `${canonical.installationId}${LEDGER_SCOPE_SEPARATOR}${canonical.packageId}${LEDGER_SCOPE_SEPARATOR}${canonical.packageId}@${canonical.packageVersion}${LEDGER_SCOPE_SEPARATOR}${scope}${LEDGER_SCOPE_SEPARATOR}${canonical.decision}`;
+  return `${canonical.installationId}${LEDGER_SCOPE_SEPARATOR}${canonical.packageId}`
+    + `${LEDGER_SCOPE_SEPARATOR}${canonical.packageVersion}`
+    + `${LEDGER_SCOPE_SEPARATOR}${canonical.packageChecksum}`
+    + `${LEDGER_SCOPE_SEPARATOR}${scope}`
+    + `${LEDGER_SCOPE_SEPARATOR}${canonical.decision}`;
 }
 
 function isText(value: unknown): value is string {

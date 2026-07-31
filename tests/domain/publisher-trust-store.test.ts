@@ -55,6 +55,36 @@ describe('publisher trust store policy', () => {
     })).rejects.toThrow(/unknown_root/);
   });
 
+  it('rejects snapshots signed by a revoked pinned root', async () => {
+    const root = await generateSigningMaterial();
+    const publisherKey = await generateSigningMaterial();
+    const snapshot = await makeSignedSnapshot({
+      payload: makeSnapshotPayload({
+        snapshotVersion: 2,
+        publisherKeys: [makePublisherKey({
+          publisherId: 'demo.publisher',
+          rootKeyId: 'root-a',
+          keyId: 'demo-key',
+          publicKey: publisherKey.publicKey,
+        })],
+      }),
+      rootKeyId: 'root-a',
+      rootMaterial: root,
+      signedAt: '2026-07-10T00:00:00.000Z',
+    });
+
+    await expect(createPublisherTrustStore({
+      pinnedRoots: [makePinnedRoot({
+        rootKeyId: 'root-a',
+        publicKey: root.publicKey,
+        status: 'revoked',
+        revokedAt: '2026-07-01T00:00:00.000Z',
+      })],
+      snapshot,
+      now: trustNow,
+    })).rejects.toThrow(/revoked/);
+  });
+
   it('rejects tampered snapshots after signing', async () => {
     const root = await generateSigningMaterial();
     const publisherKey = await generateSigningMaterial();
@@ -773,6 +803,8 @@ describe('publisher trust store policy', () => {
     });
 
     expect(preview.trust.signatureStatus).toBe('signature_verified');
+    expect(preview.trust.publisherTrustStatus).toBe('trusted');
+    expect(preview.trust.publisherTrustReason).toContain('trusted by the installed trust root');
     expect(preview.trust.signatureKeyId).toBe('artifact-key');
     expect(preview.validationErrors).toEqual([]);
   });

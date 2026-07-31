@@ -2,7 +2,6 @@ import type { ComponentRegistry, ComponentRenderProps } from '@json-render/react
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, Keyboard, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { resolveChatServerConfig, sendChatMessage, undoChatAction } from '@/src/chat/client';
 import type { ChatMessage, ChatThread } from '@/src/chat/types';
@@ -40,7 +39,6 @@ import {
   LocalAuthentication,
   Location,
   Notifications,
-  Sharing,
   Speech,
   createAudioLoopRecorderDriver,
   createAudioPlayer,
@@ -74,13 +72,15 @@ import {
 } from '@/src/presentation/widgets/widget-sdk';
 import { evaluateScientificExpression, formatCalcValue } from '@/src/presentation/widgets/scientific-calculator-engine';
 import {
-  SearchableRecordListWidget as SearchableRecordListWidgetCore,
-} from '@/src/presentation/widgets/generic-record-list-widgets';
-import {
   FormCardWidget,
   KanbanBoardWidget,
   PollCardWidget,
 } from '@/src/presentation/widgets/panel-widget-family';
+import {
+  FloatingActionWidget,
+  SearchableRecordListWidget,
+  ScreenHeaderWidget,
+} from '@/src/presentation/widgets/navigation-widget-family';
 import {
   audioLoopStatusLabel,
   clampInteger,
@@ -138,6 +138,10 @@ import {
   DurationTimerWidget,
   StepFlowWidget,
 } from '@/src/presentation/widgets/timed-flow-widgets';
+import {
+  FileExportWidget,
+  FilePickerWidget,
+} from '@/src/presentation/widgets/file-widgets';
 import { undoOperation } from '@/src/ops/undo';
 
 export {
@@ -1073,8 +1077,7 @@ async function persistCaptureAsset(asset: {
   width?: number | null;
   height?: number | null;
   fileName?: string | null;
-}): Promise<CaptureAsset> {
-  const fileSystem = await loadExpoFileSystem();
+}, fileSystem: any): Promise<CaptureAsset> {
   const base = fileSystem.documentDirectory;
   if (!base) {
     return {
@@ -1141,7 +1144,7 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setMessage(null);
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'media-picker', action: source, media: 'image' },
         setMessage,
       )) {
@@ -1158,7 +1161,8 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
         ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 })
         : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
       if (result.canceled || !result.assets[0]) return;
-      const saved = await persistCaptureAsset(result.assets[0]);
+      const fileSystem = await loadExpoFileSystem();
+      const saved = await persistCaptureAsset(result.assets[0], fileSystem);
       setAsset(saved);
       setPreviewing(false);
       if (!title.trim()) {
@@ -1477,11 +1481,15 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const startDelayOptions = numericOptions(props.startDelayOptions, [0, 10, 30, 60, 180]);
   const sessionActive = status === 'playing' || status === 'paused' || status === 'between' || status === 'starting';
   const recorderCapability = useMemo(() => requestWidgetCapability(
-    { installationId: runtime.installationId, activePackage: runtime.activePackage },
+    runtime,
     { kind: 'audio-recorder', action: 'record' },
-  ), [runtime.activePackage, runtime.installationId]);
+  ), [runtime]);
   const recorderDisabledMessage = recorderCapability.ok ? null : recorderCapability.error.message;
   const canRecordAudio = recorderCapability.ok && !recorderMessage;
+  const audioFileCapability = useMemo(() => requestWidgetCapability(
+    runtime,
+    { kind: 'audio-file', action: 'choose' },
+  ), [runtime]);
   const activeAsset = audioLoopState.assets.find((item) => item.id === audioLoopState.activeAssetId) ?? null;
   const activePlaylist = audioLoopState.playlists.find((item) => item.id === audioLoopState.activePlaylistId) ?? null;
   const playlistNavigation = useMemo(() => getAudioLoopPlaylistNavigation(audioLoopState), [audioLoopState]);
@@ -1531,7 +1539,7 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       setStatus('ready');
       setError('Playback was blocked. Tap Start again.');
     }
-  }, [volume]);
+  }, [runtime, volume]);
 
   const scheduleDelay = useCallback((seconds: number) => {
     clearAudioLoopDelay(delayTimerRef);
@@ -1601,6 +1609,8 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     name: string;
     volume?: number;
   }) => {
+    const playbackCapability = requestWidgetCapability(runtime, { kind: 'audio-file', action: 'choose' });
+    if (!playbackCapability.ok) throw new Error(playbackCapability.error.message);
     clearAudioLoopDelay(delayTimerRef);
     playerRef.current?.pause();
     playerRef.current?.remove();
@@ -1709,6 +1719,11 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
   useEffect(() => {
     if (!isInitializingFromStorage.current) return;
+    if (!audioFileCapability.ok) {
+      isInitializingFromStorage.current = false;
+      setError(audioFileCapability.error.message);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -1777,7 +1792,7 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     return () => {
       cancelled = true;
     };
-  }, [initializePlayer]);
+  }, [audioFileCapability, initializePlayer]);
 
   useEffect(() => {
     setActiveAssetRenameInput(activeAsset?.displayName ?? '');
@@ -1786,7 +1801,7 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const chooseFile = useCallback(async () => {
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'audio-file', action: 'choose' },
         setError,
       )) {
@@ -1934,7 +1949,7 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     void (async () => {
       try {
         if (!requireWidgetCapability(
-          { installationId: runtime.installationId, activePackage: runtime.activePackage },
+          runtime,
           { kind: 'audio-recorder', action: 'record' },
           setRecorderMessage,
         )) {
@@ -2363,159 +2378,6 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   );
 }
 
-type PickedFileInfo = {
-  uri: string;
-  name: string;
-  mimeType: string;
-  size?: number;
-};
-
-function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const props = element.props ?? {};
-  const runtime = useAppRuntime();
-  const [files, setFiles] = useState<PickedFileInfo[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const mimeTypes = stringList(props.mimeTypes, ['*/*']);
-  const multiple = props.multiple === true;
-  const copyToCacheDirectory = props.copyToCacheDirectory !== false && Platform.OS !== 'web';
-
-  const chooseFile = useCallback(async () => {
-    setBusy(true);
-    setError('');
-    try {
-      if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
-        { kind: 'file-picker', action: 'choose', mimeTypes, multiple, copyToCacheDirectory },
-        setError,
-      )) {
-        return;
-      }
-      const result = await DocumentPicker.getDocumentAsync({
-        type: mimeTypes.length === 1 ? mimeTypes[0] : mimeTypes,
-        multiple,
-        copyToCacheDirectory,
-        base64: false,
-      });
-      if (result.canceled) return;
-      const nextFiles: PickedFileInfo[] = [];
-      for (const asset of result.assets ?? []) {
-        const info = await safeFileInfo(asset.uri);
-        nextFiles.push({
-          uri: asset.uri,
-          name: String(asset.name ?? asset.uri.split('/').pop() ?? 'Picked file'),
-          mimeType: String(asset.mimeType ?? 'unknown'),
-          size: typeof asset.size === 'number' ? asset.size : info.size,
-        });
-      }
-      setFiles(nextFiles);
-    } catch {
-      setError('File picker failed.');
-    } finally {
-      setBusy(false);
-    }
-  }, [copyToCacheDirectory, mimeTypes, multiple, runtime.activePackage, runtime.installationId]);
-
-  return (
-    <WidgetShell title={text(props.title, 'File picker')} subtitle={text(props.subtitle, 'Pick local files without uploading them.')}>
-      <View style={styles.previewBox}>
-        <Text style={styles.previewTitle}>{files.length ? `${files.length} selected` : text(props.emptyTitle, 'No file selected')}</Text>
-        <Text style={styles.previewText}>{mimeTypes.join(', ')}</Text>
-        <View style={styles.providerActions}>
-          <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={chooseFile} disabled={busy}>
-            <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : files.length ? 'Change' : 'Choose file'}</Text>
-          </Pressable>
-          {files.length ? (
-            <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setFiles([])}>
-              <Text style={styles.secondaryButtonText}>Clear</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        {error ? <Text style={styles.warning}>{error}</Text> : null}
-      </View>
-
-      {files.map((file) => (
-        <View key={file.uri} style={styles.fileRow}>
-          <View style={styles.fileIcon}>
-            <Text style={styles.fileIconText}>F</Text>
-          </View>
-          <View style={styles.fileCopy}>
-            <Text numberOfLines={1} style={styles.fileName}>{file.name}</Text>
-            <Text style={styles.formHint}>{file.mimeType} · {formatFileSize(file.size)} · local only</Text>
-            <Text numberOfLines={1} style={styles.previewText}>{file.uri}</Text>
-          </View>
-        </View>
-      ))}
-    </WidgetShell>
-  );
-}
-
-function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const props = element.props ?? {};
-  const runtime = useAppRuntime();
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
-  const fileName = sanitizeFileName(text(props.fileName, 'utopia-export.txt'));
-  const mimeType = text(props.mimeType, 'text/plain');
-  const content = exportContent(props.content, text(props.body, 'Created by Utopia.'));
-
-  const exportFile = useCallback(async () => {
-    setBusy(true);
-    setStatus('');
-    setError('');
-    try {
-      if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
-        { kind: 'file-export', action: 'export', fileName, mimeType },
-        setError,
-      )) {
-        return;
-      }
-      if (Platform.OS === 'web' && typeof document !== 'undefined' && typeof URL !== 'undefined') {
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = fileName;
-        anchor.click();
-        URL.revokeObjectURL(url);
-        setStatus('Download started.');
-        return;
-      }
-      const fileSystem = await loadExpoFileSystem();
-      const base = fileSystem.cacheDirectory ?? fileSystem.documentDirectory;
-      if (!base) throw new Error('missing_file_directory');
-      const uri = `${base}${fileName}`;
-      await fileSystem.writeAsStringAsync(uri, content, { encoding: fileSystem.EncodingType.UTF8 });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType, dialogTitle: text(props.shareTitle, 'Share file') });
-        setStatus('Share sheet opened.');
-      } else {
-        setStatus(`Saved locally: ${uri}`);
-      }
-    } catch {
-      setError('File export failed.');
-    } finally {
-      setBusy(false);
-    }
-  }, [content, fileName, mimeType, props.shareTitle, runtime.activePackage, runtime.installationId]);
-
-  return (
-    <WidgetShell title={text(props.title, 'File export')} subtitle={text(props.subtitle, 'Create a local file and share or download it.')}>
-      <View style={styles.previewBox}>
-        <Text style={styles.previewTitle}>{fileName}</Text>
-        <Text style={styles.previewText}>{mimeType} · {formatFileSize(content.length)}</Text>
-        <Pressable accessibilityRole="button" style={[styles.primaryButton, busy ? styles.disabled : null]} onPress={exportFile} disabled={busy}>
-          <Text style={styles.primaryButtonText}>{busy ? 'Preparing…' : text(props.cta, 'Export')}</Text>
-        </Pressable>
-        {status ? <Text style={styles.success}>{status}</Text> : null}
-        {error ? <Text style={styles.warning}>{error}</Text> : null}
-      </View>
-    </WidgetShell>
-  );
-}
-
 function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -2527,19 +2389,25 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [videoModule, setVideoModule] = useState<NativeVideoModule | null>(null);
   const contentFit = props.contentFit === 'cover' || props.contentFit === 'fill' ? props.contentFit : 'contain';
   const videoCapability = requestWidgetCapability(
-    { installationId: runtime.installationId, activePackage: runtime.activePackage },
+    runtime,
     { kind: 'video-player', action: 'render' },
   );
 
   useEffect(() => {
     let cancelled = false;
+    if (!videoCapability.ok) {
+      setVideoModule(null);
+      return () => {
+        cancelled = true;
+      };
+    }
     void loadExpoVideo().then((module) => {
       if (!cancelled) setVideoModule(module);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [runtime.activePackage?.id, runtime.activePackage?.version, runtime.installationId, videoCapability.ok]);
 
   function LoadedVideoSurface() {
     if (!videoModule) return null;
@@ -2570,7 +2438,7 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setError('');
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'media-picker', action: mode, media: 'video' },
         setError,
       )) {
@@ -2640,29 +2508,43 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const runtime = useAppRuntime();
   const [cameraModule, setCameraModule] = useState<NativeCameraModule | null>(null);
   const [scan, setScan] = useState<any>(null);
+  const [error, setError] = useState('');
   const barcodeTypes = stringList(props.barcodeTypes, ['qr', 'code128', 'ean13']);
+  const cameraCapability = requestWidgetCapability(runtime, {
+    kind: 'camera-scanner',
+    action: 'scan',
+    barcodeTypes,
+  });
   useEffect(() => {
     let cancelled = false;
+    if (!cameraCapability.ok) {
+      setCameraModule(null);
+      setError(cameraCapability.error.message);
+      return () => {
+        cancelled = true;
+      };
+    }
     void loadExpoCamera().then((module) => {
       if (!cancelled) setCameraModule(module);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [cameraCapability.ok, cameraCapability.ok ? '' : cameraCapability.error.message]);
 
   function LoadedCameraScanner() {
     if (!cameraModule) return null;
     const [permission, requestPermission] = cameraModule.useCameraPermissions();
-    if (!requireWidgetCapability(
-      { installationId: runtime.installationId, activePackage: runtime.activePackage },
-      { kind: 'camera-scanner', action: 'scan', barcodeTypes },
-      () => undefined,
-    )) {
+    const currentCapability = requestWidgetCapability(runtime, {
+      kind: 'camera-scanner',
+      action: 'scan',
+      barcodeTypes,
+    });
+    if (!currentCapability.ok) {
       return (
         <View style={styles.previewBox}>
           <Text style={styles.previewTitle}>Camera access</Text>
-          <Text style={styles.previewText}>Camera capability is not granted for this package.</Text>
+          <Text style={styles.previewText}>{currentCapability.error.message}</Text>
         </View>
       );
     }
@@ -2693,10 +2575,10 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
 
   return (
     <WidgetShell title={text(props.title, 'Camera scanner')} subtitle={text(props.subtitle, 'Scan QR and barcode values locally.')}>
-      {cameraModule ? <LoadedCameraScanner /> : (
+      {cameraModule && cameraCapability.ok ? <LoadedCameraScanner /> : (
         <View style={styles.previewBox}>
           <Text style={styles.previewTitle}>Camera access</Text>
-          <Text style={styles.previewText}>Loading camera tools…</Text>
+          <Text style={styles.previewText}>{error || 'Loading camera tools…'}</Text>
         </View>
       )}
       {scan ? (
@@ -2728,7 +2610,7 @@ function LocationMapWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setError('');
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'location', action: 'current' },
         setError,
       )) {
@@ -2785,22 +2667,34 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [reading, setReading] = useState<Record<string, number> | null>(null);
   const [active, setActive] = useState(false);
   const [error, setError] = useState('');
+  const sensorCapability = requestWidgetCapability(
+    runtime,
+    { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+  );
 
   useEffect(() => {
     let cancelled = false;
+    if (!sensorCapability.ok) {
+      setSensorModule(null);
+      setActive(false);
+      setError(sensorCapability.error.message);
+      return () => {
+        cancelled = true;
+      };
+    }
     void loadExpoSensors().then((module) => {
       if (!cancelled) setSensorModule(module);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [runtime, sensorCapability.ok, sensorName]);
 
   useEffect(() => {
     if (!active || !sensorModule) return undefined;
     if (!requireWidgetCapability(
-      { installationId: runtime.installationId, activePackage: runtime.activePackage },
-      { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+      runtime,
+        { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
       setError,
     )) {
       setActive(false);
@@ -2855,7 +2749,7 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     setMessage('');
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'notification', action: 'schedule' },
         setMessage,
       )) {
@@ -2885,7 +2779,7 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
   const cancel = useCallback(async () => {
     if (!notificationId) return;
     if (!requireWidgetCapability(
-      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      runtime,
       { kind: 'notification', action: 'cancel' },
       setMessage,
     )) {
@@ -2922,7 +2816,7 @@ function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setMessage('');
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'contacts', action: 'pick' },
         setMessage,
       )) {
@@ -2975,7 +2869,7 @@ function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
     setMessage('');
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'calendar', action: 'create' },
         setMessage,
       )) {
@@ -3029,7 +2923,7 @@ function BiometricGateWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const authenticate = useCallback(async () => {
     try {
       if (!requireWidgetCapability(
-        { installationId: runtime.installationId, activePackage: runtime.activePackage },
+        runtime,
         { kind: 'biometric', action: 'authenticate' },
         setMessage,
       )) {
@@ -3078,7 +2972,7 @@ function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [message, setMessage] = useState('');
   const speak = useCallback(() => {
     if (!requireWidgetCapability(
-      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      runtime,
       { kind: 'speech', action: 'speak', textLength: phrase.length },
       setMessage,
     )) {
@@ -3089,7 +2983,7 @@ function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   }, [phrase, runtime.activePackage, runtime.installationId]);
   const stop = useCallback(() => {
     if (!requireWidgetCapability(
-      { installationId: runtime.installationId, activePackage: runtime.activePackage },
+      runtime,
       { kind: 'speech', action: 'stop', textLength: phrase.length },
       setMessage,
     )) {
@@ -3121,15 +3015,6 @@ function clearAudioLoopDelay(ref: { current: ReturnType<typeof setInterval> | nu
   }
 }
 
-async function safeFileInfo(uri: string): Promise<{ size?: number }> {
-  try {
-    const info = await FileSystem.getInfoAsync(uri);
-    return info.exists && typeof info.size === 'number' ? { size: info.size } : {};
-  } catch {
-    return {};
-  }
-}
-
 function stringList(value: unknown, fallback: string[]): string[] {
   if (Array.isArray(value)) {
     const items = value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
@@ -3139,26 +3024,8 @@ function stringList(value: unknown, fallback: string[]): string[] {
   return fallback;
 }
 
-function formatFileSize(size: number | undefined): string {
-  if (typeof size !== 'number' || !Number.isFinite(size) || size < 0) return 'size unknown';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 1024 * 10 ? 1 : 0)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(size < 1024 * 1024 * 10 ? 1 : 0)} MB`;
-}
-
 function titleize(value: string): string {
   return value.replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function sanitizeFileName(value: string): string {
-  const normalized = value.trim().replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
-  return normalized || 'utopia-export.txt';
-}
-
-function exportContent(value: unknown, fallback: string): string {
-  if (typeof value === 'string') return value;
-  if (value !== undefined) return JSON.stringify(value, null, 2);
-  return fallback;
 }
 
 function ChecklistCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
@@ -3264,63 +3131,6 @@ function ProviderStatusWidget({ element }: ComponentRenderProps<WidgetProps>) {
       ) : null}
       {props.cta ? <Text style={styles.providerCta}>{text(props.cta)}</Text> : null}
     </WidgetShell>
-  );
-}
-
-function ScreenHeaderWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const props = element.props ?? {};
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)' as never);
-  };
-  return (
-    <View style={[styles.screenHeader, { paddingTop: Math.max(insets.top + 6, 10) }]}>
-      <View style={styles.screenHeaderTitleRow}>
-        {props.showBack ? (
-          <Pressable
-            accessibilityLabel="Back"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={goBack}
-            style={styles.screenHeaderBack}
-          >
-            <Text style={styles.screenHeaderBackText}>‹</Text>
-          </Pressable>
-        ) : null}
-        <View style={styles.screenHeaderCopy}>
-          {props.eyebrow ? <Text style={styles.screenHeaderEyebrow}>{text(props.eyebrow)}</Text> : null}
-          <Text numberOfLines={1} style={styles.screenHeaderTitle}>{text(props.title, 'App')}</Text>
-        </View>
-        {props.actionLabel && props.actionRoute ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push(props.actionRoute as never)}
-            style={styles.screenHeaderAction}
-          >
-            <Text style={styles.screenHeaderActionText}>{text(props.actionLabel)}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function FloatingActionWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  const props = element.props ?? {};
-  if (!props.route) return null;
-  return (
-    <Pressable
-      accessibilityLabel={text(props.label, 'Add')}
-      accessibilityRole="button"
-      onPress={() => router.push(props.route as never)}
-      style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
-    >
-      <Text style={styles.fabPlus}>＋</Text>
-      <Text style={styles.fabLabel}>{text(props.label, 'Add')}</Text>
-    </Pressable>
   );
 }
 
@@ -3486,17 +3296,6 @@ function RecordDetailWidget({ element }: ComponentRenderProps<WidgetProps>) {
   );
 }
 
-function SearchableRecordListWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const router = useRouter();
-  return (
-    <SearchableRecordListWidgetCore
-      element={element}
-      onOpenRecord={(recordId) => router.push(`/record/${encodeURIComponent(recordId)}` as never)}
-      onOpenActionRoute={(route) => router.push(route as never)}
-    />
-  );
-}
-
 export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
   ScreenHeaderWidget,
   FloatingActionWidget,
@@ -3541,49 +3340,6 @@ export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
 };
 
 export const styles = StyleSheet.create({
-  screenHeader: {
-    backgroundColor: '#FBF7EE',
-    borderBottomColor: '#E8DFD1',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  screenHeaderTitleRow: { alignItems: 'center', flexDirection: 'row', minHeight: 42 },
-  screenHeaderBack: {
-    alignItems: 'center',
-    backgroundColor: '#F0E9DE',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    marginRight: 10,
-    width: 36,
-  },
-  screenHeaderBackText: { color: '#241C16', fontSize: 32, fontWeight: '500', lineHeight: 34 },
-  screenHeaderCopy: { flex: 1 },
-  screenHeaderEyebrow: { color: '#2F7448', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' },
-  screenHeaderTitle: { color: '#241C16', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  screenHeaderAction: { backgroundColor: '#2F7448', borderRadius: 18, paddingHorizontal: 15, paddingVertical: 9 },
-  screenHeaderActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  fab: {
-    alignItems: 'center',
-    backgroundColor: '#2F7448',
-    borderRadius: 26,
-    bottom: 16,
-    elevation: 8,
-    flexDirection: 'row',
-    gap: 5,
-    minHeight: 52,
-    paddingHorizontal: 18,
-    position: 'absolute',
-    right: 16,
-    shadowColor: '#102716',
-    shadowOffset: { height: 5, width: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-  },
-  fabPressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
-  fabPlus: { color: '#FFFFFF', fontSize: 23, fontWeight: '500', lineHeight: 25 },
-  fabLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
   recordSearch: { gap: 12 },
   searchInputShell: { alignItems: 'center', backgroundColor: '#F0E9DE', borderRadius: 18, flexDirection: 'row', minHeight: 52, paddingHorizontal: 14 },
   searchIcon: { color: '#2F7448', fontSize: 24, marginRight: 8 },

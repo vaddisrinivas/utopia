@@ -215,8 +215,10 @@ describe('audio loop contract helpers', () => {
       installationId: 'audio-loop-install',
       activePackage: {
         id: 'audio-loop-108',
+        version: '1.0.0',
         nativeCapabilities: audioLoopNativeCapabilities as never,
       },
+      capabilityDecisionPort: { decide: () => 'allow' },
     };
     const missingPackageRuntime: WidgetCapabilityRuntime = {
       installationId: 'audio-loop-install',

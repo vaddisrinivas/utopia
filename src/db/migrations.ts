@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { DEFAULT_APP_INSTALLATION_ID, DEFAULT_WORKSPACE_ID } from '@/packages/shared/contracts/app-installation';
+import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
 import { loadCatalog } from '@/src/domain/catalog';
 
 export const DATABASE_NAME = 'utopia.db';
@@ -44,6 +45,11 @@ export type RecoveryExport = {
     name: string;
     rows: Array<Record<string, unknown>>;
   }>;
+  manifest?: {
+    algorithm: 'sha256';
+    table_checksums: Record<string, string>;
+    snapshot_checksum: string;
+  };
 };
 
 type Migration = {
@@ -1013,6 +1019,16 @@ export async function getDatabaseVersion(db: SQLiteDatabase): Promise<number> {
 }
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {
+  const currentFkStateRow = await db.getFirstAsync<{ foreign_keys: number | string }>('PRAGMA foreign_keys');
+  const restoreForeignKeys = (() => {
+    if (currentFkStateRow == null) return true;
+    if (typeof currentFkStateRow.foreign_keys === 'number') return currentFkStateRow.foreign_keys === 1;
+    if (typeof currentFkStateRow.foreign_keys === 'string') {
+      if (/^on$/i.test(currentFkStateRow.foreign_keys)) return true;
+      if (/^off$/i.test(currentFkStateRow.foreign_keys)) return false;
+    }
+    return Boolean(currentFkStateRow.foreign_keys);
+  })();
   // Journal mode changes require autocommit mode on Android SQLite. Keep this
   // outside the migration transaction so a fresh install cannot remain behind
   // the splash screen while the provider waits for initialization.
@@ -1028,16 +1044,33 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       continue;
     }
 
-    await db.withTransactionAsync(async () => {
-      await db.execAsync('PRAGMA foreign_keys = OFF');
-      await migration.up(db);
-      await db.execAsync('PRAGMA foreign_keys = ON');
-      await db.execAsync(`PRAGMA user_version = ${migration.version}`);
-    });
+    await db.execAsync('PRAGMA foreign_keys = OFF');
+    try {
+      await db.withTransactionAsync(async () => {
+        await migration.up(db);
+        await db.execAsync(`PRAGMA user_version = ${migration.version}`);
+      });
+    } finally {
+      if (restoreForeignKeys) {
+        await db.execAsync('PRAGMA foreign_keys = ON');
+      } else {
+        await db.execAsync('PRAGMA foreign_keys = OFF');
+      }
+    }
   }
 }
 
 export async function rollbackDatabase(db: SQLiteDatabase, targetVersion: number): Promise<void> {
+  const currentFkStateRow = await db.getFirstAsync<{ foreign_keys: number | string }>('PRAGMA foreign_keys');
+  const restoreForeignKeys = (() => {
+    if (currentFkStateRow == null) return true;
+    if (typeof currentFkStateRow.foreign_keys === 'number') return currentFkStateRow.foreign_keys === 1;
+    if (typeof currentFkStateRow.foreign_keys === 'string') {
+      if (/^on$/i.test(currentFkStateRow.foreign_keys)) return true;
+      if (/^off$/i.test(currentFkStateRow.foreign_keys)) return false;
+    }
+    return Boolean(currentFkStateRow.foreign_keys);
+  })();
   const currentVersion = await getDatabaseVersion(db);
   if (targetVersion >= currentVersion) {
     return;
@@ -1048,27 +1081,44 @@ export async function rollbackDatabase(db: SQLiteDatabase, targetVersion: number
     .filter((migration): migration is Migration & { down: NonNullable<Migration['down']> } => typeof migration.down === 'function')
     .sort((a, b) => b.version - a.version);
 
-  await db.withTransactionAsync(async () => {
-    for (const migration of migrationsToRollback) {
-      await migration.down(db);
-    }
-  });
-}
-
-export async function exportRecoverySnapshot(db: SQLiteDatabase): Promise<RecoveryExport> {
-  const tables = Object.values(TABLES);
-  const rows = [] as Array<{ name: string; rows: Array<Record<string, unknown>> }>;
-  for (const table of tables) {
-    try {
-      const tableRows = await db.getAllAsync<Record<string, unknown>>(`SELECT * FROM ${table}`);
-      rows.push({ name: table, rows: tableRows });
-    } catch {
-      rows.push({ name: table, rows: [] });
+  await db.execAsync('PRAGMA foreign_keys = OFF');
+  try {
+    await db.withTransactionAsync(async () => {
+      for (const migration of migrationsToRollback) {
+        await migration.down(db);
+      }
+      await db.execAsync(`PRAGMA user_version = ${targetVersion}`);
+    });
+  } finally {
+    if (restoreForeignKeys) {
+      await db.execAsync('PRAGMA foreign_keys = ON');
+    } else {
+      await db.execAsync('PRAGMA foreign_keys = OFF');
     }
   }
+}
 
+export const RECOVERY_TABLES = Object.values(TABLES);
+
+export async function exportRecoverySnapshot(db: SQLiteDatabase): Promise<RecoveryExport> {
+  const schemaVersion = await getDatabaseVersion(db);
+  if (schemaVersion > DATABASE_VERSION) {
+    throw new Error(`Database schema is newer than app can handle: ${schemaVersion}`);
+  }
+  const tables = RECOVERY_TABLES;
+  const rows = [] as Array<{ name: string; rows: Array<Record<string, unknown>> }>;
+  for (const table of tables) {
+    const tableRows = await db.getAllAsync<Record<string, unknown>>(`SELECT * FROM ${table}`);
+    rows.push({ name: table, rows: tableRows });
+  }
+
+  const payload = { schema_version: schemaVersion, tables: rows };
   return {
-    schema_version: DATABASE_VERSION,
-    tables: rows,
+    ...payload,
+    manifest: {
+      algorithm: 'sha256',
+      table_checksums: Object.fromEntries(rows.map((table) => [table.name, sha256Canonical(table.rows)])),
+      snapshot_checksum: sha256Canonical(payload),
+    },
   };
 }

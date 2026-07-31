@@ -51,6 +51,14 @@
 
 Blocked outcomes do not represent failure of platform logic;
 `status` is intentionally explicit `BLOCKED`.
+
+## Isolated macOS fixture input
+
+The multi-surface proof script normally scans the checked-out macOS build
+products. Tests and isolated runners may set
+`UTOPIA_MACOS_APP_BUNDLE_PATHS` to a comma-separated list of explicit `.app`
+bundle paths. When set, only those paths are considered; stale build products
+cannot satisfy or suppress `missing_macos_build_artifact`.
 # Emulator Sync Proof
 
 The current harness can discover Android emulators and produce a deterministic conflict/convergence plan. That is not a device-sync pass.

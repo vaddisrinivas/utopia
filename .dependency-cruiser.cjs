@@ -57,6 +57,16 @@ module.exports = {
         path: '(^|/)(react$|react-native$|react-native-[^/]+$|@react-native/[^/]+$|@expo/[^/]+$|expo-router$|expo-status-bar$|expo-splash-screen$|expo-symbols$|expo-sharing$|expo-secure-store$|expo-segment$|@json-render/react-native$|react-native-health-connect$|react-native-safe-area-context$)',
       },
     },
+    {
+      name: 'portable-core-ports-no-shell-runtime',
+      comment: 'Portable Core port contracts must not import shell runtimes or concrete database implementations.',
+      from: {
+        path: '(^|/)src/domain/(database-port|runtime-context\.ports)\.ts$',
+      },
+      to: {
+        path: '(^|/)(expo-sqlite$|react$|react-native$|node:fs$|node:path$|node:crypto$)',
+      },
+    },
   ],
   options: {
     doNotFollow: {

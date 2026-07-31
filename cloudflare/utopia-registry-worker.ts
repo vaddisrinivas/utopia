@@ -44,8 +44,10 @@ const ALLOWED_PUBLISH_SOURCES = ['custom_gpt', 'github_factory', 'browser_builde
 const REGISTRY_INDEX_KEY = 'registry/index.json';
 const TRUST_ROOT_KEY = 'registry/trust/extension-root.json';
 const TRUST_TARGETS_KEY_PREFIX = 'registry/trust/extension-targets-';
+const TRUST_FLOOR_KEY = 'registry/trust/version-floor.json';
 const TRUST_METADATA_MAX_BYTES = 64 * 1024;
 const TRUST_PUBLISHER_ID_PATTERN = /^[a-z0-9_.-]+$/i;
+const TRUST_PUBLISHER_ID_MAX_LENGTH = 64;
 const HOSTED_REGISTRY_INDEX_MAX_PACKAGES = 1000;
 const GENERATED_METADATA_LABEL = 'generated';
 const UNLISTED_METADATA_LABEL = 'unlisted';
@@ -53,9 +55,23 @@ const TELEMETRY_RATE_WINDOW_MS = 60_000;
 const TELEMETRY_MAX_RATE = 5;
 const TELEMETRY_TOKEN_HEADER = 'x-utopia-telemetry-token';
 const REGISTRY_PACKAGE_SIGNATURE_MAX_AGE_MS = 15 * 60 * 1000;
+const REGISTRY_PUBLISH_RATE_WINDOW_MS = 60_000;
+const REGISTRY_MAX_PUBLISH_RATE = 10;
+const REGISTRY_SECRET_SCAN_MAX_DEPTH = 20;
+const REGISTRY_SECRET_SCAN_MAX_NODES = 2_000;
+const REGISTRY_SECRET_SCAN_MAX_STRING_BYTES = 16 * 1024;
+const REGISTRY_SIGNATURE_KEY_ID_PATTERN = /^[a-z0-9._-]+$/i;
+const REGISTRY_SIGNATURE_KEY_ID_MAX_LENGTH = 128;
+const REGISTRY_SIGNATURE_VALUE_ALLOWED_CHARS = /^[A-Za-z0-9+/=_-]+$/;
+const REGISTRY_SIGNATURE_VALUE_MAX_BYTES = 4096;
+const REGISTRY_PUBLISHER_KEY_MIN_BYTES = 32;
 const metadataKey = (id: string) => `registry/packages/${id}.json`;
+const signatureKey = (id: string) => `registry/packages/${id}.signature.json`;
+const publicationKey = (id: string) => `registry/publications/${id}.json`;
+const replayKey = (keyId: string, digest: string) => `registry/replay/${encodeURIComponent(keyId)}/${digest}.json`;
+const publishRateKey = (keyId: string, windowStart: number) => `registry/limits/publish/${encodeURIComponent(keyId)}/${windowStart}.json`;
+const telemetryRateKey = (installationId: string, windowStart: number) => `registry/limits/telemetry/${sha256Canonical(installationId).slice('sha256:'.length)}/${windowStart}.json`;
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
-const telemetryRateState = new Map<string, { count: number; windowStart: number }>();
 
 export default {
   async fetch(request: Request, env: UtopiaRegistryEnv): Promise<Response> {
@@ -121,7 +137,8 @@ async function createPackage(request: Request, env: UtopiaRegistryEnv): Promise<
   const raw = JSON.stringify(pkg);
   if (new TextEncoder().encode(raw).byteLength > MAX_PACKAGE_BYTES) throw new Error('package_too_large');
   assertNoSecrets(pkg);
-  if (!isRegistryPackageSignature(body.signature)) throw new Error('package_signature_required');
+  if (body.signature === undefined) throw new Error('package_signature_required');
+  if (!isRegistryPackageSignature(body.signature)) throw new Error('package_signature_invalid');
   await verifyRegistryPackageSignature(pkg, body.signature, env);
 
   const preview = buildPackageInstallPreview(pkg, { sourceUrl: `https://${host(env)}/p/pending.json` });
@@ -153,10 +170,20 @@ async function createPackage(request: Request, env: UtopiaRegistryEnv): Promise<
   if (existingMetadata) {
     if (!isHostedPackageMetadata(existingMetadata)) throw new Error('package_metadata_invalid');
     if (!isEquivalentHostedPackageMetadata(existingMetadata, metadata)) throw new Error('package_metadata_immutable');
+    await assertPublishedPackageIsIntact(env, existingMetadata);
     return json(buildPublishPayload(existingMetadata), 200);
   }
 
-  await env.PACKAGES.put(key, JSON.stringify(pkg), {
+  await assertDurablePublishRateLimit(env, body.signature.keyId);
+  const replayDigest = sha256Canonical({ checksum, signature: body.signature });
+  if (await env.PACKAGES.get(replayKey(body.signature.keyId, replayDigest))) {
+    throw new Error('package_signature_replayed');
+  }
+
+  const packageJson = JSON.stringify(pkg);
+  const metadataJson = JSON.stringify(metadata);
+  const signatureJson = JSON.stringify(body.signature);
+  await env.PACKAGES.put(key, packageJson, {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
     customMetadata: {
       checksum,
@@ -165,7 +192,27 @@ async function createPackage(request: Request, env: UtopiaRegistryEnv): Promise<
       labels: metadata.labels.join(','),
     },
   });
-  await env.PACKAGES.put(metadataKey(id), JSON.stringify(metadata), {
+  await env.PACKAGES.put(metadataKey(id), metadataJson, {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  });
+  await env.PACKAGES.put(signatureKey(id), signatureJson, {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  });
+  // Readers only accept a publication after this final marker exists and all component checksums match.
+  await env.PACKAGES.put(publicationKey(id), JSON.stringify({
+    schemaVersion: 'utopia.registry-publication.v1',
+    id,
+    packageKey: key,
+    metadataKey: metadataKey(id),
+    signatureKey: signatureKey(id),
+    packageChecksum: checksum,
+    metadataChecksum: sha256Canonical(metadata),
+    signatureChecksum: sha256Canonical(body.signature),
+    publishedAt: createdAt,
+  } satisfies RegistryPublication), {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  });
+  await env.PACKAGES.put(replayKey(body.signature.keyId, replayDigest), JSON.stringify({ createdAt }), {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
   });
   await upsertRegistryIndex(env, metadata);
@@ -176,7 +223,10 @@ async function createPackage(request: Request, env: UtopiaRegistryEnv): Promise<
 }
 
 async function packageBlob(id: string, env: UtopiaRegistryEnv): Promise<Response> {
-  const object = await env.PACKAGES.get(`packages/${id}.json`);
+  const metadata = await readJson<HostedPackageMetadata | null>(env, metadataKey(id), null);
+  if (!metadata || !isHostedPackageMetadata(metadata)) return withSecurityHeaders(json({ error: 'package_not_found' }, 404));
+  const publication = await assertPublishedPackageIsIntact(env, metadata);
+  const object = await env.PACKAGES.get(publication.packageKey);
   if (!object) return withSecurityHeaders(json({ error: 'package_not_found' }, 404));
   return withSecurityHeaders(new Response(await object.text(), {
     headers: { ...JSON_HEADERS, 'cache-control': 'public, max-age=31536000, immutable' },
@@ -187,13 +237,22 @@ async function packageMetadata(id: string, env: UtopiaRegistryEnv): Promise<Resp
   const row = await readJson<HostedPackageMetadata | null>(env, metadataKey(id), null);
   if (!row) return json({ error: 'package_not_found' }, 404);
   if (!isHostedPackageMetadata(row)) return json({ error: 'package_metadata_invalid' }, 400);
+  await assertPublishedPackageIsIntact(env, row);
   return json(row);
 }
 
 async function registryManifest(env: UtopiaRegistryEnv): Promise<Response> {
   const index = await readRegistryIndex(env);
-  const packages = index.packages
-    .filter((row) => row.visibility === 'public')
+  const published = await Promise.all(index.packages.map(async (row) => {
+    try {
+      await assertPublishedPackageIsIntact(env, row);
+      return row;
+    } catch {
+      return null;
+    }
+  }));
+  const packages = published
+    .filter((row): row is HostedPackageMetadata => row !== null && row.visibility === 'public')
     .sort((left, right) => right.created_at.localeCompare(left.created_at))
     .slice(0, 200)
     .map<UtopiaRegistryPackage>((row) => ({
@@ -208,6 +267,7 @@ async function registryManifest(env: UtopiaRegistryEnv): Promise<Response> {
       homepage: `https://${host(env)}`,
       verified: false,
     },
+    signature: row.signature,
   }));
   return json({
     schemaVersion: UTOPIA_REGISTRY_SCHEMA_VERSION,
@@ -222,6 +282,7 @@ async function trustMetadataRoot(env: UtopiaRegistryEnv): Promise<Response> {
     TRUST_ROOT_KEY,
     (value) => collectExtensionTrustRootMetadataValidationErrors(value, 'trustRoot'),
     'invalid_trust_root_metadata',
+    { kind: 'root' },
   );
   if (metadata === null) return json({ error: 'trust_root_not_found' }, 404);
   return json(metadata);
@@ -230,12 +291,15 @@ async function trustMetadataRoot(env: UtopiaRegistryEnv): Promise<Response> {
 async function trustMetadataTargets(url: URL, env: UtopiaRegistryEnv): Promise<Response> {
   const publisher = url.searchParams.get('publisher');
   if (!publisher) return json({ error: 'publisher_required_for_targets' }, 400);
-  if (!TRUST_PUBLISHER_ID_PATTERN.test(publisher)) return json({ error: 'invalid_trust_targets_publisher' }, 400);
+  if (publisher.length > TRUST_PUBLISHER_ID_MAX_LENGTH || !TRUST_PUBLISHER_ID_PATTERN.test(publisher)) {
+    return json({ error: 'invalid_trust_targets_publisher' }, 400);
+  }
   const metadata = await readTrustMetadata(
     env,
     `${TRUST_TARGETS_KEY_PREFIX}${publisher}.json`,
     (value) => collectExtensionTrustTargetsMetadataValidationErrors(value, 'trustTargets'),
     'invalid_trust_targets_metadata',
+    { kind: 'targets', publisher },
   );
   if (metadata === null) return json({ error: 'trust_targets_not_found' }, 404);
   return json(metadata);
@@ -248,7 +312,7 @@ async function ingestTelemetry(request: Request, env: UtopiaRegistryEnv): Promis
     throw new Error('telemetry_payload_too_large');
   }
   const event = redactedTelemetryEvent(validateTelemetryEvent(JSON.parse(body)));
-  assertTelemetryRateLimit(String(event.anonymousInstallationId));
+  await assertTelemetryRateLimit(env, String(event.anonymousInstallationId));
   writeAnalytics(env, String(event.event), [
     String(event.anonymousInstallationId),
     String(event.packageId ?? 'unknown'),
@@ -303,11 +367,31 @@ function requirePublisherToken(request: Request, env: UtopiaRegistryEnv): void {
 }
 
 function writeAnalytics(env: UtopiaRegistryEnv, event: string, blobs: string[], doubles: number[] = []): void {
+  if (env.TELEMETRY_INGEST_ENABLED !== 'true') return;
   env.TELEMETRY?.writeDataPoint({ indexes: [event], blobs: [event, ...blobs], doubles });
 }
 
 function host(env: UtopiaRegistryEnv, request?: Request): string {
-  return env.REGISTRY_HOST || (request ? new URL(request.url).host : DEFAULT_REGISTRY_HOST);
+  const configured = env.REGISTRY_HOST?.trim();
+  if (configured && isPublicHost(configured)) return configured;
+  if (request) {
+    const candidate = new URL(request.url).host;
+    if (isPublicHost(candidate)) return candidate;
+  }
+  return DEFAULT_REGISTRY_HOST;
+}
+
+function isPublicHost(value: string): boolean {
+  try {
+    const parsed = new URL(`https://${value}`);
+    if (parsed.hostname !== value.split(':')[0]) return false;
+    if (parsed.hostname === 'localhost' || parsed.hostname.endsWith('.local')) return false;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.)/.test(parsed.hostname)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(parsed.hostname)) return false;
+    return parsed.hostname.includes('.') && !parsed.username && !parsed.password && !parsed.pathname.slice(1);
+  } catch {
+    return false;
+  }
 }
 
 function json(value: unknown, status = 200): Response {
@@ -363,6 +447,18 @@ type RegistryIndex = Readonly<{
   packages: HostedPackageMetadata[];
 }>;
 
+type RegistryPublication = Readonly<{
+  schemaVersion: 'utopia.registry-publication.v1';
+  id: string;
+  packageKey: string;
+  metadataKey: string;
+  signatureKey: string;
+  packageChecksum: string;
+  metadataChecksum: string;
+  signatureChecksum: string;
+  publishedAt: string;
+}>;
+
 async function readRegistryIndex(env: UtopiaRegistryEnv): Promise<RegistryIndex> {
   return sanitizeRegistryIndex(await readJson<unknown>(env, REGISTRY_INDEX_KEY, {
     schemaVersion: 'utopia.hosted-registry-index.v1',
@@ -390,6 +486,51 @@ async function upsertRegistryIndex(env: UtopiaRegistryEnv, metadata: HostedPacka
   });
 }
 
+async function assertPublishedPackageIsIntact(env: UtopiaRegistryEnv, metadata: HostedPackageMetadata): Promise<RegistryPublication> {
+  const publication = await readJson<unknown>(env, publicationKey(metadata.id), null);
+  if (!isRegistryPublication(publication) || publication.id !== metadata.id) throw new Error('package_publication_incomplete');
+  if (publication.packageKey !== metadata.object_key || publication.metadataKey !== metadataKey(metadata.id) || publication.signatureKey !== signatureKey(metadata.id)) {
+    throw new Error('package_publication_invalid');
+  }
+  const metadataObject = await env.PACKAGES.get(publication.metadataKey);
+  const signatureObject = await env.PACKAGES.get(publication.signatureKey);
+  const packageObject = await env.PACKAGES.get(publication.packageKey);
+  if (!metadataObject || !signatureObject || !packageObject) throw new Error('package_publication_incomplete');
+  let storedMetadata: unknown;
+  let storedSignature: unknown;
+  let storedPackage: unknown;
+  try {
+    storedMetadata = JSON.parse(await metadataObject.text());
+    storedSignature = JSON.parse(await signatureObject.text());
+    storedPackage = JSON.parse(await packageObject.text());
+  } catch {
+    throw new Error('package_publication_invalid');
+  }
+  if (!isHostedPackageMetadata(storedMetadata) || !isRegistryPackageSignature(storedSignature) || !isObject(storedPackage)) {
+    throw new Error('package_publication_invalid');
+  }
+  if (!isEquivalentHostedPackageMetadata(storedMetadata, metadata)
+    || canonicalJson(storedMetadata.signature) !== canonicalJson(storedSignature)
+    || sha256Canonical(storedMetadata) !== publication.metadataChecksum
+    || sha256Canonical(storedSignature) !== publication.signatureChecksum
+    || sha256Canonical(storedPackage) !== publication.packageChecksum
+    || publication.packageChecksum !== metadata.checksum) {
+    throw new Error('package_checksum_mismatch');
+  }
+  return publication;
+}
+
+async function assertDurablePublishRateLimit(env: UtopiaRegistryEnv, keyId: string): Promise<void> {
+  const windowStart = Math.floor(Date.now() / REGISTRY_PUBLISH_RATE_WINDOW_MS) * REGISTRY_PUBLISH_RATE_WINDOW_MS;
+  const key = publishRateKey(keyId, windowStart);
+  const current = await readJson<{ count?: unknown } | null>(env, key, null);
+  const count = typeof current?.count === 'number' && Number.isInteger(current.count) && current.count >= 0 ? current.count : 0;
+  if (count >= REGISTRY_MAX_PUBLISH_RATE) throw new Error('registry_publish_rate_limit_exceeded');
+  await env.PACKAGES.put(key, JSON.stringify({ count: count + 1, windowStart }), {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  });
+}
+
 async function readJson<T>(env: UtopiaRegistryEnv, key: string, fallback: T): Promise<T> {
   const object = await env.PACKAGES.get(key);
   if (!object) return fallback;
@@ -401,6 +542,7 @@ async function readTrustMetadata(
   key: string,
   validate: (metadata: unknown) => string[],
   invalidError: string,
+  lifecycle: { kind: 'root' } | { kind: 'targets'; publisher: string },
 ): Promise<unknown | null> {
   const metadata = await env.PACKAGES.get(key);
   if (!metadata) return null;
@@ -414,19 +556,111 @@ async function readTrustMetadata(
   }
   const errors = validate(payload);
   if (errors.length > 0) throw new Error(`${invalidError}:${errors.join('|')}`);
+  await enforceTrustMetadataLifecycle(env, payload, lifecycle, invalidError);
   return payload;
 }
 
-function assertNoSecrets(value: unknown, path = '$'): void {
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertNoSecrets(item, `${path}[${index}]`));
+type TrustVersionFloor = Readonly<{
+  rootVersion?: number;
+  rootKeyId?: string;
+  rootDigest?: string;
+  targetsVersions?: Readonly<Record<string, number>>;
+  targetsDigests?: Readonly<Record<string, string>>;
+}>;
+
+async function enforceTrustMetadataLifecycle(
+  env: UtopiaRegistryEnv,
+  metadata: unknown,
+  lifecycle: { kind: 'root' } | { kind: 'targets'; publisher: string },
+  invalidError: string,
+): Promise<void> {
+  if (!isObject(metadata) || typeof metadata.version !== 'number' || !Number.isInteger(metadata.version) || metadata.version <= 0) {
+    throw new Error(`${invalidError}:version_invalid`);
+  }
+  if (typeof metadata.expires !== 'string' || Number.isNaN(Date.parse(metadata.expires))) {
+    throw new Error(`${invalidError}:expiry_invalid`);
+  }
+  if (Date.parse(metadata.expires) <= Date.now()) {
+    throw new Error(`${invalidError}:expired`);
+  }
+
+  const floor = await readJson<TrustVersionFloor | null>(env, TRUST_FLOOR_KEY, null);
+  if (floor !== null && !isObject(floor)) throw new Error(`${invalidError}:version_floor_invalid`);
+  if (lifecycle.kind === 'root') {
+    const currentVersion = floor?.rootVersion;
+    const digest = sha256Canonical(metadata);
+    if (currentVersion !== undefined && metadata.version < currentVersion) {
+      throw new Error(`${invalidError}:version_rollback`);
+    }
+    if (currentVersion !== undefined && metadata.version === currentVersion && floor?.rootKeyId && floor.rootKeyId !== metadata.rootKeyId) {
+      throw new Error(`${invalidError}:root_rotation_without_version_bump`);
+    }
+    if (currentVersion === metadata.version && floor?.rootDigest && floor.rootDigest !== digest) {
+      throw new Error(`${invalidError}:version_rewrite`);
+    }
+    if (currentVersion === metadata.version && floor?.rootKeyId === metadata.rootKeyId) return;
+    await env.PACKAGES.put(TRUST_FLOOR_KEY, JSON.stringify({
+      rootVersion: metadata.version,
+      rootKeyId: metadata.rootKeyId,
+      rootDigest: digest,
+      targetsVersions: floor?.targetsVersions ?? {},
+      targetsDigests: floor?.targetsDigests ?? {},
+    }), { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
     return;
   }
-  if (!value || typeof value !== 'object') return;
-  for (const [key, child] of Object.entries(value)) {
-    if (/secret|token|api[_-]?key|password|credential/i.test(key)) throw new Error(`package_secret_field:${path}.${key}`);
-    assertNoSecrets(child, `${path}.${key}`);
+
+  if (metadata.publisherId !== lifecycle.publisher) throw new Error(`${invalidError}:publisher_mismatch`);
+  const currentVersion = floor?.targetsVersions?.[lifecycle.publisher];
+  const digest = sha256Canonical(metadata);
+  if (currentVersion !== undefined && metadata.version < currentVersion) {
+    throw new Error(`${invalidError}:version_rollback`);
   }
+  if (currentVersion === metadata.version && floor?.targetsDigests?.[lifecycle.publisher] !== digest) {
+    throw new Error(`${invalidError}:version_rewrite`);
+  }
+  if (currentVersion === metadata.version) return;
+  await env.PACKAGES.put(TRUST_FLOOR_KEY, JSON.stringify({
+    rootVersion: floor?.rootVersion,
+    rootKeyId: floor?.rootKeyId,
+    rootDigest: floor?.rootDigest,
+    targetsVersions: {
+      ...(floor?.targetsVersions ?? {}),
+      [lifecycle.publisher]: metadata.version,
+    },
+    targetsDigests: {
+      ...(floor?.targetsDigests ?? {}),
+      [lifecycle.publisher]: digest,
+    },
+  }), { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
+}
+
+function assertNoSecrets(value: unknown, path = '$'): void {
+  let nodes = 0;
+  const visit = (current: unknown, currentPath: string, depth: number): void => {
+    if (++nodes > REGISTRY_SECRET_SCAN_MAX_NODES) throw new Error('package_secret_scan_limit');
+    if (depth > REGISTRY_SECRET_SCAN_MAX_DEPTH) throw new Error('package_secret_scan_limit');
+    if (typeof current === 'string') {
+      if (new TextEncoder().encode(current).byteLength > REGISTRY_SECRET_SCAN_MAX_STRING_BYTES) throw new Error('package_secret_scan_limit');
+      if (looksLikeSecret(current)) throw new Error(`package_secret_content:${currentPath}`);
+      return;
+    }
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, `${currentPath}[${index}]`, depth + 1));
+      return;
+    }
+    if (!current || typeof current !== 'object') return;
+    for (const [key, child] of Object.entries(current)) visit(child, `${currentPath}.${key}`, depth + 1);
+  };
+  visit(value, path, 0);
+}
+
+function looksLikeSecret(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(trimmed)
+    || /^(?:eyJ[A-Za-z0-9_-]+\.){2}[A-Za-z0-9_-]+$/.test(trimmed)
+    || /^(?:sk-|gh[pousr]_|github_pat_|AKIA[0-9A-Z]{16}|xox[baprs]-)[A-Za-z0-9_-]{12,}$/i.test(trimmed)
+    || /\b(?:api[_-]?key|access[_-]?token|client[_-]?secret|password|credential)\s*[:=]\s*[^\s,}"']{16,}/i.test(trimmed);
 }
 
 function escapeHtml(value: string): string {
@@ -555,27 +789,68 @@ function parseRegistryPublisherKeys(value: string | undefined): Record<string, s
   if (!value) throw new Error('registry_publisher_keys_not_configured');
   try {
     const parsed = JSON.parse(value);
-    if (!isObject(parsed) || Object.values(parsed).some((key) => typeof key !== 'string' || !key)) {
+    if (!isObject(parsed) || Object.values(parsed).length === 0) {
       throw new Error('invalid');
     }
-    return parsed as Record<string, string>;
+    const normalized = {} as Record<string, string>;
+    for (const [keyId, keyValue] of Object.entries(parsed)) {
+      if (!isSupportedRegistrySignatureKeyId(keyId) || typeof keyValue !== 'string' || !isSupportedRegistryPublicKey(keyValue)) throw new Error('invalid');
+      normalized[keyId] = keyValue.trim();
+    }
+    return normalized;
   } catch {
     throw new Error('registry_publisher_keys_invalid');
   }
 }
 
 function isRegistryPackageSignature(value: unknown): value is RegistryPackageSignature {
-  return isObject(value)
-    && value.algorithm === 'ecdsa-p256-sha256'
-    && typeof value.keyId === 'string' && value.keyId.length > 0
-    && typeof value.value === 'string' && value.value.length > 0
-    && typeof value.signedAt === 'string' && !Number.isNaN(Date.parse(value.signedAt));
+  if (!isObject(value)) return false;
+  const signature = value as Partial<RegistryPackageSignature>;
+  return signature.algorithm === 'ecdsa-p256-sha256'
+    && isSupportedRegistrySignatureKeyId(signature.keyId)
+    && isSupportedRegistrySignatureValue(signature.value)
+    && typeof signature.signedAt === 'string'
+    && !Number.isNaN(Date.parse(signature.signedAt));
 }
 
 function decodeBase64(value: string): ArrayBuffer {
-  const binary = atob(value);
-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const bytes = decodeBase64Bytes(value);
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+function decodeBase64Bytes(value: string): Uint8Array {
+  const normalized = normalizePublicKeyValue(value).replace(/-/g, '+').replace(/_/g, '/');
+  const padded = `${normalized}${'='.repeat((4 - normalized.length % 4) % 4)}`;
+  const runtimeBuffer = (globalThis as { Buffer?: { from(value: string, encoding: 'base64'): Uint8Array } }).Buffer;
+  if (runtimeBuffer) return new Uint8Array(runtimeBuffer.from(padded, 'base64'));
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function normalizePublicKeyValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed.includes('BEGIN PUBLIC KEY')) return trimmed;
+  return trimmed.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s+/g, '').trim();
+}
+
+function isSupportedRegistrySignatureKeyId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= REGISTRY_SIGNATURE_KEY_ID_MAX_LENGTH && REGISTRY_SIGNATURE_KEY_ID_PATTERN.test(value);
+}
+
+function isSupportedRegistrySignatureValue(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > REGISTRY_SIGNATURE_VALUE_MAX_BYTES) return false;
+  if (!REGISTRY_SIGNATURE_VALUE_ALLOWED_CHARS.test(normalized)) return false;
+  if (/^(?:[a-f0-9]{2})+$/i.test(normalized)) return normalized.length % 2 === 0;
+  return true;
+}
+
+function isSupportedRegistryPublicKey(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const normalized = normalizePublicKeyValue(value);
+  if (!isSupportedRegistrySignatureValue(normalized)) return false;
+  try { return decodeBase64Bytes(normalized).byteLength >= REGISTRY_PUBLISHER_KEY_MIN_BYTES; } catch { return false; }
 }
 
 function parsePublishSource(value: unknown): 'custom_gpt' | 'github_factory' | 'browser_builder' | 'registry' {
@@ -595,16 +870,29 @@ function assertTelemetryIngestionEnabled(request: Request, env: UtopiaRegistryEn
   }
 }
 
-function assertTelemetryRateLimit(anonymousInstallationId: string): void {
+async function assertTelemetryRateLimit(env: UtopiaRegistryEnv, anonymousInstallationId: string): Promise<void> {
   const now = Date.now();
-  const entry = telemetryRateState.get(anonymousInstallationId) ?? { count: 0, windowStart: now };
-  if (now - entry.windowStart >= TELEMETRY_RATE_WINDOW_MS) {
-    telemetryRateState.set(anonymousInstallationId, { count: 1, windowStart: now });
-    return;
-  }
-  entry.count += 1;
-  telemetryRateState.set(anonymousInstallationId, entry);
-  if (entry.count > TELEMETRY_MAX_RATE) throw new Error('telemetry_rate_limit_exceeded');
+  const windowStart = Math.floor(now / TELEMETRY_RATE_WINDOW_MS) * TELEMETRY_RATE_WINDOW_MS;
+  const key = telemetryRateKey(anonymousInstallationId, windowStart);
+  const current = await readJson<{ count?: unknown } | null>(env, key, null);
+  const count = typeof current?.count === 'number' && Number.isInteger(current.count) && current.count >= 0 ? current.count : 0;
+  if (count >= TELEMETRY_MAX_RATE) throw new Error('telemetry_rate_limit_exceeded');
+  await env.PACKAGES.put(key, JSON.stringify({ count: count + 1, windowStart }), {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  });
+}
+
+function isRegistryPublication(value: unknown): value is RegistryPublication {
+  return isObject(value)
+    && value.schemaVersion === 'utopia.registry-publication.v1'
+    && typeof value.id === 'string'
+    && typeof value.packageKey === 'string'
+    && typeof value.metadataKey === 'string'
+    && typeof value.signatureKey === 'string'
+    && typeof value.packageChecksum === 'string'
+    && typeof value.metadataChecksum === 'string'
+    && typeof value.signatureChecksum === 'string'
+    && typeof value.publishedAt === 'string';
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

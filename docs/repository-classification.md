@@ -7,6 +7,7 @@ Allowed categories: Core, shell, authoring, service, app, test, generated, tooli
 | Directory | Category | Why |
 |---|---|---|
 | .github | tooling | CI workflows, issue/PR templates, and gate wiring |
+| adapters | Core | platform adapters behind portable Core ports |
 | agents | tooling | local agent runtime notes and prompts |
 | android | shell | Android native shell project for app packaging |
 | app | shell | Expo app shell and runtime entrypoints |
@@ -27,6 +28,7 @@ Allowed categories: Core, shell, authoring, service, app, test, generated, tooli
 | packages/schemas | Core | schema registry and validator inputs |
 | packages/shared | Core | shared runtime/domain helpers |
 | requests | tooling | proposal and requirement payloads |
+| schemas | Core | canonical schema inputs outside generated package output |
 | scripts | tooling | repository quality and release scripts |
 | server | service | hosted service APIs and sync backends |
 | server-data | generated | local service runtime data, never authority |
@@ -35,6 +37,7 @@ Allowed categories: Core, shell, authoring, service, app, test, generated, tooli
 | tasks | tooling | task-driven development scaffolding |
 | tests | test | automated proof and regression coverage |
 | tests/fixtures | test | deterministic evidence fixtures and samples |
+| tmp | generated | disposable local proof and test workspace; never authority |
 | dist | generated | export output target (ignored until built) |
 | build | generated | general build output target (ignored until built) |
 | web-build | generated | Expo web output target (ignored until built) |

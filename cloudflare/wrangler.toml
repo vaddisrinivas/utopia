@@ -7,7 +7,8 @@ workers_dev = false
 [vars]
 REGISTRY_HOST = "utoia.thetechcruise.com"
 ANDROID_PACKAGE_NAME = "app.utopia"
-IOS_APP_ID = "TEAMID.app.utopia"
+IOS_APP_ID = "REPLACE_WITH_YOUR_IOS_TEAM_ID.app.utopia"
+ANDROID_SHA256_CERT_FINGERPRINT = "REPLACE_WITH_ANDROID_SHA256_CERT_FINGERPRINT"
 REGISTRY_WRITE_MODE = "disabled"
 
 [[routes]]
@@ -30,7 +31,8 @@ routes = []
 REGISTRY_HOST = ""
 REGISTRY_WRITE_MODE = "disabled"
 ANDROID_PACKAGE_NAME = "app.utopia"
-IOS_APP_ID = "TEAMID.app.utopia"
+IOS_APP_ID = "REPLACE_WITH_YOUR_IOS_TEAM_ID.app.utopia"
+ANDROID_SHA256_CERT_FINGERPRINT = "REPLACE_WITH_ANDROID_SHA256_CERT_FINGERPRINT"
 
 [[env.staging.r2_buckets]]
 binding = "PACKAGES"

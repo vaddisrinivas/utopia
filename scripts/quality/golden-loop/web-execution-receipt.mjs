@@ -35,6 +35,7 @@ const CONTROL_ROOM_PATH = '/package-control-room';
 const REQUIRED_SCENARIO_ID = 'convergence-conflict-rollback-v1';
 const SHELL_PROOF_PROTOCOL_VERSION = SHELL_PROOF_SCHEMA_VERSION;
 const useDebugBridge = process.env.UTOPIA_WEB_GOLDEN_LOOP_DEBUG_BRIDGE === '1';
+const runId = process.env.UTOPIA_GOLDEN_LOOP_RUN_ID || process.env.GOLDEN_LOOP_RUN_ID || null;
 
 function normalizeChecksum(raw) {
   const normalized = String(raw ?? '').trim().toLowerCase();
@@ -153,7 +154,7 @@ export function sanitizeHeadersForEvidence(headers) {
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 }
 
-export function extractReferenceSyncMetadataFromResponse(payload) {
+export function extractReferenceSyncMetadataFromResponse(payload, context = {}) {
   const body = safeParseJson(payload);
   const data = body && typeof body === 'object' && body && 'data' in body ? body.data : body;
   const asObject = data && typeof data === 'object' ? data : {};
@@ -182,13 +183,15 @@ export function extractReferenceSyncMetadataFromResponse(payload) {
     'reconciled_operation_id',
   )[0] || null;
 
-  const responseSession = extractString(asObject.session ?? asObject.session_id ?? asObject.sync_session);
-  const observedEndpoint = extractString(asObject.endpoint ?? asObject.base_url);
+  const responseSession = extractString(asObject.session ?? asObject.session_id ?? asObject.sync_session)
+    || extractString(context.session);
+  const observedEndpoint = extractString(asObject.endpoint ?? asObject.base_url)
+    || extractString(context.endpoint);
 
   const cursor = extractString(asObject.cursor ?? asObject.sync_cursor ?? asObject.persisted_cursor);
   const status = extractString(asObject.status ?? asObject.state);
-  const rawSessionId = responseSession
-    || makeReferenceSyncSessionId({ workspaceId, installationId, deviceId });
+  const strictContext = context && typeof context === 'object' && Object.keys(context).length > 0;
+  const rawSessionId = responseSession || (!strictContext ? makeReferenceSyncSessionId({ workspaceId, installationId, deviceId }) : null);
   const sessionId = rawSessionId ? hashText(rawSessionId) : null;
   const conflictDetected = extractBoolean(
     asObject.conflict_detected
@@ -291,6 +294,68 @@ function requirePlaywright() {
   }
 
   return createRequire(join(root, 'package.json'))('playwright');
+}
+
+export function nextActionForWebReceipt(blockers = []) {
+  if (blockers.includes('missing_web_runtime_driver:playwright')) {
+    return 'Install Playwright (npm/pnpm i -D playwright) and set PLAYWRIGHT_NODE_MODULES if using a custom runtime path.';
+  }
+  if (blockers.some((blocker) => blocker.startsWith('missing_public_reference_sync_session_hook'))) {
+    return 'Run the web route and confirm the App Library screen emits reference-sync session hooks.';
+  }
+  if (blockers.some((blocker) => blocker.startsWith('missing_public_reference_sync_endpoint_hook'))) {
+    return 'Enable reference-sync networking and route visibility in the shared-household-board web surface.';
+  }
+  if (blockers.some((blocker) => blocker.startsWith('missing_public_install_url_input'))) {
+    return 'Open the install URL flow and confirm the shared-household-board package URL field is present.';
+  }
+  if (blockers.includes('web_server_unavailable') || blockers.includes('missing_web_base_url')) {
+    return 'Start the web server and set UTOPIA_WEB_BASE_URL/LIFEOS_WEB_BASE_URL to the reachable origin.';
+  }
+  return 'Run with web app running and visible reference-sync hooks.';
+}
+
+function finalizeWebReceipt(receipt, outPath) {
+  const finalReceipt = {
+    ...receipt,
+    artifacts: {
+      ...receipt.artifacts,
+      screenshots: receipt.artifacts?.screenshots ?? [],
+    },
+  };
+  const validation = validateShellProofReceipt(finalReceipt, {
+    root,
+    label: 'web',
+    path: outPath,
+    requiredSourceSurface: 'web',
+  });
+  if (!validation.pass) {
+    finalReceipt.blockers.push(
+      ...validation.blockers.map((blocker) => `shell_proof_validation:${blocker}`),
+    );
+  }
+  finalReceipt.status = finalReceipt.blockers.length === 0 ? 'PASS' : 'BLOCKED';
+  finalReceipt.pass = finalReceipt.status === 'PASS';
+  finalReceipt.next_action = nextActionForWebReceipt(finalReceipt.blockers);
+  finalReceipt.status_reason = finalReceipt.status === 'PASS'
+    ? finalReceipt.status_reason
+    : `blocked:${finalReceipt.blockers.join('|')}`;
+  finalReceipt.schema_validation = {
+    pass: validation.pass,
+    blockers: validation.blockers,
+    hash: validation.hash,
+  };
+
+  writeFileSync(outPath, `${JSON.stringify(finalReceipt, null, 2)}\n`);
+
+  if (finalReceipt.status !== 'PASS') {
+    console.error(`BLOCKED: ${finalReceipt.status_reason}`);
+    process.exitCode = 1;
+    return finalReceipt;
+  }
+
+  console.log(`PASS ${outPath}`);
+  return finalReceipt;
 }
 
 function chromiumLaunchOptions(chromium) {
@@ -477,7 +542,27 @@ function buildExecutionOperationEntries(referenceSync) {
   };
 }
 
-function writeExecutionObservationsArtifact(baseDir, packageOperations) {
+function writeExecutionObservationsArtifact(baseDir, rawObservations) {
+  const packageOperations = [];
+  const seen = new Set();
+  for (const observation of rawObservations ?? []) {
+    if (observation?.ok === false || Number(observation?.status) >= 400) continue;
+    const operationIds = [
+      ...(Array.isArray(observation.operation_ids) ? observation.operation_ids : []),
+      ...(Array.isArray(observation.rollback_operation_ids) ? observation.rollback_operation_ids : []),
+      ...(observation.reconciled_operation_id ? [observation.reconciled_operation_id] : []),
+    ];
+    for (const operationId of operationIds) {
+      if (!extractString(operationId) || seen.has(operationId)) continue;
+      seen.add(operationId);
+      packageOperations.push({
+        op_id: operationId,
+        type: 'reference_sync',
+        status: 'applied',
+        timestamp: observation.observed_at || new Date().toISOString(),
+      });
+    }
+  }
   const source = {
     source_timestamp: new Date().toISOString(),
     observer: resolveExecutionObserverMetadata(),
@@ -1023,7 +1108,7 @@ export function buildWebExecutionReceipt({
   mkdirSync(executionArtifactDirectory, { recursive: true });
   const executionObservationArtifact = writeExecutionObservationsArtifact(
     executionArtifactDirectory,
-    normalizedExecutionOperations,
+    referenceSyncSummary?.observations ?? [],
   );
   const transportObservationRef = syncClaimed
     ? writeSyncTransportArtifact(
@@ -1127,6 +1212,7 @@ export function buildWebExecutionReceipt({
       to: baselineTransitions.to ?? null,
     },
     package_hash: normalizedPackageChecksum ? normalizedPackageChecksum.replace('sha256:', '') : null,
+    run_id: runId,
     data_preservation: dataPreservationSummary,
     reference_sync: referenceSyncSummary,
     execution: {
@@ -1241,9 +1327,71 @@ export async function runWebGoldenLoopExecution() {
     operationIds: new Set(),
     observations: [],
     observationIds: new Set(),
+    successfulResponses: 0,
+    failedResponses: 0,
   };
 
   const networkResponseWaits = new Set();
+  const screenshots = [];
+  const requestEvidence = [];
+  let webServer = null;
+  let browser = null;
+  let context = null;
+  let page = null;
+  let chromium = null;
+
+  const buildBlockedReceipt = () => {
+    const referenceSync = buildReferenceSyncEvidence(referenceSyncState);
+    const blockedReceipt = buildWebExecutionReceipt({
+      blockers,
+      steps,
+      initial: installation,
+      updated,
+      installationId: installation.installationId,
+      artifacts,
+      written,
+      baseUrl,
+      packageChecksum: normalizeChecksum(packageChecksum),
+      referenceSync,
+      dataPreservation,
+      screenshotArtifacts: screenshots,
+      observationArtifacts: [],
+      receiptPath: outPath,
+      executionArtifactDir: outDir,
+      git: currentGit(root),
+    });
+    mkdirSync(outDir, { recursive: true });
+    mkdirSync(packageArtifactsDir, { recursive: true });
+    return finalizeWebReceipt(blockedReceipt, outPath);
+  };
+
+  try {
+    webServer = await ensureWebBaseUrl({ root, baseUrl });
+  } catch {
+    blockers.push('web_server_unavailable');
+    return buildBlockedReceipt();
+  }
+
+  try {
+    ({ chromium } = requirePlaywright());
+  } catch (error) {
+    blockers.push('missing_web_runtime_driver:playwright');
+    blockers.push(`missing_web_runtime_driver:launch_error:${error instanceof Error ? error.message : String(error)}`);
+    return buildBlockedReceipt();
+  }
+
+  try {
+    browser = await chromium.launch(chromiumLaunchOptions(chromium));
+  } catch (error) {
+    blockers.push('missing_web_runtime_driver:playwright_launch');
+    blockers.push(`missing_web_runtime_driver:launch_error:${error instanceof Error ? error.message : String(error)}`);
+    return buildBlockedReceipt();
+  }
+  context = await browser.newContext({
+    viewport: { width: 1440, height: 1100 },
+    deviceScaleFactor: 1,
+  });
+  page = await context.newPage();
 
   const packageMap = new Map();
   packageMap.set(artifacts.urls.v1, artifacts.v1.package);
@@ -1253,19 +1401,6 @@ export async function runWebGoldenLoopExecution() {
     v1: artifacts.v1.checksum,
     v2: artifacts.v2.checksum,
   };
-
-  const webServer = await ensureWebBaseUrl({ root, baseUrl });
-
-  const { chromium } = requirePlaywright();
-  const browser = await chromium.launch(chromiumLaunchOptions(chromium));
-  const context = await browser.newContext({
-    viewport: { width: 1440, height: 1100 },
-    deviceScaleFactor: 1,
-  });
-  const page = await context.newPage();
-
-  const screenshots = [];
-  const requestEvidence = [];
 
   context.on('request', (request) => {
     if (!isReferenceSyncUrl(request.url())) {
@@ -1279,6 +1414,7 @@ export async function runWebGoldenLoopExecution() {
         return request.url();
       }
     })();
+    const requestSession = extractString(request.headers()['x-utopia-sync-session']);
 
     referenceSyncState.observed = true;
     referenceSyncState.endpoints.add(endpoint);
@@ -1288,6 +1424,7 @@ export async function runWebGoldenLoopExecution() {
       timestamp: new Date().toISOString(),
       method: request.method(),
       path: endpoint,
+      session_id: requestSession ? hashText(requestSession) : null,
       status: null,
     });
   });
@@ -1305,8 +1442,19 @@ export async function runWebGoldenLoopExecution() {
       // ignore
     }
 
-      const wait = response.text().then((responseText) => {
-      const metadata = extractReferenceSyncMetadataFromResponse(responseText);
+    const wait = response.text().then((responseText) => {
+      const requestSession = extractString(request.headers()['x-utopia-sync-session']);
+      const metadata = extractReferenceSyncMetadataFromResponse(responseText, {
+        session: requestSession,
+        endpoint,
+      });
+
+      if (!response.ok()) {
+        referenceSyncState.failedResponses += 1;
+        blockers.push(`reference_sync_transport_unavailable:${response.status()}:${endpoint}`);
+      } else {
+        referenceSyncState.successfulResponses += 1;
+      }
 
       referenceSyncState.observed = true;
       referenceSyncState.sessionObserved = Boolean(
@@ -1410,6 +1558,7 @@ export async function runWebGoldenLoopExecution() {
       }
     }).catch(() => {
       referenceSyncState.observed = true;
+      referenceSyncState.failedResponses += 1;
       referenceSyncState.endpoints.add(endpoint);
 
       requestEvidence.push({
@@ -1687,11 +1836,16 @@ export async function runWebGoldenLoopExecution() {
     if (!referenceSyncState.conflictObserved) {
       blockers.push('missing_public_reference_sync_conflict_hook:conflict');
     }
+    if (!referenceSyncState.observed) {
+      blockers.push('reference_sync_transport_unavailable');
+    } else if (referenceSyncState.successfulResponses === 0) {
+      blockers.push('reference_sync_transport_no_successful_response');
+    }
   } finally {
-    await page.close();
-    await context.close();
-    await browser.close();
-    await webServer.close();
+    if (page) await page.close();
+    if (context) await context.close();
+    if (browser) await browser.close();
+    if (webServer) await webServer.close();
     await Promise.all([...networkResponseWaits]);
   }
 
@@ -1743,39 +1897,7 @@ export async function runWebGoldenLoopExecution() {
       reference_sync_observations: [referenceSyncArtifacts],
     },
   };
-
-  const validation = validateShellProofReceipt(finalReceipt, {
-    root,
-    label: 'web',
-    path: outPath,
-    requiredSourceSurface: 'web',
-  });
-  if (!validation.pass) {
-    finalReceipt.blockers.push(
-      ...validation.blockers.map((blocker) => `shell_proof_validation:${blocker}`),
-    );
-  }
-  finalReceipt.status = finalReceipt.blockers.length === 0 ? 'PASS' : 'BLOCKED';
-  finalReceipt.pass = finalReceipt.status === 'PASS';
-  finalReceipt.status_reason = finalReceipt.status === 'PASS'
-    ? finalReceipt.status_reason
-    : `blocked:${finalReceipt.blockers.join('|')}`;
-  finalReceipt.schema_validation = {
-    pass: validation.pass,
-    blockers: validation.blockers,
-    hash: validation.hash,
-  };
-
-  writeFileSync(outPath, `${JSON.stringify(finalReceipt, null, 2)}\n`);
-
-  if (finalReceipt.status !== 'PASS') {
-    console.error(`BLOCKED: ${finalReceipt.status_reason}`);
-    process.exitCode = 1;
-    return finalReceipt;
-  }
-
-  console.log(`PASS ${outPath}`);
-  return finalReceipt;
+  return finalizeWebReceipt(finalReceipt, outPath);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

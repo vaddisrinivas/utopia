@@ -107,10 +107,7 @@ export async function getRecordsByIdsForInstallation(
     `SELECT * FROM records WHERE app_installation_id = ? AND id IN (${placeholders}) AND archived_at IS NULL`,
     [scoped.installationId, ...uniqueIds]
   );
-  return Promise.all(rows.map(async (row) => ({
-    ...(await inflateRecord(row)),
-    relations: await getRelationsForRecord(db, scoped.installationId, row.id),
-  })));
+  return inflateRecordsWithRelations(db, scoped.installationId, rows);
 }
 
 export async function listRecordsForDomain(
@@ -134,10 +131,7 @@ export async function listRecordsForDomainAndInstallation(
     `SELECT * FROM records WHERE app_installation_id = ? AND ${where} ORDER BY updated_at DESC`,
     [scoped.installationId, ...params],
   );
-  return Promise.all(rows.map(async (row) => ({
-    ...(await inflateRecord(row)),
-    relations: await getRelationsForRecord(db, scoped.installationId, row.id),
-  })));
+  return inflateRecordsWithRelations(db, scoped.installationId, rows);
 }
 
 export async function listRecordsByCollections(
@@ -161,10 +155,7 @@ export async function listRecordsByCollectionsForInstallation(
     `SELECT * FROM records WHERE app_installation_id = ? AND domain = ? AND collection IN (${placeholders}) AND archived_at IS NULL ORDER BY updated_at DESC`,
     [scoped.installationId, domainId, ...collections]
   );
-  return Promise.all(rows.map(async (row) => ({
-    ...(await inflateRecord(row)),
-    relations: await getRelationsForRecord(db, scoped.installationId, row.id),
-  })));
+  return inflateRecordsWithRelations(db, scoped.installationId, rows);
 }
 
 export async function upsertRecord(
@@ -381,6 +372,36 @@ async function getRelationsForRecord(db: SQLiteDatabase, installationId: string,
     [installationId, id],
   );
   return rows.map((relation) => ({ name: relation.name, target_id: relation.target_id }));
+}
+
+async function inflateRecordsWithRelations(
+  db: SQLiteDatabase,
+  installationId: string,
+  rows: SqlRecordRow[],
+): Promise<CanonicalRecord[]> {
+  const relationMap = await getRelationsForRecords(db, installationId, rows.map((row) => row.id));
+  return Promise.all(rows.map(async (row) => ({
+    ...(await inflateRecord(row)),
+    relations: relationMap.get(row.id) ?? [],
+  })));
+}
+
+async function getRelationsForRecords(
+  db: SQLiteDatabase,
+  installationId: string,
+  ids: string[],
+): Promise<Map<string, CanonicalRecord['relations']>> {
+  const relationMap = new Map<string, CanonicalRecord['relations']>(ids.map((id) => [id, []]));
+  if (!ids.length) return relationMap;
+  const rows = await db.getAllAsync<SqlRelationRow>(
+    `SELECT from_id, name, target_id FROM record_relations WHERE app_installation_id = ? AND from_id IN (${ids.map(() => '?').join(', ')})`,
+    [installationId, ...ids],
+  );
+  for (const relation of rows) {
+    const recordRelations = relationMap.get(relation.from_id);
+    if (recordRelations) recordRelations.push({ name: relation.name, target_id: relation.target_id });
+  }
+  return relationMap;
 }
 
 export async function countRecords(db: SQLiteDatabase, domainId: DomainId): Promise<number> {

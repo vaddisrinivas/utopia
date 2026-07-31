@@ -108,10 +108,29 @@ describe('Cloudflare registry worker', () => {
 
     const metadataResponse = await handleRequest(new Request(`https://utoia.thetechcruise.com/v1/packages/${payload.id}`), env);
     expect(metadataResponse.status).toBe(200);
-    expect(await metadataResponse.json()).toMatchObject({
+    const metadata = await metadataResponse.json();
+    expect(metadata).toMatchObject({
       visibility: 'unlisted',
       labels: ['generated', 'unlisted'],
     });
+
+  });
+
+  it('does not derive public package URLs from private request or registry hosts', async () => {
+    const env = fakeEnv({ REGISTRY_HOST: '127.0.0.1:8787' });
+    const response = await handleRequest(new Request('http://127.0.0.1:8787/v1/packages', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${testToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(await signedPublishBody({ ...validPackage, id: 'public-url-check' })),
+    }), env);
+    const payload = await response.json() as Record<string, string>;
+
+    expect(response.status).toBe(201);
+    expect(payload.package_url).toMatch(/^https:\/\/utoia\.thetechcruise\.com\/p\//);
+    expect(payload.package_url).not.toContain('127.0.0.1');
   });
 
   it('keeps staging writes disabled until signed mode is explicitly enabled', async () => {
@@ -124,6 +143,27 @@ describe('Cloudflare registry worker', () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: 'registry_writes_disabled' });
+  });
+
+  it('propagates registry signature metadata into public install descriptors', async () => {
+    const env = fakeEnv();
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${testToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(await signedPublishBody(validPackage, { visibility: 'public' })),
+    }), env);
+
+    expect(response.status).toBe(201);
+    const manifestResponse = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/registry.json'), env);
+    expect(manifestResponse.status).toBe(200);
+    const manifest = await manifestResponse.json() as { packages: Array<{ signature?: unknown }> };
+    expect(manifest.packages[0]?.signature).toMatchObject({
+      algorithm: 'ecdsa-p256-sha256',
+      keyId: testSigningKeyId,
+    });
   });
 
   it('rejects a package signature that does not match the package', async () => {
@@ -176,7 +216,7 @@ describe('Cloudflare registry worker', () => {
       ...validPackage,
       presentation: {
         ...validPackage.presentation,
-        providerTemplateFields: { apiKey: 'nope' },
+        providerTemplateFields: { apiKey: 'sk-live-1234567890abcdef1234567890' },
       },
     };
     const rejected = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
@@ -185,7 +225,74 @@ describe('Cloudflare registry worker', () => {
       body: JSON.stringify(await signedPublishBody(secretPackage)),
     }), env);
     expect(rejected.status).toBe(400);
-    expect(await rejected.json()).toMatchObject({ error: expect.stringContaining('$.presentation.providerTemplateFields.apiKey') });
+    expect(await rejected.json()).toMatchObject({ error: expect.stringContaining('package_secret_content:$.presentation.providerTemplateFields.apiKey') });
+  });
+
+  it('does not serve staged objects without the final publication marker', async () => {
+    const env = fakeEnv();
+    const published = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(validPackage)),
+    }), env);
+    const payload = await published.json() as { id: string };
+    await env.PACKAGES.put(`registry/publications/${payload.id}.json`, '{}');
+
+    const blob = await handleRequest(new Request(`https://utoia.thetechcruise.com/p/${payload.id}.json`), env);
+    expect(blob.status).toBe(400);
+    expect(await blob.json()).toMatchObject({ error: 'package_publication_incomplete' });
+  });
+
+  it('rejects signature replay for unknown package metadata', async () => {
+    const env = fakeEnv();
+    const body = await signedPublishBody(validPackage);
+    const packageChecksum = sha256Canonical(body.package as object);
+    const replayDigest = sha256Canonical({
+      checksum: packageChecksum,
+      signature: body.signature,
+    });
+    await env.PACKAGES.put(`registry/replay/${encodeURIComponent(testSigningKeyId)}/${replayDigest}.json`, '{}');
+
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }), env);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'package_signature_replayed' });
+  });
+
+  it('rejects a published blob whose canonical checksum changed', async () => {
+    const env = fakeEnv();
+    const published = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(validPackage)),
+    }), env);
+    const payload = await published.json() as { id: string };
+    await env.PACKAGES.put(`packages/${payload.id}.json`, JSON.stringify({ ...validPackage, version: '2.0.0' }));
+
+    const blob = await handleRequest(new Request(`https://utoia.thetechcruise.com/p/${payload.id}.json`), env);
+    expect(blob.status).toBe(400);
+    expect(await blob.json()).toMatchObject({ error: 'package_checksum_mismatch' });
+  });
+
+  it('does not reject a secret-named field when its bounded content is harmless', async () => {
+    const env = fakeEnv();
+    const packageWithPlaceholder = {
+      ...validPackage,
+      presentation: {
+        ...validPackage.presentation,
+        providerTemplateFields: { apiKey: 'placeholder' },
+      },
+    };
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(packageWithPlaceholder)),
+    }), env);
+    expect(response.status).toBe(201);
   });
 
   it('accepts only redacted telemetry events', async () => {
@@ -319,6 +426,89 @@ describe('Cloudflare registry worker', () => {
     const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/targets?publisher=../bad::id'), env);
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: 'invalid_trust_targets_publisher' });
+  });
+
+  it('rejects oversize trust publisher identifiers', async () => {
+    const env = fakeEnv();
+    const response = await handleRequest(new Request(
+      `https://utoia.thetechcruise.com/v1/trust/extension/targets?publisher=${'io'.padEnd(70, '.')}utopia`,
+      { method: 'GET' },
+    ), env);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'invalid_trust_targets_publisher' });
+  });
+
+  it('rejects expired trust metadata before serving it', async () => {
+    const env = fakeEnv();
+    await env.PACKAGES.put('registry/trust/extension-root.json', JSON.stringify({
+      schemaVersion: 'utopia.extension-trust-root.v1',
+      version: 12,
+      expires: '2026-07-29T00:00:00.000Z',
+      rootKeyId: 'root-key',
+      delegatedPublishers: [{ publisherId: 'io.utopia', extensionIdPatterns: ['io.utopia.*'], delegatedSigningKeyIds: ['publisher-key'] }],
+    }));
+
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/root'), env);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'invalid_trust_root_metadata:expired' });
+  });
+
+  it('requires a version bump when the trust root key rotates', async () => {
+    const env = fakeEnv();
+    const rootKey = (version: number, rootKeyId: string) => JSON.stringify({
+      schemaVersion: 'utopia.extension-trust-root.v1',
+      version,
+      expires: '2026-08-01T00:00:00.000Z',
+      rootKeyId,
+      delegatedPublishers: [{ publisherId: 'io.utopia', extensionIdPatterns: ['io.utopia.*'], delegatedSigningKeyIds: ['publisher-key'] }],
+    });
+    await env.PACKAGES.put('registry/trust/extension-root.json', rootKey(12, 'root-key'));
+    expect((await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/root'), env)).status).toBe(200);
+
+    await env.PACKAGES.put('registry/trust/extension-root.json', rootKey(12, 'rotated-root-key'));
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/root'), env);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'invalid_trust_root_metadata:root_rotation_without_version_bump' });
+  });
+
+  it('rejects target metadata rollback after a newer version was observed', async () => {
+    const env = fakeEnv();
+    const targets = (version: number) => JSON.stringify({
+      schemaVersion: 'utopia.extension-trust-targets.v1',
+      publisherId: 'io.utopia',
+      version,
+      expires: '2026-08-01T00:00:00.000Z',
+      delegatedSigningKeyIds: ['lane-b-key'],
+    });
+    await env.PACKAGES.put('registry/trust/extension-targets-io.utopia.json', targets(4));
+    expect((await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/targets?publisher=io.utopia'), env)).status).toBe(200);
+
+    await env.PACKAGES.put('registry/trust/extension-targets-io.utopia.json', targets(3));
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/targets?publisher=io.utopia'), env);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'invalid_trust_targets_metadata:version_rollback' });
+  });
+
+  it('rejects same-version trust metadata rewrites', async () => {
+    const env = fakeEnv();
+    const root = (delegatedKey: string) => JSON.stringify({
+      schemaVersion: 'utopia.extension-trust-root.v1',
+      version: 12,
+      expires: '2026-08-01T00:00:00.000Z',
+      rootKeyId: 'root-key',
+      delegatedPublishers: [{ publisherId: 'io.utopia', extensionIdPatterns: ['io.utopia.*'], delegatedSigningKeyIds: [delegatedKey] }],
+    });
+    await env.PACKAGES.put('registry/trust/extension-root.json', root('publisher-key-a'));
+    expect((await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/root'), env)).status).toBe(200);
+
+    await env.PACKAGES.put('registry/trust/extension-root.json', root('publisher-key-b'));
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/trust/extension/root'), env);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'invalid_trust_root_metadata:version_rewrite' });
   });
 });
 

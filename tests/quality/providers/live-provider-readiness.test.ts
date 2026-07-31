@@ -71,6 +71,19 @@ describe('check:live-provider-readiness', () => {
     expect(result.payload.status).toBe('BLOCKED');
     expect(result.payload.providers.notion.status).toBe('BLOCKED');
     expect(result.payload.providers.sheets.status).toBe('BLOCKED');
+    expect(result.payload.status_explanation).toBe('Readiness only; does not execute live provider proof runs.');
+    expect(result.payload.providers.notion.missing_configs).toContain('notion_credentials');
+    expect(result.payload.providers.notion.missing_configs).toContain('NOTION_TEST_PAGE_ID');
+    expect(result.payload.providers.notion.missing_configs).toContain('notion_account');
+    expect(result.payload.providers.notion.missing_configs).toContain('WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY');
+    expect(result.payload.providers.notion.missing_configs).toContain('notion_guard_ack');
+    expect(result.payload.providers.sheets.missing_configs).toContain('GOOGLE_SHEETS_TEST_SPREADSHEET_ID');
+    expect(result.payload.providers.sheets.missing_configs).toContain('GOOGLE_CLIENT_ID');
+    expect(result.payload.providers.sheets.missing_configs).toContain('GOOGLE_CLIENT_SECRET');
+    expect(result.payload.providers.sheets.missing_configs).toContain('WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY');
+    expect(result.payload.providers.sheets.missing_configs).toContain('sheets_guard_ack');
+    expect(result.payload.providers.notion.missing_configs).not.toContain('NOTION_TOKEN');
+    expect(result.payload.providers.notion.missing_configs).not.toContain('NOTION_API_KEY');
   });
 
   it('reports BLOCKED when disposable lane checks fail', () => {
@@ -97,6 +110,34 @@ describe('check:live-provider-readiness', () => {
     expect(result.payload.providers.notion.status).toBe('READY');
     expect(result.payload.status).toBe('BLOCKED');
     expect(result.payload.blockers).toContain('sheets_disposable_lane');
+  });
+
+  it('uses one blocker key per oneOf requirement (no exploded credential alternatives)', () => {
+    const key = 'fixture-provider-authorization-key-32-characters';
+    const notionAck = notionGuardAck('11111111-2222-3333-4444-555555555555', 'notion-workspace', key);
+    const sheetsAck = sheetsGuardAck('spreadsheet-fixture-id', 'sheets-workspace@example.com', key);
+    const result = runReadiness(
+      cleanEnv({
+        NOTION_API_KEY: 'api-key-alternative',
+        NOTION_TEST_PAGE_ID: '11111111-2222-3333-4444-555555555555',
+        NOTION_TEST_ACCOUNT_ID: 'notion-workspace',
+        GOOGLE_SHEETS_TEST_SPREADSHEET_ID: 'spreadsheet-fixture-id',
+        GOOGLE_SHEETS_ACCESS_TOKEN: 'google-sheets-access-token',
+        GOOGLE_CLIENT_ID: 'google-client-id',
+        GOOGLE_CLIENT_SECRET: 'google-client-secret',
+        GOOGLE_ACCOUNT_ID: 'sheets-workspace@example.com',
+        WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY: key,
+        WONDERFOOD_LIVE_PROVIDER_ACK_NOTION: notionAck,
+        WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS: sheetsAck,
+      }),
+    );
+    expect(result.payload.status).toBe('READY');
+    expect(result.payload.providers.notion.missing_configs).toEqual([]);
+    expect(result.payload.providers.sheets.missing_configs).toEqual([]);
+    expect(result.payload.providers.sheets.missing_configs).not.toContain('sheets_account');
+    expect(result.payload.providers.sheets.missing_configs).not.toContain('GOOGLE_SHEETS_TEST_ACCOUNT_ID');
+    expect(result.payload.providers.notion.missing_configs).not.toContain('notion_credentials');
+    expect(result.payload.providers.notion.missing_configs).not.toContain('NOTION_TOKEN');
   });
 
   it('reports READY when required env and guards are present', () => {

@@ -5,6 +5,8 @@ import {
   buildCapabilityConsentRecordFingerprint,
   buildCapabilityConsentRecordId,
   canonicalCapabilityConsentRecord,
+  createCapabilityDecisionPort,
+  type CapabilityDecisionPort,
   validateCapabilityConsentRecord,
 } from '@/packages/shared/contracts/capability-consent-ledger';
 import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
@@ -215,6 +217,14 @@ export async function listCapabilityConsentLedgerRecordsForInstallation(
   return rows.map(hydrateLedgerRecord);
 }
 
+export async function loadCapabilityDecisionPort(
+  db: SQLiteDatabase,
+  installationId: string,
+): Promise<CapabilityDecisionPort> {
+  const records = await listCapabilityConsentLedgerRecordsForInstallation(db, installationId);
+  return createCapabilityDecisionPort(records);
+}
+
 export async function revokeCapabilityConsentLedgerRecord(
   db: SQLiteDatabase,
   input: RevokeCapabilityConsentInput,
@@ -336,7 +346,14 @@ async function resolvePackageContext(
 
   const packageId = row.package_id ?? row.package_payload_id;
   const packageVersion = row.version ?? row.package_payload_version;
-  const packageChecksum = row.checksum ?? packageChecksumFromPayloadJson(row.package_payload_json);
+  const packagePayloadChecksum = packageChecksumFromPayloadJson(row.package_payload_json);
+  if (!isText(row.checksum)) {
+    return null;
+  }
+  if (packagePayloadChecksum && row.checksum !== packagePayloadChecksum) {
+    return null;
+  }
+  const packageChecksum = row.checksum;
 
   if (!isText(packageId) || !isText(packageVersion) || !isText(packageChecksum)) {
     return null;

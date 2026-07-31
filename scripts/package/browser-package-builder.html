@@ -194,7 +194,6 @@
           <label for="importSource" style="margin-left: 8px;">Import package/adapter JSON</label>
           <input id="importSource" type="file" accept="application/json" />
           <button id="exportSource">Export source JSON</button>
-          <button id="downloadPackage" disabled>Download compiled package</button>
         </div>
       </section>
 
@@ -338,13 +337,24 @@
         <textarea id="creatorPurpose" rows="3">Create a shared household board with tasks, routines, expenses, and member notes.</textarea>
         <label for="creatorArchetype">Archetype</label>
         <select id="creatorArchetype" class="wide"></select>
+        <label for="creatorDataHome">Data home</label>
+        <select id="creatorDataHome" class="wide">
+          <option value="sqlite">Local SQLite</option>
+          <option value="google_sheets">Google Sheets (review required)</option>
+          <option value="notion">Notion (review required)</option>
+        </select>
+        <label for="creatorSourceUrl">Package source URL (optional, HTTPS)</label>
+        <input id="creatorSourceUrl" class="wide" type="url" placeholder="https://example.com/my-app.package.json" autocomplete="off" />
+        <p class="muted">A local build can be exported immediately. An install link is created only for a real HTTPS package URL, after review.</p>
         <label for="creatorAiKey">AI key (kept in browser memory only)</label>
         <input id="creatorAiKey" type="password" autocomplete="off" />
         <div class="row" style="margin-top: 8px;">
           <button id="creatorGenerate">Describe → generate</button>
           <button id="creatorValidate">Validate</button>
           <button id="creatorPreview" disabled>Preview install review</button>
-          <button id="creatorOpenReview" disabled>Open local install review</button>
+          <button id="creatorExport" disabled>Export source JSON</button>
+          <button id="creatorOpenReview" disabled>Open install link</button>
+          <button id="creatorCopyLink" disabled>Copy install link</button>
           <button id="creatorReceipt" disabled>Download creator receipt</button>
         </div>
         <div id="creatorStatus" class="muted" style="margin-top: 8px;">creator idle</div>
@@ -357,7 +367,6 @@
         starterSelect: document.getElementById('starter'),
         importSource: document.getElementById('importSource'),
         exportSource: document.getElementById('exportSource'),
-        downloadPackage: document.getElementById('downloadPackage'),
         guidedAppName: document.getElementById('guidedAppName'),
         guidedAppPurpose: document.getElementById('guidedAppPurpose'),
         guidedScreenCount: document.getElementById('guidedScreenCount'),
@@ -394,11 +403,15 @@
         creatorAppName: document.getElementById('creatorAppName'),
         creatorPurpose: document.getElementById('creatorPurpose'),
         creatorArchetype: document.getElementById('creatorArchetype'),
+        creatorDataHome: document.getElementById('creatorDataHome'),
+        creatorSourceUrl: document.getElementById('creatorSourceUrl'),
         creatorAiKey: document.getElementById('creatorAiKey'),
         creatorGenerate: document.getElementById('creatorGenerate'),
         creatorValidate: document.getElementById('creatorValidate'),
         creatorPreview: document.getElementById('creatorPreview'),
+        creatorExport: document.getElementById('creatorExport'),
         creatorOpenReview: document.getElementById('creatorOpenReview'),
+        creatorCopyLink: document.getElementById('creatorCopyLink'),
         creatorReceipt: document.getElementById('creatorReceipt'),
         creatorStatus: document.getElementById('creatorStatus'),
         creatorOutput: document.getElementById('creatorOutput'),
@@ -471,7 +484,9 @@
       function setCreatorControlsEnabled(enabled) {
         elements.creatorValidate.disabled = !enabled;
         elements.creatorPreview.disabled = !enabled;
-        elements.creatorOpenReview.disabled = !enabled;
+        elements.creatorExport.disabled = !enabled;
+        elements.creatorOpenReview.disabled = !enabled || !normalizeHttpsUrl(elements.creatorSourceUrl?.value);
+        elements.creatorCopyLink.disabled = !enabled || !normalizeHttpsUrl(elements.creatorSourceUrl?.value);
         elements.creatorReceipt.disabled = !enabled;
       }
 
@@ -481,6 +496,13 @@
         lastCreatorPackageValid = false;
         lastCompiledPackage = undefined;
         setCreatorControlsEnabled(false);
+      }
+
+      function clearCreatorAiKey() {
+        creatorAiKey = '';
+        if (elements.creatorAiKey) {
+          elements.creatorAiKey.value = '';
+        }
       }
 
       function safeJson(value, fallback) {
@@ -988,7 +1010,6 @@
           setStatus('invalid', 'warn');
           elements.validationOutput.textContent = built.error;
           elements.previewOutput.textContent = '';
-          elements.downloadPackage.disabled = true;
           lastCompiledPackage = undefined;
           return;
         }
@@ -1008,7 +1029,6 @@
         if (result.status === 'valid') {
           setStatus('valid', 'ok');
           lastCompiledPackage = result.package;
-          elements.downloadPackage.disabled = false;
           elements.validationOutput.textContent = JSON.stringify({
             checksum: result.checksum,
             packageId: result.package.id,
@@ -1022,7 +1042,6 @@
         } else {
           setStatus('invalid', 'warn');
           lastCompiledPackage = undefined;
-          elements.downloadPackage.disabled = true;
           elements.validationOutput.textContent = JSON.stringify({
             errors: result.errors,
           }, null, 2);
@@ -1041,12 +1060,27 @@
 
         try {
           const parsed = new URL(trimmed);
-          if (parsed.protocol !== 'https:') {
+          const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+          const privateIpv4 = /^(10|127)\.(?:\d{1,3}\.){2}\d{1,3}$/.test(hostname)
+            || /^192\.168\.(?:\d{1,3}\.)\d{1,3}$/.test(hostname)
+            || /^172\.(?:1[6-9]|2\d|3[01])\.(?:\d{1,3}\.)\d{1,3}$/.test(hostname);
+          if (
+            parsed.protocol !== 'https:'
+            || parsed.username
+            || parsed.password
+            || hostname === 'localhost'
+            || hostname === '127.0.0.1'
+            || hostname === '::1'
+            || hostname === 'local.utopia.creator-review'
+            || hostname.endsWith('.local')
+            || hostname.endsWith('.internal')
+            || privateIpv4
+            || !parsed.pathname
+            || parsed.pathname === '/'
+          ) {
             return null;
           }
-          if (parsed.hostname === 'local.utopia.creator-review') {
-            return null;
-          }
+          parsed.hash = '';
           return parsed.toString();
         } catch {
           return null;
@@ -1061,6 +1095,29 @@
         const installUrl = new URL('/install', window.location.origin);
         installUrl.searchParams.set('url', packageUrl);
         return installUrl.toString();
+      }
+
+      function currentCreatorInstallLink() {
+        if (!lastCreatorReview?.status || lastCreatorReview.status !== 'ready_for_review') {
+          return null;
+        }
+        return buildCreatorInstallReviewUrl(elements.creatorSourceUrl?.value);
+      }
+
+      function renderCreatorReviewSummary(preview) {
+        const installPreview = preview?.preview || preview;
+        return {
+          status: preview?.status,
+          app: installPreview?.appName,
+          version: installPreview?.version,
+          checksum: installPreview?.trust?.computedChecksum,
+          dataCollections: installPreview?.dataCollections || [],
+          providersRequested: installPreview?.providersRequested || [],
+          nativePermissionsRequested: installPreview?.nativePermissionsRequested || [],
+          nativeCapabilitySupport: installPreview?.nativeCapabilitySupport || [],
+          installDisclosures: installPreview?.installDisclosures || [],
+          sourceUrl: installPreview?.sourceUrl,
+        };
       }
 
       function serializeCreatorReceiptPayload(source, packageNode, durationMs) {
@@ -1109,6 +1166,7 @@
               targetPlatforms: selectedCreatorTargets(),
               demoData: true,
               selectedCapabilityIds: getSelectedCreatorCapabilities(),
+              preferredDataHome: elements.creatorDataHome?.value || undefined,
             }),
           });
           const result = await response.json();
@@ -1195,6 +1253,9 @@
             body: JSON.stringify({
               package: compiled.package,
               expectedChecksum: compiled.checksum,
+              ...(elements.creatorSourceUrl?.value.trim()
+                ? { sourceUrl: elements.creatorSourceUrl.value.trim() }
+                : {}),
             }),
           });
           const preview = await response.json();
@@ -1209,7 +1270,7 @@
           }
 
           lastCreatorReview = preview;
-          elements.creatorOutput.textContent = JSON.stringify(preview, null, 2);
+          elements.creatorOutput.textContent = JSON.stringify(renderCreatorReviewSummary(preview), null, 2);
           setCreatorStatus('creator install review ready', 'ok');
           setCreatorControlsEnabled(true);
         } catch (error) {
@@ -1230,10 +1291,10 @@
             throw new Error('creator review missing');
           }
 
-          const installReviewUrl = buildCreatorInstallReviewUrl(lastCreatorReview.preview?.sourceUrl);
+          const installReviewUrl = currentCreatorInstallLink();
           if (!installReviewUrl) {
             setCreatorFailure('install_review_blocked');
-            throw new Error('creator review requires https package URL');
+            throw new Error('install link requires a real HTTPS package source URL');
           }
 
           window.open(installReviewUrl, '_blank', 'noopener');
@@ -1246,6 +1307,37 @@
         } catch (error) {
           setCreatorFailure('install_review_blocked');
           setCreatorStatus('creator install review open failed', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      function exportCreatorSource() {
+        try {
+          const built = collectSourceFromForm();
+          if (built.error) throw new Error(built.error);
+          buildDownload(`${built.source.app.id || 'utopia-package'}-source.json`, built.source);
+          setCreatorStatus('canonical package source exported', 'ok');
+        } catch (error) {
+          setCreatorFailure('source_invalid');
+          setCreatorStatus('source export blocked', 'warn');
+          elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      async function copyCreatorInstallLink() {
+        try {
+          const installReviewUrl = currentCreatorInstallLink();
+          if (!installReviewUrl) throw new Error('install link requires a reviewed package and real HTTPS source URL');
+          if (!navigator.clipboard?.writeText) throw new Error('clipboard is unavailable; use Open install link');
+          await navigator.clipboard.writeText(installReviewUrl);
+          setCreatorStatus('install link copied', 'ok');
+          elements.creatorOutput.textContent = JSON.stringify({
+            status: 'install_link_ready',
+            installUrl: installReviewUrl,
+          }, null, 2);
+        } catch (error) {
+          setCreatorFailure('install_review_blocked');
+          setCreatorStatus('install link blocked', 'warn');
           elements.creatorOutput.textContent = error instanceof Error ? error.message : String(error);
         }
       }
@@ -1455,13 +1547,6 @@
           buildDownload(fileName, built.source);
         });
 
-        elements.downloadPackage.addEventListener('click', () => {
-          if (!lastCompiledPackage) return;
-          const appId = lastCompiledPackage.id ?? 'utopia-package';
-          const version = lastCompiledPackage.version ?? '1.0.0';
-          buildDownload(`${appId}-${version}.package.json`, lastCompiledPackage);
-        });
-
         elements.creatorGenerate?.addEventListener('click', () => {
           beginCreatorFlow();
           setCreatorStatus('creator generate in progress...');
@@ -1478,8 +1563,20 @@
           void previewCreatorInstallReview();
         });
 
+        elements.creatorSourceUrl?.addEventListener('input', () => {
+          setCreatorControlsEnabled(Boolean(lastCreatorPackageValid));
+        });
+
+        elements.creatorExport?.addEventListener('click', () => {
+          exportCreatorSource();
+        });
+
         elements.creatorOpenReview?.addEventListener('click', () => {
           void openCreatorInstallReview();
+        });
+
+        elements.creatorCopyLink?.addEventListener('click', () => {
+          void copyCreatorInstallLink();
         });
 
         elements.creatorReceipt?.addEventListener('click', () => {
@@ -1490,6 +1587,8 @@
           const target = event.target;
           creatorAiKey = isObject(target) && 'value' in target ? String(target.value) : '';
         });
+
+        window.addEventListener('pagehide', clearCreatorAiKey, { once: true });
       }
 
       async function loadStarter(id) {

@@ -1,6 +1,5 @@
-import { createCipheriv, createDecipheriv, createHash, webcrypto } from 'node:crypto';
-
 import { canonicalJson } from '@/src/domain/canonical-json';
+import { defaultCoreCryptoPort } from '../../adapters/core-crypto';
 import {
   LocalFakeBlobStore,
   type BlobObjectRecord,
@@ -194,7 +193,7 @@ export function createCloudVaultKeyRing(input?: {
         keyId,
         createdAt,
         status: 'active',
-        material: Buffer.from(materialBytes).toString('base64'),
+        material: toBase64(materialBytes),
       },
     },
   };
@@ -485,7 +484,7 @@ export class CloudVaultService {
     const happenedAt = normalizeIsoTimestamp(input?.now ?? this.now(), 'cloud_vault_rotation_at_invalid');
     const previousActiveKeyId = this.keyRing.activeKeyId;
     const keyId = requireIdentifier(input?.newKeyId ?? `kek-${Object.keys(this.keyRing.keys).length + 1}`, 'cloud_vault_key_id_required');
-    const keyMaterial = Buffer.from(normalizeAesKeyMaterial(input?.material ?? this.randomBytes(DEK_BYTES))).toString('base64');
+    const keyMaterial = toBase64(normalizeAesKeyMaterial(input?.material ?? this.randomBytes(DEK_BYTES)));
     const nextKeys: Record<string, CloudVaultWrappingKey> = {};
     for (const [existingKeyId, key] of Object.entries(this.keyRing.keys)) {
       nextKeys[existingKeyId] = {
@@ -940,18 +939,11 @@ function unwrapDek(wrapped: CloudVaultWrappedKey, key: CloudVaultWrappingKey): U
 }
 
 function encryptBytes(plaintext: Uint8Array, key: Uint8Array, iv: Uint8Array): { ciphertext: Uint8Array; authTag: Uint8Array } {
-  const cipher = createCipheriv(DATA_CIPHER_ALGORITHM, key, iv);
-  const ciphertext = Buffer.concat([cipher.update(Buffer.from(plaintext)), cipher.final()]);
-  return {
-    ciphertext: Uint8Array.from(ciphertext),
-    authTag: Uint8Array.from(cipher.getAuthTag()),
-  };
+  return defaultCoreCryptoPort.encryptAesGcm(plaintext, key, iv);
 }
 
 function decryptBytes(input: { ciphertext: Uint8Array; authTag: Uint8Array; iv: Uint8Array; key: Uint8Array }): Uint8Array {
-  const decipher = createDecipheriv(DATA_CIPHER_ALGORITHM, input.key, input.iv);
-  decipher.setAuthTag(Buffer.from(input.authTag));
-  return Uint8Array.from(Buffer.concat([decipher.update(Buffer.from(input.ciphertext)), decipher.final()]));
+  return defaultCoreCryptoPort.decryptAesGcm(input);
 }
 
 function encodeJson(value: unknown): Uint8Array {
@@ -995,11 +987,11 @@ function opaqueScope(workspaceId: string, artifactId: string): string {
 }
 
 function opaqueId(...parts: Array<string | number>): string {
-  return createHash('sha256').update(parts.map(String).join('|')).digest('hex').slice(0, 24);
+  return toHex(defaultCoreCryptoPort.sha256(new TextEncoder().encode(parts.map(String).join('|')))).slice(0, 24);
 }
 
 function sha256Bytes(value: Uint8Array): string {
-  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+  return `sha256:${toHex(defaultCoreCryptoPort.sha256(value))}`;
 }
 
 function isSha256(value: string | undefined): boolean {
@@ -1031,11 +1023,14 @@ function requireBlobKey(value: string, error: string): string {
 }
 
 function toBase64(value: Uint8Array): string {
-  return Buffer.from(value).toString('base64');
+  let binary = '';
+  for (const byte of value) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 function fromBase64(value: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(value, 'base64'));
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 function fromBase64Fixed(value: string, length: number, error: string): Uint8Array {
@@ -1045,16 +1040,14 @@ function fromBase64Fixed(value: string, length: number, error: string): Uint8Arr
 }
 
 function secureRandomBytes(size: number): Uint8Array {
-  const cryptoApi = globalThis.crypto ?? webcrypto;
-  if (typeof cryptoApi.getRandomValues === 'function') {
-    const bytes = new Uint8Array(size);
-    cryptoApi.getRandomValues(bytes);
-    return bytes;
-  }
-  return Uint8Array.from(Buffer.from(webcrypto.getRandomValues(new Uint8Array(size))));
+  return defaultCoreCryptoPort.randomBytes(size);
 }
 
 function normalizeAesKeyMaterial(value: Uint8Array): Uint8Array {
   if (value.byteLength === DEK_BYTES) return Uint8Array.from(value);
-  return Uint8Array.from(createHash('sha256').update(value).digest());
+  return Uint8Array.from(defaultCoreCryptoPort.sha256(value));
+}
+
+function toHex(value: Uint8Array): string {
+  return Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

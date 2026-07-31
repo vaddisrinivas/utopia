@@ -1,0 +1,7 @@
+[
+  { "id": "app-package-v2-valid", "schemaVersion": "wonder.app-package.v2", "fixture": "../../fixtures/package-validation/valid-v2.json", "expected": true },
+  { "id": "app-package-v3-valid", "schemaVersion": "wonder.app-package.v3", "fixture": "../../fixtures/package-validation/valid-v3.json", "expected": true },
+  { "id": "app-package-v3-required-collections", "schemaVersion": "wonder.app-package.v3", "fixture": "../../fixtures/package-validation/v3-missing-collections.json", "expected": false },
+  { "id": "app-package-v3-required-queries", "schemaVersion": "wonder.app-package.v3", "fixture": "../../fixtures/package-validation/v3-missing-queries.json", "expected": false },
+  { "id": "app-package-v3-required-views", "schemaVersion": "wonder.app-package.v3", "fixture": "../../fixtures/package-validation/v3-missing-views.json", "expected": false }
+]

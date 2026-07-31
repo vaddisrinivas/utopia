@@ -29,17 +29,30 @@ Goal: prepare Utopia for official launch without claiming release proof early.
 
 ## Not Launching Today
 
-Still required before public release:
+Still required before public launch. Blockers are fail-closed and listed with required actions.
 
-- deploy Cloudflare Worker;
-- configure release Android fingerprint for App Links;
-- configure iOS Team ID for Universal Links;
-- publish privacy policy URL;
-- copy local publisher token into Cloudflare `PUBLISHER_TOKEN` and GitHub `UTOPIA_REGISTRY_PUBLISHER_TOKEN` only when ready;
-- fill Google Play Data safety from actual telemetry behavior;
-- run signed Android release proof;
-- run physical-device proof;
-- run one end-to-end Custom GPT package publish and install.
+- App Link + Universal Link config:
+  - Set production values in `cloudflare/wrangler.toml`:
+    - `IOS_APP_ID = "REPLACE_WITH_YOUR_IOS_TEAM_ID.app.utopia"` in `[vars]`
+    - `ANDROID_SHA256_CERT_FINGERPRINT = "REPLACE_WITH_ANDROID_SHA256_CERT_FINGERPRINT"` in `[vars]`
+  - Keep staging explicit too under `[env.staging.vars]`.
+  - Copy the same app ID and fingerprint format used in store release signing.
+- Privacy policy URL:
+  - Set `app.json` field `expo.privacyPolicy` to a public HTTPS URL, or set env var `UTOPIA_PRIVACY_POLICY_URL`.
+  - Do not leave this empty. Store links must resolve in browser without auth.
+- App signing proof:
+  - Run:
+    - `BUILD_RELEASE_ARTIFACTS=1 npm run release:proof:signed-android`
+  - Keep fresh valid files in:
+    - `app/build/evidence/android-release-artifacts.json`
+    - `app/build/evidence/android-release-build-receipt.json`
+  - Both files must report successful status for launch checks to clear.
+- Publisher + registry launch prep:
+  - Copy local publisher token into Cloudflare `PUBLISHER_TOKEN` and GitHub `UTOPIA_REGISTRY_PUBLISHER_TOKEN` only when ready.
+  - run `./scripts/gates/release-proof-signed-android.sh` and `./scripts/gates/release-proof-physical-device.sh` as gated checks.
+- deploy Cloudflare Worker:
+  - Set `CLOUDFLARE_API_TOKEN` and run registry publish per `docs/cloudflare-registry-launch.md`.
+  - Do not enable write mode until all above blockers are cleared.
 
 ## Live Proof Boundaries
 

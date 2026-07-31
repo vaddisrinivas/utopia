@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectAndroidInputs, validateGoldenLoopInputs } from "../../scripts/quality/android/run-golden-loop-android-lane.mjs";
+import { collectAndroidInputs, nextActionForAndroidBlock, validateGoldenLoopInputs } from "../../scripts/quality/android/run-golden-loop-android-lane.mjs";
 import { redactSensitiveText } from "../../scripts/quality/android/run-golden-loop-android-lane.mjs";
 
 describe("android lane input validation", () => {
@@ -60,5 +60,10 @@ describe("android lane input validation", () => {
     expect(redacted).not.toContain("abc123");
     expect(redacted).not.toContain("session=abc");
     expect(redacted).toContain("[redacted]");
+  });
+
+  it("maps blocked states to concrete next action", () => {
+    expect(nextActionForAndroidBlock("missing:android_emulator_serials")).toContain("UTOPIA_ANDROID_GOLDEN_LOOP_SERIALS");
+    expect(nextActionForAndroidBlock("missing:android_golden_loop_opt_in")).toContain("UTOPIA_ANDROID_GOLDEN_LOOP=1");
   });
 });

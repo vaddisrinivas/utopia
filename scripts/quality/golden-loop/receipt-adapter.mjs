@@ -40,6 +40,34 @@ export function pickPackageChecksum(receipt) {
   return null;
 }
 
+function pickRunId(receipt) {
+  const candidates = [
+    receipt.run_id,
+    receipt.runId,
+    receipt.source?.run_id,
+    receipt.source?.runId,
+    receipt.metadata?.run_id,
+    receipt.metadata?.runId,
+    receipt.execution?.run_id,
+    receipt.execution?.runId,
+    receipt.lifecycle?.run_id,
+    receipt.lifecycle?.runId,
+    receipt.shell_proof?.run_id,
+    receipt.shell_proof?.runId,
+    receipt.shell_proof?.metadata?.run_id,
+    receipt.shell_proof?.metadata?.runId,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed.length > 0) return trimmed;
+    }
+  }
+
+  return null;
+}
+
 export function validateLifecycleScenario(receipt, label, requiredScenarioId = REQUIRED_SCENARIO_ID) {
   const blockers = [];
   const lifecycle = receipt?.lifecycle;
@@ -120,6 +148,7 @@ export function validateReceipt({
     assertions: null,
     shell_proof: null,
     package_transition: null,
+    run_id: null,
     durable_data_checksum: null,
     operation_ids: null,
     transport: null,
@@ -199,6 +228,9 @@ export function validateReceipt({
     previous_version: shellProof.package?.previous_version || null,
     checksum: shellProof.package?.checksum || null,
   } : null;
+  result.run_id = shellProof.pass
+    ? (pickRunId(receipt) ?? pickRunId(shellProof))
+    : pickRunId(receipt);
   result.durable_data_checksum = shellProof.pass ? shellProof.durable_data_checksum : null;
   result.operation_ids = shellProof.pass ? shellProof.operation_ids : null;
   result.transport = shellProof.pass ? shellProof.transport : null;

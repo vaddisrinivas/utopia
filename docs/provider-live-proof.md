@@ -5,22 +5,27 @@ Scope: Notion and Google Sheets live proof lane for Utopia.
 ## Readiness Contracts
 
 Run `npm run check:live-provider-readiness` before live runs.
+This is a preflight check only. It checks authorization wiring and guard wiring for live proof.
+It does **not** prove any live write.
 
-- Notion blockers must be config names only:
-  - `NOTION_TOKEN` or `NOTION_API_KEY`
-  - `NOTION_TEST_PAGE_ID`
-  - `NOTION_TEST_ACCOUNT_ID` or `NOTION_WORKSPACE_ID`
-  - `WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY`
-  - `WONDERFOOD_LIVE_PROVIDER_ACK` or `WONDERFOOD_LIVE_PROVIDER_ACK_NOTION`
-- Sheets blockers must be config names only:
-  - `GOOGLE_SHEETS_TEST_SPREADSHEET_ID`
-  - `GOOGLE_SHEETS_PROVISION_DISPOSABLE=1` (optional; requires OAuth flow and creates a disposable workbook)
-  - `GOOGLE_SHEETS_ACCESS_TOKEN` or `GOOGLE_SHEETS_TOKEN_FILE`
-  - `GOOGLE_SHEETS_TEST_ACCOUNT_ID` or `GOOGLE_ACCOUNT_ID`
-  - `GOOGLE_CLIENT_ID`
-  - `GOOGLE_CLIENT_SECRET`
-  - `WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY`
-  - `WONDERFOOD_LIVE_PROVIDER_ACK` or `WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS`
+Readiness is grouped into blockers (smallest actionable units):
+
+- Notion:
+  - `notion_credentials` (needs `NOTION_TOKEN` or `NOTION_API_KEY`)
+  - `notion_target_page` (`NOTION_TEST_PAGE_ID`)
+  - `notion_account` (`NOTION_TEST_ACCOUNT_ID` or `NOTION_WORKSPACE_ID`)
+  - `notion_guard_key` (`WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY`)
+  - `notion_guard_ack` (`WONDERFOOD_LIVE_PROVIDER_ACK` or `WONDERFOOD_LIVE_PROVIDER_ACK_NOTION`)
+- Sheets:
+  - `sheets_test_spreadsheet` (`GOOGLE_SHEETS_TEST_SPREADSHEET_ID`)
+  - `sheets_oauth_source` (`GOOGLE_SHEETS_ACCESS_TOKEN` or `GOOGLE_SHEETS_TOKEN_FILE`)
+  - `sheets_account` (`GOOGLE_SHEETS_TEST_ACCOUNT_ID` or `GOOGLE_ACCOUNT_ID`)
+  - `sheets_oauth_client_id` (`GOOGLE_CLIENT_ID`)
+  - `sheets_oauth_client_secret` (`GOOGLE_CLIENT_SECRET`)
+  - `sheets_guard_key` (`WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY`)
+  - `sheets_guard_ack` (`WONDERFOOD_LIVE_PROVIDER_ACK` or `WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS`)
+
+For live execution, follow with `npm run check:live-providers` (or `./scripts/quality/run-provider-live-proofs.sh notion sheets`) after all blockers clear.
 
 ## Browser OAuth path (Sheets)
 

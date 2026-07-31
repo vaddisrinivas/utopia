@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { DATABASE_VERSION, exportRecoverySnapshot, rollbackDatabase, runMigrations } from '@/src/db/migrations';
+import { NodeSqliteDb } from '@/tests/helpers/node-sqlite-db';
 
 type Row = Record<string, unknown>;
 
@@ -178,6 +179,7 @@ class MigrationMemoryDb {
   async getFirstAsync<T>(sql: string): Promise<T | null> {
     const compact = sql.replace(/\s+/g, ' ').trim();
     if (compact === 'PRAGMA user_version') return { user_version: this.userVersion } as T;
+    if (compact === 'PRAGMA foreign_keys') return { foreign_keys: 1 } as T;
     throw new Error(`Unsupported getFirstAsync SQL: ${compact}`);
   }
 
@@ -209,6 +211,51 @@ class MigrationMemoryDb {
 }
 
 describe('database migrations', () => {
+  it('restores foreign-key enforcement after migrations', async () => {
+    const db = new NodeSqliteDb();
+    await runMigrations(db as any);
+
+    expect(await db.getFirstAsync<{ foreign_keys: number }>('PRAGMA foreign_keys')).toEqual({ foreign_keys: 1 });
+    db.close();
+  });
+
+  it('restores foreign-key state exactly as prior to migrations', async () => {
+    const db = new NodeSqliteDb();
+    await db.execAsync('PRAGMA foreign_keys = OFF');
+    await runMigrations(db as any);
+    expect(await db.getFirstAsync<{ foreign_keys: number | string }>('PRAGMA foreign_keys')).toEqual({ foreign_keys: 0 });
+    db.close();
+  });
+
+  it('preserves prior foreign-key state during rollback', async () => {
+    const db = new NodeSqliteDb();
+    await db.execAsync('PRAGMA foreign_keys = OFF');
+    await runMigrations(db as any);
+    await rollbackDatabase(db as any, 1);
+    expect(await db.getFirstAsync<{ foreign_keys: number | string }>('PRAGMA foreign_keys')).toEqual({ foreign_keys: 0 });
+    db.close();
+  });
+
+  it('restores foreign-key enforcement when a migration fails', async () => {
+    const statements: string[] = [];
+    const db = {
+      async getFirstAsync<T>(sql: string) {
+        if (sql === 'PRAGMA user_version') return { user_version: 0 } as T;
+        if (sql === 'PRAGMA foreign_keys') return { foreign_keys: 1 } as T;
+        throw new Error(`unexpected getFirstAsync ${sql}`);
+      },
+      async execAsync(sql: string) {
+        statements.push(sql);
+        if (sql.includes('CREATE TABLE')) throw new Error('migration failed');
+      },
+      async withTransactionAsync(fn: () => Promise<void>) { return fn(); },
+    };
+
+    await expect(runMigrations(db as any)).rejects.toThrow('migration failed');
+    expect(statements).toEqual(expect.arrayContaining(['PRAGMA foreign_keys = OFF', 'PRAGMA foreign_keys = ON']));
+    expect(statements.at(-1)).toBe('PRAGMA foreign_keys = ON');
+  });
+
   it('fresh install reaches current schema with operation, sync, package, and control-plane tables', async () => {
     const db = new MigrationMemoryDb();
     await runMigrations(db as any);

@@ -8,8 +8,8 @@ import {
   type UtopiaRegistrySignature,
   type UtopiaRegistryManifest,
   type UtopiaRegistryPackage,
+  type UtopiaRegistryTrustFloor,
 } from '@/packages/shared/contracts/package-install';
-import { resolveRegistrySignatureTrust, type UtopiaTrustPolicy } from '@/packages/shared/contracts/package-trust';
 import { canonicalJson, sha256Canonical } from '@/packages/shared/contracts/canonical-json';
 import type { AppInstallation } from '@/packages/shared/contracts/app-installation';
 import type { PublisherTrustStore } from './publisher-trust-store';
@@ -29,10 +29,13 @@ export const BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL = 'https://wonder.app/bundled/
 export const BUNDLED_SPLIT_RENT_PACKAGE_URL = 'https://wonder.app/bundled/split-rent.package.json';
 export const BUNDLED_WORKOUT_LOGGER_PACKAGE_URL = 'https://wonder.app/bundled/workout-logger.package.json';
 export const BUNDLED_FOCUS_INTERVALS_PACKAGE_URL = 'https://wonder.app/bundled/focus-intervals.package.json';
+export const PACKAGE_INSTALL_FETCH_TIMEOUT_MS = 10_000;
+export const PACKAGE_INSTALL_MAX_BODY_BYTES = 1024 * 1024;
 
 export type PackageInstallFetchResponse = Readonly<{
   ok: boolean;
   status: number;
+  redirected?: boolean;
   headers?: {
     get(name: string): string | null;
   };
@@ -60,6 +63,9 @@ export type PackageInstallTrustSummary = Readonly<{
   checksumLabel: string;
   publisherLabel: string;
   signatureLabel: string;
+  selfSignatureLabel: string;
+  publisherTrustLabel: string;
+  tufMetadataLabel: string;
   approvalLabel: 'Review required' | 'Install blocked';
 }>;
 
@@ -248,7 +254,7 @@ export function packageInstallTrustLabel(preview: PackageInstallPreview): string
   if (preview.trust.signatureStatus === 'signature_verified') return 'Publisher signature verified';
   if (preview.trust.status === 'checksum_verified') return 'Checksum verified';
   if (preview.trust.status === 'checksum_mismatch') return 'Checksum mismatch';
-  if (preview.trust.signatureStatus === 'signature_present') return 'Publisher signature present - checksum missing';
+  if (preview.trust.signatureStatus === 'signature_present_untrusted') return 'Publisher signature present - publisher trust unavailable';
   return 'Unknown remote package - review required';
 }
 
@@ -258,16 +264,47 @@ export function packageInstallTrustSummary(preview: PackageInstallPreview): Pack
   return {
     statusLabel: preview.status === 'ready_for_review' ? 'Ready for review' : 'Blocked',
     trustLabel: packageInstallTrustLabel(preview),
-    trustTone: preview.trust.status === 'checksum_mismatch' || preview.trust.signatureStatus === 'signature_invalid'
+    trustTone: preview.trust.status === 'checksum_mismatch'
+      || preview.trust.signatureStatus === 'signature_invalid'
+      || preview.trust.publisherTrustStatus === 'blocked'
+      || preview.trust.tufMetadata.status === 'blocked'
       ? 'blocked'
-      : preview.trust.status === 'checksum_verified' || preview.trust.signatureStatus === 'signature_verified'
+      : preview.trust.status === 'checksum_verified'
+        && preview.trust.signatureStatus === 'signature_verified'
+        && preview.trust.publisherTrustStatus === 'trusted'
+        && preview.trust.tufMetadata.status === 'verified'
         ? 'verified'
         : 'unknown',
     checksumLabel: checksum.length > 28 ? `${checksum.slice(0, 28)}...` : checksum,
     publisherLabel: publisher?.name ?? publisher?.id ?? 'Unknown publisher',
     signatureLabel: packageInstallSignatureLabel(preview),
+    selfSignatureLabel: packageInstallSignatureLabel(preview),
+    publisherTrustLabel: packageInstallPublisherTrustLabel(preview),
+    tufMetadataLabel: packageInstallTufMetadataLabel(preview),
     approvalLabel: preview.status === 'ready_for_review' ? 'Review required' : 'Install blocked',
   };
+}
+
+export function packageInstallPublisherTrustLabel(preview: PackageInstallPreview): string {
+  switch (preview.trust.publisherTrustStatus) {
+    case 'trusted': return 'Trusted publisher root accepted';
+    case 'untrusted': return 'Publisher is not trusted by Utopia';
+    case 'blocked': return `Publisher trust blocked${preview.trust.publisherTrustReason ? `: ${preview.trust.publisherTrustReason}` : ''}`;
+    default: return 'Publisher trust unavailable';
+  }
+}
+
+export function packageInstallTufMetadataLabel(preview: PackageInstallPreview): string {
+  const metadata = preview.trust.tufMetadata;
+  const versions = metadata.rootVersion !== undefined
+    ? ` (root ${metadata.rootVersion}${metadata.targetsVersion !== undefined ? `, targets ${metadata.targetsVersion}` : ''})`
+    : '';
+  switch (metadata.status) {
+    case 'verified': return `TUF metadata verified${versions}`;
+    case 'present_unverified': return `TUF metadata present; cryptographic verification pending${versions}`;
+    case 'blocked': return `TUF metadata blocked${metadata.reason ? `: ${metadata.reason}` : ''}`;
+    default: return 'TUF metadata missing';
+  }
 }
 
 export function packageInstallSignatureLabel(preview: PackageInstallPreview): string {
@@ -275,9 +312,9 @@ export function packageInstallSignatureLabel(preview: PackageInstallPreview): st
     const key = preview.trust.signatureKeyId ? ` (${preview.trust.signatureKeyId})` : '';
     return `Signature verified${key}`;
   }
-  if (preview.trust.signatureStatus === 'signature_present') {
+  if (preview.trust.signatureStatus === 'signature_present_untrusted') {
     const key = preview.trust.signatureKeyId ? ` (${preview.trust.signatureKeyId})` : '';
-    return `Signature present${key}`;
+    return `Signature present but publisher is untrusted${key}`;
   }
   if (preview.trust.signatureStatus === 'signature_invalid') return 'Signature invalid';
   return 'Signature missing';
@@ -289,6 +326,10 @@ export async function fetchPackageInstallCandidate(
   options: {
     registryPackage?: UtopiaRegistryPackage;
     expectedChecksum?: string;
+    registryTrustMetadata?: import('@/packages/shared/contracts/package-install').UtopiaRegistryTrustMetadata;
+    trustFloor?: UtopiaRegistryTrustFloor;
+    trustNow?: string;
+    tufMetadataVerified?: boolean;
   } = {},
 ): Promise<PackageInstallCandidate> {
   const target = parsePackageInstallTarget(input);
@@ -297,6 +338,10 @@ export async function fetchPackageInstallCandidate(
     sourceUrl: target.packageUrl,
     registryPackage: options.registryPackage,
     expectedChecksum: options.expectedChecksum,
+    registryTrustMetadata: options.registryTrustMetadata,
+    trustFloor: options.trustFloor,
+    trustNow: options.trustNow,
+    tufMetadataVerified: options.tufMetadataVerified,
   });
   assertInstallDescriptorMatchesPreview(options.registryPackage, preview);
   return {
@@ -306,9 +351,13 @@ export async function fetchPackageInstallCandidate(
   };
 }
 
-export async function fetchRegistryManifest(url: string, fetcher: PackageInstallFetcher): Promise<UtopiaRegistryManifest> {
+export async function fetchRegistryManifest(
+  url: string,
+  fetcher: PackageInstallFetcher,
+  options: { now?: string; trustFloor?: UtopiaRegistryTrustFloor } = {},
+): Promise<UtopiaRegistryManifest> {
   parsePackageInstallTarget(url);
-  return validateRegistryManifest(await fetchJson(url, fetcher));
+  return validateRegistryManifest(await fetchJson(url, fetcher), options);
 }
 
 export function getBundledDemoPackage(): unknown {
@@ -385,8 +434,11 @@ export async function buildPackageInstallPreviewWithSignatureVerification(
     sourceUrl: string;
     registryPackage?: UtopiaRegistryPackage;
     expectedChecksum?: string;
-    trustPolicy?: UtopiaTrustPolicy;
     publisherTrustStore?: PublisherTrustStore;
+    registryTrustMetadata?: import('@/packages/shared/contracts/package-install').UtopiaRegistryTrustMetadata;
+    trustFloor?: UtopiaRegistryTrustFloor;
+    trustNow?: string;
+    tufMetadataVerified?: boolean;
   },
 ): Promise<PackageInstallPreview> {
   const signature = options.registryPackage?.signature;
@@ -402,26 +454,31 @@ export async function buildPackageInstallPreviewWithSignatureVerification(
       publisher: options.registryPackage.publisher,
     })
     : null;
-  const trustedSignature = options.trustPolicy && !options.publisherTrustStore && options.registryPackage
-    ? resolveRegistrySignatureTrust({ policy: options.trustPolicy, registryPackage: options.registryPackage })
-    : null;
-
   if (publisherTrustDecision?.status === 'rejected') {
     return buildPackageInstallPreview(packageJson, {
       ...options,
       signatureVerifier: () => ({ verified: false, error: publisherTrustDecision.details }),
+      publisherTrustStatus: 'blocked',
+      publisherTrustReason: publisherTrustDecision.details,
     });
   }
-  if (trustedSignature && !trustedSignature.trusted) {
+  if (!publisherTrustDecision) {
+    const selfSignatureVerification = signature.publicKey
+      ? await verifyPackageRegistrySignature({ canonicalPackage, signature })
+      : null;
     return buildPackageInstallPreview(packageJson, {
       ...options,
-      signatureVerifier: () => ({ verified: false, error: trustedSignature.error ?? 'signature trust policy failed' }),
+      signatureVerifier: selfSignatureVerification
+        ? () => typeof selfSignatureVerification === 'boolean'
+          ? { verified: selfSignatureVerification, trusted: false }
+          : { ...selfSignatureVerification, trusted: false }
+        : undefined,
     });
   }
 
-  const trustedPublicKey = publisherTrustDecision?.status === 'trusted'
+  const trustedPublicKey = publisherTrustDecision.status === 'trusted'
     ? publisherTrustDecision.publicKey
-    : trustedSignature?.publicKey;
+    : undefined;
   const verification = await verifyPackageRegistrySignature({
     canonicalPackage,
     signature: trustedPublicKey ? { ...signature, publicKey: trustedPublicKey } : signature,
@@ -435,6 +492,8 @@ export async function buildPackageInstallPreviewWithSignatureVerification(
       }
       return verification;
     },
+    publisherTrustStatus: 'trusted',
+    publisherTrustReason: `Publisher ${publisherTrustDecision.publisherId} is trusted by the installed trust root.`,
   });
 }
 
@@ -495,38 +554,65 @@ export function createPackageInstallFetcher(remoteFetch: PackageInstallFetcher =
     }
     const bundled = getBundledPackages().find((candidate) => candidate.url === normalized);
     if (bundled) return jsonResponse(bundled.packageJson);
-    return remoteFetch(normalized);
+    return fetchWithTimeout(() => remoteFetch(normalized));
   };
 }
 
 async function fetchJson(url: string, fetcher: PackageInstallFetcher): Promise<unknown> {
   let response: PackageInstallFetchResponse;
   try {
-    response = await fetcher(url);
+    response = await fetchWithTimeout(() => fetcher(url));
   } catch (error) {
     throw new Error(`package_fetch_failed:${error instanceof Error ? error.message : 'network_error'}`);
   }
 
+  if (response.redirected) throw new Error('package_fetch_redirected');
   if (!response.ok) throw new Error(`package_fetch_failed:http_${response.status}`);
-  const contentType = response.headers?.get('content-type') ?? '';
-  if (contentType && !contentType.toLowerCase().includes('json')) {
+  const contentType = (response.headers?.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
+  if (contentType !== 'application/json' && !contentType.endsWith('+json')) {
     throw new Error('package_fetch_not_json');
   }
-
-  if (response.json) return response.json();
-  if (!response.text) throw new Error('package_fetch_no_body_reader');
-
-  const body = await response.text();
-  try {
-    return JSON.parse(body);
-  } catch {
-    throw new Error('package_fetch_invalid_json');
+  const contentLength = Number(response.headers?.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > PACKAGE_INSTALL_MAX_BODY_BYTES) {
+    throw new Error('package_fetch_body_too_large');
   }
+
+  if (response.text) {
+    const body = await fetchWithTimeout(() => response.text!());
+    if (bodyByteLength(body) > PACKAGE_INSTALL_MAX_BODY_BYTES) {
+      throw new Error('package_fetch_body_too_large');
+    }
+    try {
+      return JSON.parse(body);
+    } catch {
+      throw new Error('package_fetch_invalid_json');
+    }
+  }
+  if (response.json) return fetchWithTimeout(() => response.json!());
+  throw new Error('package_fetch_no_body_reader');
 }
 
 async function defaultRemoteFetch(url: string): Promise<PackageInstallFetchResponse> {
   if (typeof fetch !== 'function') throw new Error('fetch_unavailable');
-  return fetch(url);
+  return fetch(url, { redirect: 'error' });
+}
+
+async function fetchWithTimeout<T>(operation: () => Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('package_fetch_timeout')), PACKAGE_INSTALL_FETCH_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function bodyByteLength(body: string): number {
+  return typeof TextEncoder === 'function' ? new TextEncoder().encode(body).byteLength : body.length;
 }
 
 function isSupportedSignatureAlgorithm(algorithm: string): boolean {

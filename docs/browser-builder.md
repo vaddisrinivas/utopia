@@ -4,7 +4,7 @@
 
 - Canonical persisted format: `wonder.package-source.v1`
 - Canonical schema URL: `https://schemas.utopia.dev/wonder.package-source.v1.schema.json`
-- Imports are validated against source shape, and only source format is persisted.
+- Imports are validated against source shape, and only source format is saved or exported.
 
 ## Adapter contracts
 
@@ -18,6 +18,10 @@
   - `uischema` must include `elements` controls with `scope: "#/properties/<field>"`
 - Puck conversion is not supported.
 - Importing adapter payloads outside the documented JSON Forms subset returns explicit unsupported reasons.
+- Secret-shaped field names/values are rejected before source compilation, and unsupported capability ids fail closed during guided generation.
+
+- `/api/creator-receipt` requires a compile-valid source or validated package; source/package `id` and `version` must match when both are present, and duration is bounded.
+- This is a constrained creator contract proof, not a human usability study.
 
 ## Runtime contracts
 
@@ -37,4 +41,15 @@
  - `BuilderImportResponse` now supports:
   - `{ status: 'source', mode: 'package-source' }`
   - `{ status: 'compiled', mode: 'compiled-package' }`
-  - `{ status: 'unsupported', mode: 'unsupported' }`
+ - `{ status: 'unsupported', mode: 'unsupported' }`
+
+## Creator flow
+
+The browser creator is a deliberate four-step path:
+
+1. Describe the app with a name, purpose, archetype, target platforms, data home, and capability choices.
+2. Validate the generated canonical `wonder.package-source.v1` through the package compiler.
+3. Preview install trust data before any handoff: checksum, collections, providers, native permissions/capabilities, and disclosures.
+4. Export canonical source JSON, or create/copy an install link only when the creator supplies a real HTTPS package source URL.
+
+Local generated packages do not receive a fake install URL. This keeps install links actionable and prevents a local preview placeholder from being mistaken for a published package. The optional AI key remains page-memory-only and is never sent in builder requests, source, previews, receipts, or browser storage.

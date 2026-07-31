@@ -113,6 +113,9 @@ function requireBooleanReceipt(path, requiredProof, blockers, label) {
   const envelope = validateEvidenceEnvelope(root, path, receipt, currentGit(root));
   if (!envelope.valid) {
     blockers.push(`invalid_envelope:${label}_receipt`);
+    for (const issue of envelope.issues) {
+      blockers.push(`invalid_envelope:${label}_receipt:${issue}`);
+    }
     result.issues.push(...envelope.issues);
   }
   if (result.proofMismatch) {
@@ -126,12 +129,20 @@ function requireBooleanReceipt(path, requiredProof, blockers, label) {
 }
 
 function findMacosAppBundle() {
-  const candidates = [
+  const configured = (process.env.UTOPIA_MACOS_APP_BUNDLE_PATHS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const candidates = configured.length > 0 ? configured : [
     join(root, 'macos/macos/build/Build/Products'),
   ];
   const appBundles = [];
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
+    if (candidate.endsWith('.app')) {
+      if (statSync(candidate).isDirectory()) appBundles.push(candidate);
+      continue;
+    }
     for (const productConfig of readdirSync(candidate, { withFileTypes: true })) {
       if (!productConfig.isDirectory()) continue;
       const fullConfig = join(candidate, productConfig.name);

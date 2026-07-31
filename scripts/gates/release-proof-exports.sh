@@ -15,8 +15,9 @@ run_gate npm test
 run_gate npm run doctor
 run_gate npm run phase3:check:chat-send
 run_gate npm run phase3:check:chat-rollback-idempotency
-run_gate npm run export:web
-run_gate npm run export:android
+run_gate env UTOPIA_RELEASE_BUNDLE=1 npm run export:web
+run_gate env UTOPIA_RELEASE_BUNDLE=1 npm run export:android
+run_gate node scripts/quality/check-release-debug-bridge-exclusion.mjs
 run_gate npm run check:ios-export
 run_gate npm run release:proof:cross-platform
 

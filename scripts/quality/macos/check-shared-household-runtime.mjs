@@ -75,6 +75,38 @@ function fail(message) {
   if (!blockers.includes(message)) blockers.push(message);
 }
 
+function nextActionForMacosReceipt(blockers) {
+  const reasons = blockers ?? [];
+  if (reasons.includes('missing_macos_golden_loop_opt_in')) {
+    return 'Set UTOPIA_MACOS_GOLDEN_LOOP=1 and rerun with a mounted .app bundle.';
+  }
+  if (reasons.includes('platform_not_darwin')) {
+    return 'Run this lane on macOS where the app bundle is available.';
+  }
+  if (reasons.some((entry) => entry.startsWith('app_path') || entry.startsWith('missing_app_path'))) {
+    return 'Set UTOPIA_MACOS_APP_PATH to a valid .app path.';
+  }
+  if (reasons.includes('missing_runtime_automation_bridge')) {
+    return 'Set UTOPIA_MACOS_RUNTIME_BRIDGE to the runtime automation helper.';
+  }
+  if (reasons.some((entry) => entry.startsWith('runtime_bridge_command_missing'))) {
+    return 'Point UTOPIA_MACOS_RUNTIME_BRIDGE to an executable bridge command.';
+  }
+  if (reasons.some((entry) => entry.startsWith('runtime_bridge_receipt_missing'))
+    || reasons.some((entry) => entry.startsWith('runtime_bridge_raw_observations_missing'))) {
+    return 'Run the runtime bridge and verify it writes both receipt and raw observations files.';
+  }
+  if (reasons.some((entry) => entry.startsWith('shell_proof_validation_blocker:runtime_bridge_exit'))
+    || reasons.some((entry) => entry.startsWith('shell_proof_receipt_rejected'))
+    || reasons.some((entry) => entry.startsWith('shell_proof_validator_blocker'))) {
+    return 'Fix the bridge output (artifact checksums, convergence IDs, driver/runtime metadata) and rerun.';
+  }
+  if (reasons.some((entry) => entry.includes('app_artifact'))) {
+    return 'Update the app bundle checksum inputs or rebuild the macOS artifact.';
+  }
+  return 'Rerun the macOS script after fixing blocked prerequisites.';
+}
+
 function sha256HexFromString(input) {
   return createHash('sha256').update(input, 'utf8').digest('hex');
 }
@@ -312,6 +344,7 @@ if (optIn && blockers.length === 0) {
 }
 
 receipt.status = blockers.length === 0 ? 'PASS' : 'BLOCKED';
+receipt.next_action = blockers.length === 0 ? null : nextActionForMacosReceipt(blockers);
 receipt.blockers_note = blockers.length === 0
   ? null
   : 'Proof script blocked until opt-in app, bridge, and shell-proof receipt validate.';

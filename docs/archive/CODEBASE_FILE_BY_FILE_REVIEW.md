@@ -1,5 +1,10 @@
 # Utopia Codebase File-by-File Review
 
+> **STALE ARCHIVE:** This review is retained for historical context. It is
+> superseded by `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md` and
+> `docs/CODEBASE_FILE_SCOPE_INDEX_2026-07-30.md`. Treat current executable
+> gates and those dated documents as authoritative.
+
 Generated locally: 2026-07-28T16:08:24.017Z
 Updated locally: 2026-07-28T19:19:13Z
 

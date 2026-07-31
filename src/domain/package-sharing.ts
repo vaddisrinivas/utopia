@@ -1,5 +1,3 @@
-import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes, webcrypto } from 'node:crypto';
-
 import {
   buildPackageInstallPreview,
   validateRegistryManifest,
@@ -15,11 +13,11 @@ import {
 } from '@/packages/shared/contracts/app-installation';
 import type { CanonicalRecord } from '@/packages/shared/contracts/records';
 import type { Operation } from '@/packages/shared/contracts/operation';
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import { installApprovedAppPackage } from '@/src/db/app-package-registry';
 import { canonicalJson, sha256Canonical } from '@/src/domain/canonical-json';
+import type { DatabasePort } from '@/src/domain/database-port';
 import { loadAppPackage } from '@/src/domain/package-loader';
+import { defaultCoreCryptoPort } from '../../adapters/core-crypto';
 
 export const UTOPIA_VAULT_SCHEMA_VERSION = 'utopia.package-vault.v1' as const;
 export const UTOPIA_WORKSPACE_VAULT_PAYLOAD_SCHEMA_VERSION = 'utopia.workspace-vault-payload.v1' as const;
@@ -664,7 +662,7 @@ export function buildShareInviteDescriptor(input: {
 }
 
 export async function installSharedPackageInvite(
-  db: SQLiteDatabase,
+  db: DatabasePort,
   input: {
     invite: PackageInviteDescriptor;
     packageJson: unknown;
@@ -677,7 +675,7 @@ export async function installSharedPackageInvite(
     registryPackage: input.invite.installDescriptor,
   });
   if (preview.status !== 'ready_for_review') throw new Error('share_invite_preview_blocked');
-  return installApprovedAppPackage(db, {
+  return installApprovedAppPackage(db as Parameters<typeof installApprovedAppPackage>[0], {
     packageJson: input.packageJson,
     preview,
     approval: input.approval,
@@ -699,12 +697,10 @@ function decryptAnyVaultPayload(vault: PackageVaultExport, passphrase: string): 
   const ciphertext = decodeBase64Bounded(validatedVault.ciphertext, 1, VAULT_MAX_CIPHERTEXT_BYTES, 'vault_ciphertext_invalid');
   const key = deriveVaultKey(passphrase, salt);
   try {
-    const decipher = createDecipheriv(VAULT_ALGORITHM, key, iv);
-    decipher.setAuthTag(authTag);
-    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const plaintext = defaultCoreCryptoPort.decryptAesGcm({ ciphertext, authTag, iv, key });
     if (plaintext.length === 0 || plaintext.length > VAULT_MAX_JSON_BYTES) throw new Error('vault_plaintext_bounds_invalid');
     try {
-      return JSON.parse(plaintext.toString('utf8'));
+      return JSON.parse(new TextDecoder().decode(plaintext));
     } catch {
       throw new Error('vault_payload_parse_failed');
     }
@@ -775,18 +771,18 @@ function encryptVaultPayload(payload: unknown, passphrase: string, checksum: str
   const salt = secureRandomBytes(VAULT_SALT_BYTES);
   const iv = secureRandomBytes(VAULT_IV_BYTES);
   const key = deriveVaultKey(passphrase, salt);
-  const cipher = createCipheriv(VAULT_ALGORITHM, key, iv);
-  const ciphertext = Buffer.concat([cipher.update(serialized, 'utf8'), cipher.final()]);
+  const encrypted = defaultCoreCryptoPort.encryptAesGcm(new TextEncoder().encode(serialized), key, iv);
+  const ciphertext = encrypted.ciphertext;
   if (ciphertext.length === 0 || ciphertext.length > VAULT_MAX_CIPHERTEXT_BYTES) throw new Error('vault_ciphertext_bounds_invalid');
   return {
     schemaVersion: UTOPIA_VAULT_SCHEMA_VERSION,
     algorithm: VAULT_ALGORITHM,
     kdf: VAULT_KDF,
     iterations: VAULT_ITERATIONS,
-    salt: salt.toString('base64'),
-    iv: iv.toString('base64'),
-    authTag: cipher.getAuthTag().toString('base64'),
-    ciphertext: ciphertext.toString('base64'),
+    salt: toBase64(salt),
+    iv: toBase64(iv),
+    authTag: toBase64(encrypted.authTag),
+    ciphertext: toBase64(ciphertext),
     packageChecksum: checksum,
     createdAt: now,
   };
@@ -880,9 +876,9 @@ function collectRestoreConflicts(
   return conflicts;
 }
 
-function deriveVaultKey(passphrase: string, salt: Buffer): Buffer {
+function deriveVaultKey(passphrase: string, salt: Uint8Array): Uint8Array {
   if (passphrase.length < 12) throw new Error('vault_passphrase_too_short');
-  return pbkdf2Sync(passphrase, salt, VAULT_ITERATIONS, VAULT_KEY_BYTES, 'sha256');
+  return defaultCoreCryptoPort.pbkdf2Sha256(passphrase, salt, VAULT_ITERATIONS, VAULT_KEY_BYTES);
 }
 
 function getPackageForUrl(
@@ -958,32 +954,38 @@ function assertGitHubPagesIndexUrl(value: string): void {
   if (url.pathname === '/' || url.pathname.endsWith('/')) throw new Error('registry_distribution_pages_path_invalid');
 }
 
-function decodeBase64Fixed(value: unknown, expectedBytes: number, error: string): Buffer {
+function decodeBase64Fixed(value: unknown, expectedBytes: number, error: string): Uint8Array {
   const decoded = decodeBase64Bounded(value, expectedBytes, expectedBytes, error);
   if (decoded.length !== expectedBytes) throw new Error(error);
   return decoded;
 }
 
-function decodeBase64Bounded(value: unknown, minBytes: number, maxBytes: number, error: string): Buffer {
+function decodeBase64Bounded(value: unknown, minBytes: number, maxBytes: number, error: string): Uint8Array {
   if (typeof value !== 'string' || !value.trim()) throw new Error(error);
   const normalized = value.trim();
   const maxEncodedLength = Math.ceil(maxBytes / 3) * 4 + 4;
   if (normalized.length > maxEncodedLength || !/^[A-Za-z0-9+/]+=*$/.test(normalized)) throw new Error(error);
-  const decoded = Buffer.from(normalized, 'base64');
+  let decoded: Uint8Array;
+  try {
+    const binary = atob(normalized);
+    decoded = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  } catch {
+    throw new Error(error);
+  }
   if (decoded.length < minBytes || decoded.length > maxBytes) throw new Error(error);
   return decoded;
 }
 
-function secureRandomBytes(size: number): Buffer {
-  const cryptoApi = globalThis.crypto ?? webcrypto;
-  if (typeof cryptoApi?.getRandomValues === 'function') {
-    const bytes = new Uint8Array(size);
-    cryptoApi.getRandomValues(bytes);
-    return Buffer.from(bytes);
-  }
-  return randomBytes(size);
+function secureRandomBytes(size: number): Uint8Array {
+  return defaultCoreCryptoPort.randomBytes(size);
 }
 
 function utf8ByteLength(value: string): number {
-  return Buffer.byteLength(value, 'utf8');
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function toBase64(value: Uint8Array): string {
+  let binary = '';
+  for (const byte of value) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }

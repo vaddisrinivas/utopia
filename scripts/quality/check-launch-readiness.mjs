@@ -5,6 +5,66 @@ import path from 'node:path';
 const root = process.cwd();
 const evidenceDir = path.join(root, 'app', 'build', 'evidence', 'launch-readiness');
 mkdirSync(evidenceDir, { recursive: true });
+const privacyPolicyUrlEnv = process.env.UTOPIA_PRIVACY_POLICY_URL?.trim();
+const blockers = [];
+const releaseBlockers = [];
+const releaseBlockerActions = {};
+
+function parseJsonOrNull(file) {
+  if (!existsSync(file)) return null;
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function isLikelyUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function parseTomlVar(rawText, sectionName, key) {
+  const sectionHeader = `[${sectionName}]`;
+  const start = rawText.indexOf(sectionHeader);
+  if (start === -1) return undefined;
+
+  const sectionBody = rawText.slice(start + sectionHeader.length);
+  const nextSection = sectionBody.search(/^\[[^\r\n]+\]/m);
+  const currentSection = nextSection === -1 ? sectionBody : sectionBody.slice(0, nextSection);
+
+  const line = currentSection.split('\n').find((candidate) => candidate.startsWith(`${key} =`));
+  if (!line) return undefined;
+
+  const match = line.match(/=\s*"([^"]*)"/);
+  return match ? match[1].trim() : undefined;
+}
+
+function isPlaceholderToken(value) {
+  if (!value) return true;
+  if (value.startsWith('REPLACE_WITH_')) return true;
+  return value === 'TEAMID.app.utopia';
+}
+
+function isSignedReleaseProofReady() {
+  const artifactsPath = path.join(root, 'app', 'build', 'evidence', 'android-release-artifacts.json');
+  const receiptPath = path.join(root, 'app', 'build', 'evidence', 'android-release-build-receipt.json');
+  const artifacts = parseJsonOrNull(artifactsPath);
+  const receipt = parseJsonOrNull(receiptPath);
+
+  const hasArtifacts = Boolean(artifacts && artifacts.status === 'passed' && artifacts.apk && artifacts.aab);
+  const hasReceipt = Boolean(receipt && receipt.status === 'passed' && receipt.proof === 'utopia_android_release_build_receipt');
+  return {
+    hasArtifacts,
+    hasReceipt,
+    artifactsPath: 'app/build/evidence/android-release-artifacts.json',
+    receiptPath: 'app/build/evidence/android-release-build-receipt.json',
+  };
+}
 
 const requiredFiles = [
   'cloudflare/utopia-registry-worker.ts',
@@ -140,7 +200,44 @@ if (requiredFileStatus['cloudflare/wrangler.toml']) {
   for (const marker of ['utoia.thetechcruise.com', 'PACKAGES', 'TELEMETRY']) {
     if (!wrangler.includes(marker)) failures.push(`wrangler_marker_missing:${marker}`);
   }
-  if (wrangler.includes('TEAMID.app.utopia')) failures.push('release_blocker:ios_team_id_placeholder');
+  const iosAppId = parseTomlVar(wrangler, 'vars', 'IOS_APP_ID');
+  const iosAppIdStaging = parseTomlVar(wrangler, 'env.staging.vars', 'IOS_APP_ID');
+  const androidFingerprint = parseTomlVar(wrangler, 'vars', 'ANDROID_SHA256_CERT_FINGERPRINT');
+  const androidFingerprintStaging = parseTomlVar(wrangler, 'env.staging.vars', 'ANDROID_SHA256_CERT_FINGERPRINT');
+
+  if (isPlaceholderToken(iosAppId)) {
+    failures.push('release_blocker:ios_team_id_missing');
+    releaseBlockers.push('ios_team_id_missing');
+    releaseBlockerActions.ios_team_id_missing = [
+      'Set [vars].IOS_APP_ID in cloudflare/wrangler.toml.',
+      'Use your Apple App ID in TEAMID.app.ID format, e.g. "TEAMID.app.utopia".',
+      'Use REPLACE_WITH_YOUR_IOS_TEAM_ID.app.utopia until the real value is ready.',
+    ];
+  }
+  if (isPlaceholderToken(iosAppIdStaging)) {
+    failures.push('release_blocker:ios_team_id_missing_in_staging');
+    releaseBlockers.push('ios_team_id_missing_in_staging');
+    releaseBlockerActions.ios_team_id_missing_in_staging = [
+      'Set [env.staging.vars].IOS_APP_ID in cloudflare/wrangler.toml before staging launch checks run.',
+      'Do not leave REPLACE_WITH_YOUR_IOS_TEAM_ID.app.utopia in staging.',
+    ];
+  }
+  if (isPlaceholderToken(androidFingerprint)) {
+    failures.push('release_blocker:android_fingerprint_missing');
+    releaseBlockers.push('android_fingerprint_missing');
+    releaseBlockerActions.android_fingerprint_missing = [
+      'Set [vars].ANDROID_SHA256_CERT_FINGERPRINT in cloudflare/wrangler.toml.',
+      'Copy the full uppercase SHA-256 fingerprint from the release cert used in play signing.',
+    ];
+  }
+  if (isPlaceholderToken(androidFingerprintStaging)) {
+    failures.push('release_blocker:android_fingerprint_missing_in_staging');
+    releaseBlockers.push('android_fingerprint_missing_in_staging');
+    releaseBlockerActions.android_fingerprint_missing_in_staging = [
+      'Set [env.staging.vars].ANDROID_SHA256_CERT_FINGERPRINT in cloudflare/wrangler.toml.',
+      'Keep staging and prod fingerprints explicit when staging proof checks run.',
+    ];
+  }
 }
 
 const launchReadinessInventory = {
@@ -149,11 +246,6 @@ const launchReadinessInventory = {
   implementedSurfaceCount: Object.values(externalGenerationSurface).filter(Boolean).length,
 };
 
-const blockers = [
-  'android_release_cert_fingerprint_required_for_app_links',
-  'privacy_policy_url_required_before_play_release',
-  'signed_android_and_physical_device_release_proof_required',
-];
 if (!requiredFileStatus['cloudflare/utopia-registry-worker.ts']) {
   blockers.push('registry_worker_not_found');
 }
@@ -161,12 +253,46 @@ if (!requiredFileStatus['docs/cloudflare-registry-launch.md']) {
   blockers.push('registry_deploy_runbook_missing');
 }
 
+const privacyUrl = (() => {
+  const explicit = typeof appConfig.expo?.privacyPolicy === 'string' ? appConfig.expo.privacyPolicy.trim() : '';
+  if (explicit) return explicit;
+  if (privacyPolicyUrlEnv) return privacyPolicyUrlEnv;
+  return '';
+})();
+
+if (!privacyUrl) {
+  failures.push('release_blocker:privacy_policy_url_missing');
+  releaseBlockers.push('privacy_policy_url_missing');
+  releaseBlockerActions.privacy_policy_url_missing = [
+    'Set expo.privacyPolicy in app.json (preferred), or UTOPIA_PRIVACY_POLICY_URL in environment.',
+    'Use a HTTPS URL that is public and resolvable by store review.',
+  ];
+} else if (!isLikelyUrl(privacyUrl)) {
+  failures.push('release_blocker:privacy_policy_url_invalid');
+  releaseBlockers.push('privacy_policy_url_invalid');
+  releaseBlockerActions.privacy_policy_url_invalid = [
+    'Set expo.privacyPolicy in app.json, or UTOPIA_PRIVACY_POLICY_URL, to a valid URL.',
+    `Current value is "${privacyUrl}".`,
+  ];
+}
+
+const signedReleaseProof = isSignedReleaseProofReady();
+if (!signedReleaseProof.hasArtifacts || !signedReleaseProof.hasReceipt) {
+  failures.push('release_blocker:signed_android_release_proof_missing_or_invalid');
+  releaseBlockers.push('signed_android_release_proof_missing_or_invalid');
+  releaseBlockerActions.signed_android_release_proof_missing_or_invalid = [
+    `Run: BUILD_RELEASE_ARTIFACTS=1 npm run release:proof:signed-android`,
+    `Publish proof evidence files must exist and pass: ${signedReleaseProof.artifactsPath} + ${signedReleaseProof.receiptPath}.`,
+  ];
+}
+
 const result = {
   generatedAt: new Date().toISOString(),
   status: failures.length ? 'failed' : 'passed',
   host,
   failures,
-  releaseBlockers: blockers,
+  releaseBlockers: [...new Set([...blockers, ...releaseBlockers])],
+  releaseBlockerActions,
   checkedFiles: requiredFiles,
   fileExists: requiredFileStatus,
   externalGenerationSurface,
@@ -184,4 +310,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`launch readiness check PASS; implemented=${launchReadinessInventory.implementedSurfaceCount}/${Object.keys(externalGenerationSurface).length}, blockers=${blockers.length}`);
+console.log(`launch readiness check PASS; implemented=${launchReadinessInventory.implementedSurfaceCount}/${Object.keys(externalGenerationSurface).length}, blockers=${releaseBlockers.length + blockers.length}`);

@@ -71,7 +71,7 @@ function makeFakeAdb(root: string, devices: string[]) {
 }
 
 function createMacosBundle(fixtureName: string) {
-  const bundle = join(process.cwd(), 'macos/macos/build/Build/Products', fixtureName, 'Utopia.app');
+  const bundle = join(createTempRoot(), fixtureName, 'Utopia.app');
   mkdirSync(bundle, { recursive: true });
   writeFileSync(join(bundle, 'Info.plist'), '<plist><dict></dict></plist>');
   macosFixtures.push(bundle);
@@ -84,6 +84,7 @@ function runScript(overrides: {
   macosReceipt: string;
   proofPath: string;
   adbRoot: string;
+  macosBundlePath?: string;
 }) {
   const env = {
     ...process.env,
@@ -91,6 +92,7 @@ function runScript(overrides: {
     UTOPIA_EMULATOR_SYNC_AVD_IDS: overrides.avdIds,
     UTOPIA_WEB_SYNC_RECEIPT_PATH: overrides.webReceipt,
     UTOPIA_MACOS_SYNC_RECEIPT_PATH: overrides.macosReceipt,
+    UTOPIA_MACOS_APP_BUNDLE_PATHS: overrides.macosBundlePath ?? join(createTempRoot(), 'missing.app'),
     UTOPIA_MULTI_SURFACE_SYNC_PROOF_PATH: overrides.proofPath,
   };
 
@@ -150,6 +152,7 @@ describe('multi-surface sync proof validation', () => {
       macosReceipt: macosReceiptPath,
       proofPath,
       adbRoot,
+      macosBundlePath: macosBundle,
     });
 
     expect(result.status).toBe(0);
@@ -217,7 +220,7 @@ describe('multi-surface sync proof validation', () => {
       status: 'passed',
       pass: true,
     });
-    createMacosBundle('BLOCKED-ARTIFACT');
+    const macosBundle = createMacosBundle('BLOCKED-ARTIFACT');
 
     makeFakeAdb(adbRoot, [
       'emulator-5554 device product:sdk_gphone_x86_64 model:sdk_gphone_x86_64 device:emulator64_x86_64 transport_id:1',
@@ -230,6 +233,7 @@ describe('multi-surface sync proof validation', () => {
       macosReceipt: macosReceiptPath,
       proofPath,
       adbRoot,
+      macosBundlePath: macosBundle,
     });
 
     expect(result.status).toBe(1);

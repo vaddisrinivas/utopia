@@ -24,20 +24,20 @@ const PROOF_COMMANDS = {
 
 const PROVIDER_REQUIREMENTS = {
   notion: [
-    { label: 'credential', oneOf: true, names: ['NOTION_TOKEN', 'NOTION_API_KEY'] },
-    { label: 'target page', names: ['NOTION_TEST_PAGE_ID'] },
-    { label: 'account', oneOf: true, names: ['NOTION_TEST_ACCOUNT_ID', 'NOTION_WORKSPACE_ID'] },
-    { label: 'guard key', names: ['WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY'] },
-    { label: 'guard ack', oneOf: true, names: ['WONDERFOOD_LIVE_PROVIDER_ACK', 'WONDERFOOD_LIVE_PROVIDER_ACK_NOTION'] },
+    { id: 'notion_credentials', label: 'credential', oneOf: true, names: ['NOTION_TOKEN', 'NOTION_API_KEY'] },
+    { id: 'notion_target_page', label: 'target page', names: ['NOTION_TEST_PAGE_ID'] },
+    { id: 'notion_account', label: 'account', oneOf: true, names: ['NOTION_TEST_ACCOUNT_ID', 'NOTION_WORKSPACE_ID'] },
+    { id: 'notion_guard_key', label: 'guard key', names: ['WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY'] },
+    { id: 'notion_guard_ack', label: 'guard ack', oneOf: true, names: ['WONDERFOOD_LIVE_PROVIDER_ACK', 'WONDERFOOD_LIVE_PROVIDER_ACK_NOTION'] },
   ],
   sheets: [
-    { label: 'test spreadsheet', names: ['GOOGLE_SHEETS_TEST_SPREADSHEET_ID'] },
-    { label: 'oauth token source', oneOf: true, names: ['GOOGLE_SHEETS_ACCESS_TOKEN', 'GOOGLE_SHEETS_TOKEN_FILE'] },
-    { label: 'account', oneOf: true, names: ['GOOGLE_SHEETS_TEST_ACCOUNT_ID', 'GOOGLE_ACCOUNT_ID'] },
-    { label: 'oauth client id', names: ['GOOGLE_CLIENT_ID'] },
-    { label: 'oauth client secret', names: ['GOOGLE_CLIENT_SECRET'] },
-    { label: 'guard key', names: ['WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY'] },
-    { label: 'guard ack', oneOf: true, names: ['WONDERFOOD_LIVE_PROVIDER_ACK', 'WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS'] },
+    { id: 'sheets_test_spreadsheet', label: 'test spreadsheet', names: ['GOOGLE_SHEETS_TEST_SPREADSHEET_ID'] },
+    { id: 'sheets_oauth_source', label: 'oauth token source', oneOf: true, names: ['GOOGLE_SHEETS_ACCESS_TOKEN', 'GOOGLE_SHEETS_TOKEN_FILE'] },
+    { id: 'sheets_account', label: 'account', oneOf: true, names: ['GOOGLE_SHEETS_TEST_ACCOUNT_ID', 'GOOGLE_ACCOUNT_ID'] },
+    { id: 'sheets_oauth_client_id', label: 'oauth client id', names: ['GOOGLE_CLIENT_ID'] },
+    { id: 'sheets_oauth_client_secret', label: 'oauth client secret', names: ['GOOGLE_CLIENT_SECRET'] },
+    { id: 'sheets_guard_key', label: 'guard key', names: ['WONDERFOOD_DISPOSABLE_PROVIDER_AUTHORIZATION_KEY'] },
+    { id: 'sheets_guard_ack', label: 'guard ack', oneOf: true, names: ['WONDERFOOD_LIVE_PROVIDER_ACK', 'WONDERFOOD_LIVE_PROVIDER_ACK_SHEETS'] },
   ],
 };
 
@@ -65,7 +65,7 @@ function valuePresent(name, env) {
 function evaluateRequirements(provider, env) {
   const requirements = [];
   let allReady = true;
-  const missingConfigs = [];
+  const missing_configs = [];
   for (const req of PROVIDER_REQUIREMENTS[provider]) {
     const present = req.names.map((name) => ({ name, present: valuePresent(name, env) }));
     const requiredMissing = req.oneOf
@@ -73,16 +73,21 @@ function evaluateRequirements(provider, env) {
       : present.some((entry) => !entry.present);
     if (requiredMissing) {
       allReady = false;
-      missingConfigs.push(...present.filter((entry) => !entry.present).map((entry) => entry.name));
+      if (req.oneOf) {
+        missing_configs.push(req.id);
+      } else {
+        missing_configs.push(...present.filter((entry) => !entry.present).map((entry) => entry.name));
+      }
     }
     requirements.push({
+      id: req.id,
       label: req.label,
       mode: req.oneOf ? 'oneOf' : 'all',
       values: present,
       status: requiredMissing ? 'BLOCKED' : 'READY',
     });
   }
-  return { allReady, requirements, missing_configs: missingConfigs };
+  return { allReady, requirements, missing_configs: [...new Set(missing_configs)] };
 }
 
 function evaluateProvider(provider, env) {
@@ -120,8 +125,11 @@ if (overallStatus === 'BLOCKED' && providers.sheets.status !== 'READY' && !provi
 
 const payload = {
   proof: 'utopia_live_provider_readiness',
+  proof_readiness: true,
+  proof_stage: 'preflight',
   checked_at: new Date().toISOString(),
   status: overallStatus,
+  status_explanation: 'Readiness only; does not execute live provider proof runs.',
   blockers,
   providers: {
     notion: {
@@ -148,7 +156,7 @@ const payload = {
 };
 
 writeFileSync(evidencePath, JSON.stringify(payload, null, 2));
-console.log(`Live provider readiness: ${payload.status} (${blockers.join(', ') || 'none'}; evidence: ${evidencePath})`);
+console.log(`Live provider readiness (preflight only): ${payload.status} (${blockers.join(', ') || 'none'}; evidence: ${evidencePath})`);
 console.log(`LIVE_PROVIDER_READINESS_JSON=${JSON.stringify(payload)}`);
 
 if (overallStatus === 'BLOCKED') {

@@ -5,6 +5,12 @@ import {
 } from './package';
 import { nativeCapabilitySupportErrors, nativeCapabilitySupportFindings, type NativeCapabilityFinding } from './native-capabilities';
 import { canonicalJson, sha256Canonical } from './canonical-json';
+import {
+  collectExtensionTrustRootMetadataValidationErrors,
+  collectExtensionTrustTargetsMetadataValidationErrors,
+  type UtopiaExtensionTrustRootMetadata,
+  type UtopiaExtensionTrustTargetsMetadata,
+} from './extension-trust';
 
 export const UTOPIA_REGISTRY_SCHEMA_VERSION = 'utopia.registry.v1' as const;
 export const UTOPIA_INSTALL_PREVIEW_SCHEMA_VERSION = 'utopia.install-preview.v1' as const;
@@ -50,6 +56,17 @@ export type UtopiaRegistryManifest = Readonly<{
   schemaVersion: typeof UTOPIA_REGISTRY_SCHEMA_VERSION;
   name: string;
   packages: readonly UtopiaRegistryPackage[];
+  trust?: UtopiaRegistryTrustMetadata;
+}>;
+
+export type UtopiaRegistryTrustMetadata = Readonly<{
+  root: UtopiaExtensionTrustRootMetadata;
+  targets: readonly UtopiaExtensionTrustTargetsMetadata[];
+}>;
+
+export type UtopiaRegistryTrustFloor = Readonly<{
+  minimumAcceptedRootVersion?: number;
+  minimumAcceptedTargetsVersionByPublisher?: Readonly<Record<string, number>>;
 }>;
 
 export type PackageInstallTarget = Readonly<{
@@ -58,7 +75,13 @@ export type PackageInstallTarget = Readonly<{
 }>;
 
 export type PackageInstallTrustStatus = 'checksum_verified' | 'checksum_missing' | 'checksum_mismatch';
-export type PackageInstallSignatureStatus = 'signature_verified' | 'signature_present' | 'signature_missing' | 'signature_invalid';
+export type PackageInstallSignatureStatus =
+  | 'signature_verified'
+  | 'signature_present_untrusted'
+  | 'signature_missing'
+  | 'signature_invalid';
+export type PackageInstallPublisherTrustStatus = 'trusted' | 'untrusted' | 'unknown' | 'blocked';
+export type PackageInstallTufMetadataStatus = 'verified' | 'present_unverified' | 'missing' | 'blocked';
 
 export type PackageInstallSignatureVerifierInput = Readonly<{
   canonicalPackage: string;
@@ -69,6 +92,7 @@ export type PackageInstallSignatureVerifierInput = Readonly<{
 
 export type PackageInstallSignatureVerifierResult = boolean | Readonly<{
   verified: boolean;
+  trusted?: boolean;
   error?: string;
 }>;
 
@@ -106,6 +130,14 @@ export type PackageInstallPreview = Readonly<{
     computedChecksum: string | null;
     publisher?: UtopiaRegistryPublisher;
     signatureStatus: PackageInstallSignatureStatus;
+    publisherTrustStatus: PackageInstallPublisherTrustStatus;
+    publisherTrustReason?: string;
+    tufMetadata: {
+      status: PackageInstallTufMetadataStatus;
+      rootVersion?: number;
+      targetsVersion?: number;
+      reason?: string;
+    };
     signatureAlgorithm?: string;
     signatureKeyId?: string;
     signatureSignedAt?: string;
@@ -188,7 +220,10 @@ export function parsePackageInstallTarget(input: string): PackageInstallTarget {
   throw new Error('install_url_must_be_https');
 }
 
-export function collectRegistryManifestValidationErrors(input: unknown): string[] {
+export function collectRegistryManifestValidationErrors(
+  input: unknown,
+  options: { now?: string; trustFloor?: UtopiaRegistryTrustFloor } = {},
+): string[] {
   if (!isRecord(input)) return ['registry manifest must be an object'];
 
   const manifest = input as Partial<UtopiaRegistryManifest>;
@@ -236,13 +271,62 @@ export function collectRegistryManifestValidationErrors(input: unknown): string[
     }
   }
 
+  if (manifest.trust !== undefined) {
+    errors.push(...collectRegistryTrustMetadataValidationErrors(manifest.trust, options));
+  }
+
   return errors;
 }
 
-export function validateRegistryManifest(input: unknown): UtopiaRegistryManifest {
-  const errors = collectRegistryManifestValidationErrors(input);
+export function validateRegistryManifest(
+  input: unknown,
+  options: { now?: string; trustFloor?: UtopiaRegistryTrustFloor } = {},
+): UtopiaRegistryManifest {
+  const errors = collectRegistryManifestValidationErrors(input, options);
   if (errors.length) throw new Error(`registry_manifest_invalid:${errors.join('|')}`);
   return input as UtopiaRegistryManifest;
+}
+
+export function collectRegistryTrustMetadataValidationErrors(
+  value: unknown,
+  options: { now?: string; trustFloor?: UtopiaRegistryTrustFloor } = {},
+): string[] {
+  if (!isRecord(value)) return ['trust must be an object'];
+  const errors = [
+    ...collectExtensionTrustRootMetadataValidationErrors(value.root, 'trust.root', true),
+  ];
+  if (!Array.isArray(value.targets) || value.targets.length === 0) {
+    errors.push('trust.targets must be a non-empty array');
+    return errors;
+  }
+
+  const now = Date.parse(options.now ?? new Date().toISOString());
+  if (Number.isNaN(now)) errors.push('trust now must be ISO date');
+  const root = value.root as Partial<UtopiaExtensionTrustRootMetadata>;
+  if (!Number.isNaN(now) && typeof root.expires === 'string' && Date.parse(root.expires) <= now) {
+    errors.push('trust.root expired');
+  }
+  if (options.trustFloor?.minimumAcceptedRootVersion !== undefined
+    && typeof root.version === 'number'
+    && root.version < options.trustFloor.minimumAcceptedRootVersion) {
+    errors.push('trust.root version rollback');
+  }
+
+  const seenPublishers = new Set<string>();
+  for (const [index, target] of value.targets.entries()) {
+    errors.push(...collectExtensionTrustTargetsMetadataValidationErrors(target, `trust.targets[${index}]`, true));
+    if (!isRecord(target) || typeof target.publisherId !== 'string') continue;
+    if (seenPublishers.has(target.publisherId)) errors.push(`trust.targets duplicates publisher ${target.publisherId}`);
+    seenPublishers.add(target.publisherId);
+    if (!Number.isNaN(now) && typeof target.expires === 'string' && Date.parse(target.expires) <= now) {
+      errors.push(`trust.targets[${index}] expired`);
+    }
+    const floor = options.trustFloor?.minimumAcceptedTargetsVersionByPublisher?.[target.publisherId];
+    if (floor !== undefined && typeof target.version === 'number' && target.version < floor) {
+      errors.push(`trust.targets[${index}] version rollback`);
+    }
+  }
+  return errors;
 }
 
 export function buildPackageInstallPreview(
@@ -252,6 +336,12 @@ export function buildPackageInstallPreview(
     registryPackage?: UtopiaRegistryPackage;
     expectedChecksum?: string;
     signatureVerifier?: PackageInstallSignatureVerifier;
+    publisherTrustStatus?: PackageInstallPublisherTrustStatus;
+    publisherTrustReason?: string;
+    registryTrustMetadata?: UtopiaRegistryTrustMetadata;
+    trustFloor?: UtopiaRegistryTrustFloor;
+    trustNow?: string;
+    tufMetadataVerified?: boolean;
   },
 ): PackageInstallPreview {
   const packageIssues = collectAppPackageValidationIssues(candidate);
@@ -267,6 +357,13 @@ export function buildPackageInstallPreview(
     publisher: options.registryPackage?.publisher,
     verifier: options.signatureVerifier,
   });
+  const tufMetadata = resolveTufMetadata(options.registryTrustMetadata, {
+    publisherId: options.registryPackage?.publisher?.id,
+    trustFloor: options.trustFloor,
+    now: options.trustNow,
+    verified: options.tufMetadataVerified === true,
+  });
+  const publisherTrustStatus = options.publisherTrustStatus ?? signature.publisherTrustStatus;
   const compatibilityReasons = pkg ? collectRuntimeCompatibilityReasons(pkg) : packageErrors;
   const nativeCapabilitySupport = pkg?.schemaVersion === 'wonder.app-package.v3'
     ? nativeCapabilitySupportFindings(pkg.nativeCapabilities)
@@ -279,7 +376,9 @@ export function buildPackageInstallPreview(
   const blocked = packageErrors.length > 0
     || compatibilityReasons.length > 0
     || trust.status === 'checksum_mismatch'
-    || signature.status === 'signature_invalid';
+    || signature.status === 'signature_invalid'
+    || tufMetadata.status === 'blocked'
+    || publisherTrustStatus === 'blocked';
 
   return {
     schemaVersion: UTOPIA_INSTALL_PREVIEW_SCHEMA_VERSION,
@@ -315,11 +414,22 @@ export function buildPackageInstallPreview(
       computedChecksum,
       ...(options.registryPackage?.publisher ? { publisher: options.registryPackage.publisher } : {}),
       signatureStatus: signature.status,
+      publisherTrustStatus,
+      ...(options.publisherTrustReason ?? signature.publisherTrustReason
+        ? { publisherTrustReason: options.publisherTrustReason ?? signature.publisherTrustReason }
+        : {}),
+      tufMetadata,
       ...(signature.algorithm ? { signatureAlgorithm: signature.algorithm } : {}),
       ...(signature.keyId ? { signatureKeyId: signature.keyId } : {}),
       ...(signature.signedAt ? { signatureSignedAt: signature.signedAt } : {}),
     },
-    validationErrors: [...packageErrors, ...(trust.error ? [trust.error] : []), ...(signature.error ? [signature.error] : [])],
+    validationErrors: [
+      ...packageErrors,
+      ...(trust.error ? [trust.error] : []),
+      ...(signature.error ? [signature.error] : []),
+      ...(tufMetadata.status === 'blocked' && tufMetadata.reason ? tufMetadata.reason.split('|') : []),
+      ...(publisherTrustStatus === 'blocked' && options.publisherTrustReason ? [options.publisherTrustReason] : []),
+    ],
   };
 }
 
@@ -441,10 +551,12 @@ function resolveSignatureTrust(
   keyId?: string;
   signedAt?: string;
   error?: string;
+  publisherTrustStatus: PackageInstallPublisherTrustStatus;
+  publisherTrustReason?: string;
 } {
-  if (signature === undefined) return { status: 'signature_missing' };
+  if (signature === undefined) return { status: 'signature_missing', publisherTrustStatus: 'unknown' };
   const errors = collectSignatureValidationErrors(signature, 'signature');
-  if (errors.length) return { status: 'signature_invalid', error: errors.join('|') };
+  if (errors.length) return { status: 'signature_invalid', publisherTrustStatus: 'blocked', error: errors.join('|') };
   const metadata = {
     algorithm: signature.algorithm,
     ...(signature.keyId ? { keyId: signature.keyId } : {}),
@@ -452,7 +564,12 @@ function resolveSignatureTrust(
   };
   if (options.verifier) {
     if (!options.canonicalPackage || !options.computedChecksum) {
-      return { status: 'signature_invalid', ...metadata, error: 'signature verification package unavailable' };
+      return {
+        status: 'signature_invalid',
+        publisherTrustStatus: 'blocked',
+        ...metadata,
+        error: 'signature verification package unavailable',
+      };
     }
     try {
       const result = options.verifier({
@@ -464,20 +581,73 @@ function resolveSignatureTrust(
       const verified = typeof result === 'boolean' ? result : result.verified;
       if (!verified) {
         const error = typeof result === 'boolean' ? undefined : result.error;
-        return { status: 'signature_invalid', ...metadata, error: error ?? 'signature verification failed' };
+        return {
+          status: 'signature_invalid',
+          publisherTrustStatus: 'blocked',
+          ...metadata,
+          error: error ?? 'signature verification failed',
+        };
       }
-      return { status: 'signature_verified', ...metadata };
+      return {
+        status: typeof result !== 'boolean' && result.trusted === false
+          ? 'signature_present_untrusted'
+          : 'signature_verified',
+        publisherTrustStatus: typeof result !== 'boolean' && result.trusted === true ? 'trusted' : 'untrusted',
+        ...metadata,
+      };
     } catch (error) {
       return {
         status: 'signature_invalid',
+        publisherTrustStatus: 'blocked',
         ...metadata,
         error: `signature verification failed:${error instanceof Error ? error.message : 'unknown_error'}`,
       };
     }
   }
   return {
-    status: 'signature_present',
+    status: 'signature_present_untrusted',
+    publisherTrustStatus: signature.publicKey ? 'untrusted' : 'unknown',
+    publisherTrustReason: signature.publicKey
+      ? 'The package supplied a key, but no installed publisher trust root accepted it.'
+      : 'The package has no verifiable publisher key.',
     ...metadata,
+  };
+}
+
+function resolveTufMetadata(
+  metadata: UtopiaRegistryTrustMetadata | undefined,
+  options: {
+    publisherId?: string;
+    trustFloor?: UtopiaRegistryTrustFloor;
+    now?: string;
+    verified: boolean;
+  },
+): PackageInstallPreview['trust']['tufMetadata'] {
+  if (!metadata) return { status: 'missing', reason: 'No registry TUF metadata was supplied.' };
+  const errors = collectRegistryTrustMetadataValidationErrors(metadata, {
+    now: options.now,
+    trustFloor: options.trustFloor,
+  });
+  if (errors.length) return {
+    status: 'blocked',
+    rootVersion: metadata.root.version,
+    reason: errors.join('|'),
+  };
+  const target = options.publisherId
+    ? metadata.targets.find((entry) => entry.publisherId === options.publisherId)
+    : metadata.targets[0];
+  if (!target) return {
+    status: 'blocked',
+    rootVersion: metadata.root.version,
+    reason: 'No TUF targets metadata delegates the package publisher.',
+  };
+  return {
+    status: options.verified ? 'verified' : 'present_unverified',
+    rootVersion: metadata.root.version,
+    targetsVersion: target.version,
+    reason: options.verified
+      ? 'TUF root and targets metadata verified.'
+      : 'TUF root and targets metadata are structurally valid but not cryptographically verified here.',
   };
 }
 

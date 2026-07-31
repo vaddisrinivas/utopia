@@ -223,6 +223,17 @@ type BuilderCreatorReceiptInput = {
   failureCategories?: unknown;
 };
 
+type NormalizedCreatorReceiptInput = {
+  source: BuilderCompileRequest | undefined;
+  sourceUrl: string | undefined;
+  expectedChecksum: string | undefined;
+  package: AppPackage;
+  packageValid: boolean;
+  installOpened: boolean;
+  durationMs: number;
+  failureCategories: unknown;
+};
+
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const STUBS_DIR = path.resolve(ROOT_DIR, 'tests', 'fixtures', 'package-source');
 const MANIFEST_PATH = path.join(STUBS_DIR, 'manifest.json');
@@ -241,6 +252,8 @@ const PUCK_SCHEMA_URL = 'https://schemas.utopia.dev/editors/puck.v1.schema.json'
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
 const CREATOR_INSTALL_REVIEW_SOURCE_URL_PREFIX = 'https://local.utopia.creator-review';
+const MAX_CREATOR_RECEIPT_DURATION_MS = 600_000;
+export const UTOPIA_PUBLIC_REGISTRY_ORIGIN = 'https://utoia.thetechcruise.com';
 const CREATOR_FAILURE_CATEGORIES = [
   'source_invalid',
   'validation_failed',
@@ -248,6 +261,46 @@ const CREATOR_FAILURE_CATEGORIES = [
   'receipt_not_generated',
 ] as const;
 const CREATOR_FAILURE_CATEGORY_SET = new Set<string>(CREATOR_FAILURE_CATEGORIES);
+
+const PRIVATE_PACKAGE_HOSTNAMES = new Set([
+  'localhost',
+  'local.utopia.creator-review',
+  '127.0.0.1',
+  '::1',
+]);
+
+export function normalizePublicPackageUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+
+  let parsed;
+  try {
+    parsed = new URL(value.trim());
+  } catch {
+    return null;
+  }
+
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const privateIpv4 = /^(10|127)\.(?:\d{1,3}\.){2}\d{1,3}$/
+    .test(hostname)
+    || /^192\.168\.(?:\d{1,3}\.)\d{1,3}$/.test(hostname)
+    || /^172\.(?:1[6-9]|2\d|3[01])\.(?:\d{1,3}\.)\d{1,3}$/.test(hostname);
+
+  if (
+    parsed.protocol !== 'https:'
+    || parsed.username
+    || parsed.password
+    || PRIVATE_PACKAGE_HOSTNAMES.has(hostname)
+    || privateIpv4
+    || hostname.endsWith('.local')
+    || hostname.endsWith('.internal')
+    || !parsed.pathname || parsed.pathname === '/'
+  ) {
+    return null;
+  }
+
+  parsed.hash = '';
+  return parsed.toString();
+}
 
 const BUILDER_ADAPTER_CONTRACTS: BuilderAdapterContract[] = [
   {
@@ -725,7 +778,7 @@ export function buildCreatorStudyReceipt(input: BuilderCreatorReceiptInput) {
     install: { opened: installOpened },
     installation: { opened: installOpened },
     unaided: false,
-    assistance: 'assisted',
+    assistance: 'not_measured',
     provenance: {
       actor: 'browser-builder',
       reason: 'content-free assisted creator run',
@@ -741,11 +794,16 @@ function createInstallReviewSourceUrl(id: string, version: string): string {
 function sanitizeCreatorInstallReviewRequest(payload: unknown): CreatorInstallReviewRequest {
   if (!isRecord(payload)) throw new Error('install review request must be an object');
 
-  const requestedSourceUrl = isText(payload.sourceUrl) ? payload.sourceUrl : undefined;
+  const requestedSourceUrl = isText(payload.sourceUrl)
+    ? normalizePublicPackageUrl(payload.sourceUrl)
+    : undefined;
+  if (isText(payload.sourceUrl) && !requestedSourceUrl) {
+    throw new Error('package source URL must be a public HTTPS URL');
+  }
   const expectedChecksum = isText(payload.expectedChecksum) ? payload.expectedChecksum : undefined;
 
   if (looksLikePackageSource(payload.source) && isRecord(payload.source)) {
-    return { source: payload.source, sourceUrl: requestedSourceUrl, expectedChecksum, package: undefined };
+    return { source: payload.source, sourceUrl: requestedSourceUrl ?? undefined, expectedChecksum, package: undefined };
   }
 
   if (isRecord(payload.package) && (payload.package.schemaVersion === 'wonder.app-package.v2' || payload.package.schemaVersion === 'wonder.app-package.v3')) {
@@ -759,13 +817,49 @@ function sanitizeCreatorInstallReviewRequest(payload: unknown): CreatorInstallRe
   }
 
   if (looksLikePackageSource(payload.source)) {
-    return { source: payload.source, sourceUrl: requestedSourceUrl, expectedChecksum: expectedChecksum, package: undefined };
+    return { source: payload.source, sourceUrl: requestedSourceUrl ?? undefined, expectedChecksum: expectedChecksum, package: undefined };
   }
 
   throw new Error('install review request missing valid source or package');
 }
 
+export function sanitizeCreatorReceiptPayload(payload: unknown): NormalizedCreatorReceiptInput {
+  if (!isRecord(payload)) throw new Error('creator receipt request must be an object');
+  const sourceUrl = isText(payload.sourceUrl) ? normalizePublicPackageUrl(payload.sourceUrl) : undefined;
+  if (isText(payload.sourceUrl) && !sourceUrl) throw new Error('creator receipt source URL must be a public HTTPS URL');
+  const expectedChecksum = isText(payload.expectedChecksum) ? payload.expectedChecksum : undefined;
+  const source = looksLikePackageSource(payload.source) ? payload.source : undefined;
+  const compiled = source ? compileBuilderSource(source) : undefined;
+  if (payload.source !== undefined && !source) throw new Error('creator receipt source must be valid package-source');
+  if (source && compiled?.status === 'invalid') throw new Error('creator receipt source must compile before receipt');
+  const providedPackage = isRecord(payload.package) && (payload.package.schemaVersion === 'wonder.app-package.v2' || payload.package.schemaVersion === 'wonder.app-package.v3') ? payload.package as AppPackage : null;
+  if (payload.package !== undefined && !providedPackage) throw new Error('creator receipt package must be wonder.app-package.v2 or wonder.app-package.v3');
+  if (providedPackage) {
+    const issues = collectAppPackageValidationIssues(providedPackage);
+    if (issues.length > 0) throw new Error(`creator receipt package failed app-package validation: ${issues.map((issue) => `${issue.category}: ${issue.message}`).join(', ')}`);
+  }
+  const packageNode = providedPackage ?? compiled?.package;
+  if (!packageNode) throw new Error('creator receipt request requires source or package');
+  if (!isText(packageNode.id) || !isText(packageNode.version)) throw new Error('creator receipt package must include id and version');
+  if (source && (packageNode.id !== source.app.id || packageNode.version !== source.app.version)) throw new Error('creator receipt source/package id mismatch');
+  const durationMs = isFiniteNumber(payload.durationMs) ? payload.durationMs : NaN;
+  if (!Number.isFinite(durationMs) || durationMs < 0 || durationMs > MAX_CREATOR_RECEIPT_DURATION_MS) throw new Error(`creator receipt duration must be between 0 and ${MAX_CREATOR_RECEIPT_DURATION_MS} ms`);
+  const installOpened = payload.installOpened === true || (isRecord(payload.install) && payload.install?.opened === true) || (isRecord(payload.installation) && payload.installation?.opened === true);
+  return { source, sourceUrl: sourceUrl ?? undefined, expectedChecksum, package: packageNode, packageValid: Boolean(compiled?.status === 'valid') || Boolean(providedPackage), installOpened, durationMs, failureCategories: payload.failureCategories ?? payload.failure_categories };
+}
+
 export function compileBuilderSource(source: BuilderCompileRequest): BuilderCompileResponse {
+  const securityIssues = collectBuilderSecurityIssues(source);
+  if (securityIssues.length > 0) {
+    return {
+      status: 'invalid',
+      package: undefined,
+      checksum: undefined,
+      preview: undefined,
+      errors: securityIssues,
+    };
+  }
+
   const compiled = compileAppPackageSource(source);
   if (!compiled.valid) {
     return {
@@ -1126,7 +1220,7 @@ function parseJsonFormsScope(scope: unknown): string | undefined {
   if (!isText(scope)) {
     return undefined;
   }
-  const match = scope.match(/^#?\/?properties\/([^/]+)$/);
+  const match = scope.match(/^#\/properties\/([^/]+)$/);
   return match?.[1];
 }
 
@@ -1157,6 +1251,7 @@ function collectJsonFormsControlPaths(uischema: unknown, schemaFields: Set<strin
 
   const traverse = (node: unknown): void => {
     if (!isRecord(node)) {
+      issues.push('json-forms uischema elements must be objects');
       return;
     }
     const elements = node.elements;
@@ -1167,8 +1262,14 @@ function collectJsonFormsControlPaths(uischema: unknown, schemaFields: Set<strin
       return;
     }
 
+    if (node.type !== 'Control') {
+      issues.push('json-forms uischema supports only layout nodes with elements and Control nodes');
+      return;
+    }
+
     const scope = parseJsonFormsScope(node.scope);
     if (!scope) {
+      issues.push('json-forms Control scope must match "#/properties/<field>"');
       return;
     }
 
@@ -1246,7 +1347,33 @@ function parseJsonFormsSubset(rawPayload: unknown): BuilderImportResponse {
   }
 
   const rawRequired = Array.isArray(rawPayload.schema.required) ? rawPayload.schema.required : [];
+  if (rawPayload.schema.required !== undefined && !Array.isArray(rawPayload.schema.required)) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms schema.required must be an array when present'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
   const required = new Set(rawRequired.filter(isText));
+  if ([...required].some((field) => !Object.prototype.hasOwnProperty.call(rawProperties, field))) {
+    return {
+      status: 'unsupported',
+      mode: 'unsupported',
+      reason: 'json-forms payload is outside supported conversion subset',
+      details: ['json-forms schema.required references an unknown field'],
+      warnings: [
+        `adapter-schema=${JSON_FORMS_SCHEMA_URL}`,
+        `canonical-schema=${PACKAGE_SOURCE_SCHEMA_URL}`,
+        'canonical persistence is package-source only',
+      ],
+    };
+  }
   const fields: Array<{ field: string; type: JsonFormFieldSpec['type']; required: boolean; label: string | undefined }> = [];
   const issues: string[] = [];
 
@@ -1492,6 +1619,41 @@ export function parseBuilderImportPayload(rawPayload: unknown): BuilderImportRes
   return makeAdapterUnsupportedResponse(adapter, { status: 'ok', issues: [] });
 }
 
+function collectBuilderSecurityIssues(value: unknown): { path: string; message: string }[] {
+  const issues: { path: string; message: string }[] = [];
+  const sensitiveKey = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|private[_-]?key|authorization|cookie)/i;
+  const secretValue = /(?:sk-[A-Za-z0-9_-]{12,}|bearer\s+[A-Za-z0-9._-]{12,}|-----BEGIN [A-Z ]+-----)/i;
+  const seen = new Set<object>();
+
+  const visit = (node: unknown, currentPath: string): void => {
+    if (typeof node === 'string') {
+      if (secretValue.test(node)) {
+        issues.push({ path: currentPath, message: 'secret-shaped content is not allowed in browser package source' });
+      }
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => visit(item, `${currentPath}/${index}`));
+      return;
+    }
+
+    for (const [key, child] of Object.entries(node)) {
+      const childPath = `${currentPath}/${key.replace(/~/g, '~0').replace(/\//g, '~1')}`;
+      if (sensitiveKey.test(key)) {
+        issues.push({ path: childPath, message: 'secret-shaped field names are not allowed in browser package source' });
+      }
+      visit(child, childPath);
+    }
+  };
+
+  visit(value, '');
+  return issues;
+}
+
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const options = parseBrowserBuilderArgs(argv);
   const server = createServer(async (req, res) => {
@@ -1680,39 +1842,15 @@ function routeRequest(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (req.method === 'POST' && cleanUrl === '/api/creator-receipt') {
     return collectBody(req)
       .then((bodyText) => {
-        const payload = parseJsonBody(bodyText);
-        if (!isRecord(payload)) {
-          throw new Error('request body must be an object');
-        }
-        const source = looksLikePackageSource(payload.source) ? payload.source : undefined;
-        const compiled = source ? compileBuilderSource(source) : undefined;
-        const packageNode = isRecord(payload.package) ? payload.package : undefined;
-        const packageId = isText(packageNode?.id)
-          ? packageNode.id
-          : source?.app?.id
-            ? source.app.id
-            : 'local.creator.app';
-        const packageVersion = isText(packageNode?.version)
-          ? packageNode.version
-          : source?.app?.version
-            ? source.app.version
-            : '1.0.0';
-
-        const packageValid = packageNode?.valid === true
-          || payload.packageValid === true
-          || compiled?.status === 'valid';
-        const installOpened = payload.installOpened === true
-          || (isRecord(payload.install) && payload.install?.opened === true)
-          || (isRecord(payload.installation) && payload.installation?.opened === true);
-        const durationMs = isFiniteNumber(payload.durationMs) ? payload.durationMs : 0;
+        const payload = sanitizeCreatorReceiptPayload(parseJsonBody(bodyText));
 
         writeJsonResponse(res, 200, buildCreatorStudyReceipt({
-          durationMs,
-          packageId,
-          packageVersion: packageVersion || '1.0.0',
-          packageValid: packageValid,
-          installOpened,
-          failureCategories: payload.failureCategories ?? payload.failure_categories,
+          durationMs: payload.durationMs,
+          packageId: payload.package.id,
+          packageVersion: payload.package.version,
+          packageValid: payload.packageValid,
+          installOpened: payload.installOpened,
+          failureCategories: payload.failureCategories,
         }));
       })
       .catch((error) => {

@@ -75,7 +75,12 @@ function makeReceipt({
 }: {
   operationArtifact: ReturnType<typeof makeObservedArtifact>;
   convergenceArtifact: ReturnType<typeof makeObservedArtifact>;
-  transport?: { endpoint: string; session: string; operation_count?: number; };
+  transport?: {
+    endpoint: string;
+    session: string;
+    operation_count?: number;
+    observation?: ReturnType<typeof makeObservedArtifact>;
+  };
   lifecycleAssertions?: {
     conflict_detected?: boolean;
     rollback_replayed_for_losers?: number;
@@ -111,6 +116,7 @@ function makeReceipt({
         endpoint: transport.endpoint,
         session: transport.session,
         operation_count: transport.operation_count,
+        ...(transport.observation ? { observation: transport.observation } : {}),
       },
       observations: [
         {
@@ -273,6 +279,62 @@ describe('shell proof protocol', () => {
 
     expect(result.pass).toBe(false);
     expect(result.blockers).toContain('convergence_operation_not_executed:unknown-op');
+  });
+
+  it('rejects transport operation IDs that do not match observed operations', () => {
+    const root = createTempRoot();
+    const receiptPath = join(root, 'receipt.json');
+
+    const operationArtifact = makeObservedArtifact(root, {
+      operations: [
+        { op_id: 'sync-op-alpha', status: 'applied', timestamp: new Date().toISOString() },
+      ],
+    });
+    const transportArtifact = makeObservedArtifact(root, {
+      session: 'session-web',
+      endpoint: '/reference-sync/v1/sync',
+      operation_ids: ['sync-op-alpha', 'missing-transport-op'],
+    });
+    const convergenceArtifact = makeConvergenceArtifact(root, ['sync-op-alpha']);
+
+    const receipt = makeReceipt({
+      operationArtifact,
+      convergenceArtifact,
+      transport: {
+        endpoint: '/reference-sync/v1/sync',
+        session: 'session-web',
+        operation_count: 2,
+        observation: {
+          path: transportArtifact.path,
+          sha256: transportArtifact.sha256,
+          bytes: transportArtifact.bytes,
+        },
+      },
+      extra: {
+        convergence: {
+          operation_ids: ['sync-op-alpha'],
+          rollback_operation_ids: [],
+          reconciled_operation_id: 'sync-op-alpha',
+        },
+      },
+    });
+
+    writeFileSync(receiptPath, JSON.stringify(receipt, null, 2), 'utf8');
+
+    const result = validateShellProofReceipt(receipt, {
+      root: ROOT,
+      label: 'web',
+      path: receiptPath,
+      requiredSourceSurface: 'web',
+    }) as {
+      pass: boolean;
+      blockers: string[];
+      [key: string]: unknown;
+    };
+
+    expect(result.pass).toBe(false);
+    expect(result.blockers).toContain('transport_operation_not_executed:missing-transport-op');
+    expect(result.blockers).toContain('transport_operation_missing_provenance:missing-transport-op');
   });
 
   it('rejects tampered observation artifacts even when self-reported op IDs still match', () => {

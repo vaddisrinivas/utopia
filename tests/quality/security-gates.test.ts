@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +29,16 @@ const gateScripts: GateScript[] = [
     name: 'sbom',
     path: join(projectRoot, 'scripts/quality/sbom/check-sbom-gate.mjs'),
     prefix: 'SBOM_GATE_JSON=',
+  },
+  {
+    name: 'gitleaks',
+    path: join(projectRoot, 'scripts/quality/security/check-gitleaks-gate.mjs'),
+    prefix: 'GITLEAKS_GATE_JSON=',
+  },
+  {
+    name: 'action-permissions',
+    path: join(projectRoot, 'scripts/quality/security/check-action-permissions-gate.mjs'),
+    prefix: 'ACTION_PERMISSIONS_GATE_JSON=',
   },
 ];
 
@@ -96,9 +106,10 @@ describe('operations and security gate scripts', () => {
         QUALITY_GATE_ROOT: projectRoot,
         OSV_SCANNER_CMD: missingTool,
         SYFT_CMD: missingTool,
+        GITLEAKS_CMD: missingTool,
       });
 
-      if (script.name === 'telemetry-privacy') {
+      if (script.name === 'telemetry-privacy' || script.name === 'action-permissions') {
         expect(result.status).toBe(0);
         expect(result.payload.status).toBe('READY');
         continue;
@@ -113,6 +124,9 @@ describe('operations and security gate scripts', () => {
       if (script.name === 'sbom') {
         expect(result.payload.blockers).toContain(`sbom_tool_missing:${missingTool}`);
       }
+      if (script.name === 'gitleaks') {
+        expect(result.payload.blockers).toContain(`gitleaks_missing:${missingTool}`);
+      }
     }
   });
 
@@ -120,6 +134,7 @@ describe('operations and security gate scripts', () => {
     const fakeRoot = fixtureRoot();
     const emptyOsv = fakeEmptyScript(fakeRoot, 'empty-osv-scanner');
     const emptySyft = fakeEmptyScript(fakeRoot, 'empty-syft');
+    const emptyGitleaks = fakeEmptyScript(fakeRoot, 'empty-gitleaks');
     mkdirSync(join(fakeRoot, 'app/build/evidence'), { recursive: true });
     writeFileSync(join(fakeRoot, 'app/build/evidence/sbom.json'), '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}', {
       encoding: 'utf8',
@@ -143,6 +158,13 @@ describe('operations and security gate scripts', () => {
     expect(resultSbom.status).toBe(1);
     expect(resultSbom.payload.status).toBe('BLOCKED');
     expect(resultSbom.payload.blockers).toContain('sbom_output_missing:syft_stdout');
+
+    const resultGitleaks = runGate(gateScripts[3], {
+      QUALITY_GATE_ROOT: projectRoot,
+      GITLEAKS_CMD: emptyGitleaks,
+    });
+    expect(resultGitleaks.status).toBe(1);
+    expect(resultGitleaks.payload.blockers).toContain('gitleaks_report_missing:scanner_stdout');
   });
 
   it('passes on fake OSV and Syft artifacts when command-backed', () => {
@@ -157,6 +179,11 @@ describe('operations and security gate scripts', () => {
       serialNumber: 'urn:uuid:00000000-0000-0000-0000-000000000000',
       components: [],
     });
+    const fakeGitleaks = fakeJsonScript(fakeRoot, 'fake-gitleaks', [{
+      Description: 'test finding',
+      Secret: 'ghp_super_secret_value',
+      File: `${projectRoot}/private.txt`,
+    }]);
 
     const resultOsv = runGate(gateScripts[0], {
       QUALITY_GATE_ROOT: projectRoot,
@@ -176,6 +203,17 @@ describe('operations and security gate scripts', () => {
     expect(resultSbom.status).toBe(0);
     expect(resultSbom.payload.status).toBe('READY');
     expect(resultSbom.payload.blockers).toEqual([]);
+
+    const resultGitleaks = runGate(gateScripts[3], {
+      QUALITY_GATE_ROOT: projectRoot,
+      GITLEAKS_CMD: fakeGitleaks,
+      GITLEAKS_REPORT_PATH: join(fakeRoot, 'gitleaks.json'),
+    });
+    expect(resultGitleaks.status).toBe(0);
+    expect(resultGitleaks.payload.blockers).toEqual([]);
+    const gitleaksArtifact = JSON.parse(readFileSync(join(fakeRoot, 'gitleaks.json'), 'utf8'));
+    expect(JSON.stringify(gitleaksArtifact)).not.toContain('ghp_super_secret_value');
+    expect(JSON.stringify(gitleaksArtifact)).not.toContain(projectRoot);
 
     const resultTelemetry = runGate(gateScripts[1]);
     expect(resultTelemetry.status).toBe(0);

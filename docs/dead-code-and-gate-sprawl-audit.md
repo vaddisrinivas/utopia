@@ -20,7 +20,25 @@ Scope:
 
 - `npx knip` did not complete on this host because the downloaded `oxc-parser` native binding failed to load under system policy.
 - Because of that, this pass does not claim exhaustive dead-code detection.
-- No knip wrapper script was added. That kept the repo clean and avoided a brittle gate.
+- Knip is not a pinned project dependency. The repository now uses a deterministic
+  local ownership gate instead of `npx knip`: it checks that production source
+  files have exactly one declared owner, relative imports resolve, and direct
+  dependencies exist in the lockfile. Missing or malformed policy/baseline files
+  are `BLOCKED`, never a pass. Knip can be added later as an advisory comparison.
+
+## Static gates
+
+- `npm run check:dependency-dead-code-ownership`
+- `npm run check:renderer-server-size`
+
+`scripts/quality/dependency-dead-code-ownership-baseline.json` is the ownership
+contract. It is intentionally explicit and small enough to review in a pull
+request. It is not a claim that static import reachability proves runtime
+reachability; dynamic imports and framework registration remain review items.
+
+`scripts/quality/renderer-server-size-baseline.json` ratchets the two remaining
+hub files. A file may shrink and its ceiling may be lowered in a later reviewed
+change; automatic baseline updates are forbidden.
 
 ## Findings
 

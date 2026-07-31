@@ -125,7 +125,10 @@ export default function InstallScreen() {
     setError(null);
     setSelectedPackage(registryPackage ?? null);
     try {
-      const next = await fetchPackageInstallCandidate(url, fetcher, { registryPackage });
+      const next = await fetchPackageInstallCandidate(url, fetcher, {
+        registryPackage,
+        registryTrustMetadata: registry.trust,
+      });
       setCandidate(next);
     } catch (installError) {
       setCandidate(null);
@@ -559,9 +562,17 @@ export default function InstallScreen() {
                 <Text style={styles.previewLabel}>Publisher</Text>
                 <Text style={styles.previewValue}>{review.trustSummary.publisherLabel}</Text>
               </View>
-              <View accessible accessibilityRole="text" accessibilityLabel={`Signature: ${review.trustSummary.signatureLabel}`} style={styles.previewRow}>
-                <Text style={styles.previewLabel}>Signature</Text>
-                <Text style={styles.previewValue}>{review.trustSummary.signatureLabel}</Text>
+              <View accessible accessibilityRole="text" accessibilityLabel={`Self-signature: ${review.trustSummary.selfSignatureLabel}`} style={styles.previewRow}>
+                <Text style={styles.previewLabel}>Self-signature</Text>
+                <Text style={styles.previewValue}>{review.trustSummary.selfSignatureLabel}</Text>
+              </View>
+              <View accessible accessibilityRole="text" accessibilityLabel={`Publisher trust: ${review.trustSummary.publisherTrustLabel}`} style={styles.previewRow}>
+                <Text style={styles.previewLabel}>Publisher trust</Text>
+                <Text style={styles.previewValue}>{review.trustSummary.publisherTrustLabel}</Text>
+              </View>
+              <View accessible accessibilityRole="text" accessibilityLabel={`TUF metadata: ${review.trustSummary.tufMetadataLabel}`} style={styles.previewRow}>
+                <Text style={styles.previewLabel}>TUF metadata</Text>
+                <Text style={styles.previewValue}>{review.trustSummary.tufMetadataLabel}</Text>
               </View>
               <View accessible accessibilityRole="text" accessibilityLabel={`Approval: ${review.trustSummary.approvalLabel}`} style={styles.previewRow}>
                 <Text style={styles.previewLabel}>Approval</Text>

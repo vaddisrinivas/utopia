@@ -5,8 +5,9 @@ import type { AppInstallation } from '@/packages/shared/contracts/app-installati
 import type { AppPackage } from '@/packages/shared/contracts/package';
 import { type DomainManifest, type ParsedCatalog } from '@/src/domain/catalog';
 import type { AppRuntime } from '@/src/domain/package-runtime';
+import type { RuntimeContextPorts } from '@/src/domain/runtime-context.ports';
 
-import { defaultRuntimeContextPorts, type RuntimeContextPorts } from '@/src/domain/runtime-context.ports';
+import { defaultRuntimeContextPorts } from './runtime-context-ports';
 
 type AppRuntimeContextValue = {
   db: SQLiteDatabase | null;

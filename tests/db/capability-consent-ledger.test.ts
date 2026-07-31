@@ -4,6 +4,7 @@ import { DEFAULT_WORKSPACE_ID } from '@/packages/shared/contracts/app-installati
 import {
   UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION,
   buildCapabilityConsentRecordId,
+  buildCapabilityConsentRecordSnapshotText,
 } from '@/packages/shared/contracts/capability-consent-ledger';
 import {
   buildPackageInstallApprovalReceipt,
@@ -18,6 +19,7 @@ import {
 import {
   getCapabilityConsentLedgerRecord,
   listCapabilityConsentLedgerRecordsForInstallation,
+  loadCapabilityDecisionPort,
   revokeCapabilityConsentLedgerRecord,
   upsertCapabilityConsentLedgerRecord,
 } from '@/src/db/capability-consent-ledger';
@@ -139,6 +141,16 @@ describe('capability consent ledger persistence', () => {
     expect(await listCapabilityConsentLedgerRecordsForInstallation(db as any, 'install-a')).toHaveLength(1);
     expect(await listCapabilityConsentLedgerRecordsForInstallation(db as any, 'install-b')).toHaveLength(0);
 
+    const decisionPort = await loadCapabilityDecisionPort(db as any, 'install-a');
+    expect(decisionPort.decide({
+      installationId: 'install-a',
+      packageId: installA.id,
+      packageVersion: installA.version,
+      packageChecksum: previewA.trust.computedChecksum,
+      capability: 'native.camera',
+      scope: ['notes', 'photos'],
+    })).toBe('allow');
+
     const revoked = await revokeCapabilityConsentLedgerRecord(db as any, {
       installationId: 'install-a',
       recordId: recordAId,
@@ -148,6 +160,14 @@ describe('capability consent ledger persistence', () => {
     });
     expect(revoked.revocation?.revokedBy).toBe('admin');
     expect(revoked.revocation?.revocationReason).toBe('user reset');
+    expect((await loadCapabilityDecisionPort(db as any, 'install-a')).decide({
+      installationId: 'install-a',
+      packageId: installA.id,
+      packageVersion: installA.version,
+      packageChecksum: previewA.trust.computedChecksum,
+      capability: 'native.camera',
+      scope: ['photos', 'notes'],
+    })).toBe('revoked');
 
     const wrongPackageVersion = {
       ...baseRecordA,
@@ -233,5 +253,105 @@ describe('capability consent ledger persistence', () => {
 
     expect(record.capability).toBe('native.files');
     expect(await listCapabilityConsentLedgerRecordsForInstallation(db as any, 'migrated-install')).toHaveLength(1);
+  });
+
+  it('rejects stale or missing installation checksum and invalidates consent context', async () => {
+    const db = new NodeSqliteDb();
+    dbs.push(db);
+    await runMigrations(db as any);
+
+    const install = packageJson();
+    const preview = buildPackageInstallPreview(install, { sourceUrl: 'https://example.com/consent-stale.package.json' });
+    if (!preview.trust.computedChecksum) throw new Error('expected package checksum');
+    const approval = buildPackageInstallApprovalReceipt(preview, 'alice@example.test', '2026-07-30T00:00:07.000Z');
+    await installApprovedAppPackage(db as any, {
+      packageJson: install,
+      preview,
+      approval,
+      installationId: 'stale-install',
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      now: '2026-07-30T00:00:08.000Z',
+    });
+
+    const consentRecord = {
+      schemaVersion: UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION,
+      installationId: 'stale-install',
+      packageId: install.id,
+      packageVersion: install.version,
+      packageChecksum: preview.trust.computedChecksum,
+      capability: 'native.notifications',
+      scope: ['alerts'],
+      decision: 'allow',
+      decidedBy: 'alice',
+      decidedAt: '2026-07-30T00:00:09.000Z',
+      createdAt: '2026-07-30T00:00:09.000Z',
+      updatedAt: '2026-07-30T00:00:09.000Z',
+    } as const;
+    const record = await upsertCapabilityConsentLedgerRecord(db as any, consentRecord);
+    const recordId = buildCapabilityConsentRecordId(consentRecord);
+
+    const decisionPort = await loadCapabilityDecisionPort(db as any, 'stale-install');
+    expect(decisionPort.decide({
+      installationId: 'stale-install',
+      packageId: install.id,
+      packageVersion: install.version,
+      packageChecksum: preview.trust.computedChecksum,
+      capability: 'native.notifications',
+      scope: ['alerts'],
+    })).toBe('allow');
+
+    await db.runAsync(
+      'UPDATE app_installations SET checksum = NULL WHERE installation_id = ?',
+      ['stale-install'],
+    );
+
+    await expect(listCapabilityConsentLedgerRecordsForInstallation(db as any, 'stale-install')).resolves.toHaveLength(0);
+    expect(
+      (await loadCapabilityDecisionPort(db as any, 'stale-install')).decide({
+        installationId: 'stale-install',
+        packageId: install.id,
+        packageVersion: install.version,
+        packageChecksum: preview.trust.computedChecksum,
+        capability: 'native.notifications',
+        scope: ['alerts'],
+      }),
+    ).toBe('missing');
+    await expect(
+      getCapabilityConsentLedgerRecord(db as any, 'stale-install', recordId),
+    ).rejects.toThrow('capability_consent_package_context_unavailable');
+    await expect(
+      upsertCapabilityConsentLedgerRecord(db as any, {
+        ...record,
+        decidedAt: '2026-07-30T00:00:10.000Z',
+        updatedAt: '2026-07-30T00:00:10.000Z',
+      }),
+    ).rejects.toThrow('capability_consent_package_context_unavailable');
+  });
+
+  it('builds consent snapshots that include package checksum', () => {
+    const baseRecord = {
+      schemaVersion: UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION,
+      installationId: 'install-a',
+      packageId: 'consent.demo',
+      packageVersion: '1.0.0',
+      packageChecksum: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      capability: 'native.camera',
+      scope: ['notes', 'photos'],
+      decision: 'allow' as const,
+      decidedBy: 'alice',
+      decidedAt: '2026-07-30T00:00:04.000Z',
+      createdAt: '2026-07-30T00:00:04.000Z',
+      updatedAt: '2026-07-30T00:00:04.000Z',
+    };
+    const snapshot = buildCapabilityConsentRecordSnapshotText(baseRecord);
+    expect(snapshot).toContain(baseRecord.packageChecksum);
+    expect(snapshot).toContain(baseRecord.packageVersion);
+
+    const staleRecord = {
+      ...baseRecord,
+      packageChecksum: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+    const staleSnapshot = buildCapabilityConsentRecordSnapshotText(staleRecord);
+    expect(staleSnapshot).not.toBe(snapshot);
   });
 });

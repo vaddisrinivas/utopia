@@ -16,6 +16,7 @@ export class MemoryDb {
   appInstallations = new Map<string, Row>();
   appPackages = new Map<string, Row>();
   appInstallationPackageState = new Map<string, Row>();
+  capabilityConsentLedger: Row[] = [];
   appPackageState: Row | null = null;
   appPackageReceipts: Row[] = [];
 
@@ -328,6 +329,10 @@ export class MemoryDb {
       this.sourceSnapshotRelations = this.sourceSnapshotRelations.filter((row) => row.app_installation_id !== scopedId);
       return;
     }
+    if (table === 'capability_consent_ledger') {
+      this.capabilityConsentLedger = this.capabilityConsentLedger.filter((row) => row.app_installation_id !== scopedId);
+      return;
+    }
     if (['action_events', 'undo_events', 'conversations'].includes(table)) return;
     throw new Error(`Unsupported runAsync SQL: ${compact}`);
   }
@@ -528,6 +533,7 @@ export class MemoryDb {
       providerLinks: new Map(this.providerLinks),
       sourceSnapshots: new Map(this.sourceSnapshots),
       sourceSnapshotRelations: this.sourceSnapshotRelations.map((row) => ({ ...row })),
+      capabilityConsentLedger: this.capabilityConsentLedger.map((row) => ({ ...row })),
       outbox: new Map(this.outbox),
       workflowRuns: new Map(this.workflowRuns),
       workspaces: new Map(this.workspaces),
@@ -547,6 +553,7 @@ export class MemoryDb {
     this.providerLinks = new Map(snapshot.providerLinks);
     this.sourceSnapshots = new Map(snapshot.sourceSnapshots);
     this.sourceSnapshotRelations = snapshot.sourceSnapshotRelations.map((row) => ({ ...row }));
+    this.capabilityConsentLedger = snapshot.capabilityConsentLedger.map((row) => ({ ...row }));
     this.outbox = new Map(snapshot.outbox);
     this.workflowRuns = new Map(snapshot.workflowRuns);
     this.workspaces = new Map(snapshot.workspaces);

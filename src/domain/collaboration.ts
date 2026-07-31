@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { DatabasePort as SQLiteDatabase } from '@/src/domain/database-port';
 
 import { sha256Canonical } from '@/src/domain/canonical-json';
 

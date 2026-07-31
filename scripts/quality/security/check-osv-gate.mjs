@@ -1,14 +1,15 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { writeSecurityArtifact } from './security-artifact.mjs';
 
 const root = resolve(process.env.QUALITY_GATE_ROOT?.trim() || process.cwd());
 const outputPrefix = 'OSV_GATE_JSON=';
 const policyPath = resolve(root, process.env.OSV_GATE_POLICY_PATH?.trim() || 'scripts/quality/security/osv-gate-policy.json');
-const reportPath = process.env.OSV_REPORT_PATH?.trim();
 const scannerCommand = process.env.OSV_SCANNER_CMD?.trim() || 'osv-scanner';
 const scannerArgs = parseArgs(process.env.OSV_SCANNER_ARGS?.trim() || '--recursive . --format json');
+const artifactPath = process.env.OSV_REPORT_PATH?.trim() || 'app/build/evidence/osv-report.json';
 
 function parseJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -88,42 +89,23 @@ if (scannerResult && !scannerResult.missingCommand) {
   if (scannerOutput.length > 0) {
     try {
       report = parseJsonFromText(scannerOutput);
-      if (reportPath) {
-        const resolvedReportPath = resolve(root, reportPath);
-        mkdirSync(dirname(resolvedReportPath), { recursive: true });
-        writeFileSync(resolvedReportPath, `${JSON.stringify(report)}\n`);
-      }
+      writeSecurityArtifact(root, artifactPath, report);
       if (!Array.isArray(report.results) && !Array.isArray(report.vulns) && !Array.isArray(report.matches)) {
         warnings.push('osv_report_shape_unknown');
       }
     } catch {
       failures.push('osv_report_invalid_json');
     }
-  } else if (!reportPath) {
-    failures.push('osv_report_missing:scanner_stdout');
   } else {
-    const resolvedReportPath = resolve(root, reportPath);
-    if (!existsSync(resolvedReportPath)) {
-      failures.push(`osv_report_missing:${relative(root, resolvedReportPath)}`);
-    } else {
-      try {
-        const reportText = readFileSync(resolvedReportPath, 'utf8');
-        report = parseJsonFromText(reportText);
-        if (!Array.isArray(report.results) && !Array.isArray(report.vulns) && !Array.isArray(report.matches)) {
-          warnings.push('osv_report_shape_unknown');
-        }
-      } catch {
-        failures.push('osv_report_invalid_json');
-      }
-    }
+    failures.push('osv_report_missing:scanner_stdout');
   }
 }
 
 const payload = {
   proof: 'utopia_osv_gate',
   checked_at: new Date().toISOString(),
-  root,
-  report_path: reportPath ? relative(root, resolve(root, reportPath)) : null,
+  root: '.',
+  report_path: relative(root, resolve(root, artifactPath)),
   policy_path: relative(root, policyPath),
   status: failures.length ? 'BLOCKED' : 'READY',
   blockers: failures,

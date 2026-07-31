@@ -1,4 +1,9 @@
 import type { AppPackageNativeCapability } from '@/packages/shared/contracts/package';
+import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
+import type {
+  CapabilityDecisionPort,
+  CapabilityDecisionInput,
+} from '@/packages/shared/contracts/capability-consent-ledger';
 
 export type WidgetCapabilityKind =
   | 'audio-file'
@@ -56,7 +61,11 @@ export type WidgetCapabilityError = Readonly<{
     | 'package_native_capabilities_missing'
     | 'package_capability_unknown_action'
     | 'package_capability_package_not_granted'
-    | 'package_capability_permission_not_granted';
+    | 'package_capability_permission_not_granted'
+    | 'package_capability_consent_required'
+    | 'package_capability_consent_denied'
+    | 'package_capability_consent_revoked'
+    | 'package_capability_consent_checksum_mismatch';
   kind: WidgetCapabilityKind | 'unknown';
   action: string;
   installationId: string | null;
@@ -70,8 +79,11 @@ export type WidgetCapabilityRuntime = Readonly<{
   installationId: string | null;
   activePackage: {
     id: string;
+    version?: string;
+    checksum?: string;
     nativeCapabilities?: AppPackageNativeCapability | null;
   } | null;
+  capabilityDecisionPort?: CapabilityDecisionPort | null;
 }>;
 
 export function requestWidgetCapability(
@@ -134,6 +146,24 @@ export function requestWidgetCapability(
     });
   }
 
+  const packageVersion = activePackage.version?.trim() ?? '';
+  const packageChecksum = activePackage.checksum?.trim() || sha256Canonical(activePackage);
+  const consentInput: CapabilityDecisionInput = {
+    installationId,
+    packageId: activePackage.id,
+    packageVersion,
+    packageChecksum,
+    capability: `native.${request.kind}`,
+    scope: widgetCapabilityConsentScope(request),
+  };
+  const consentDecision = packageVersion && packageChecksum && runtime.capabilityDecisionPort
+    ? runtime.capabilityDecisionPort.decide(consentInput)
+    : 'missing';
+  if (consentDecision !== 'allow') {
+    const consentError = consentErrorForDecision(consentDecision, request, installationId, activePackage.id);
+    return deny(consentError);
+  }
+
   const grantedPackages = new Set(nativeCapabilities.packages.map((value) => value.trim()).filter(Boolean));
   const grantedPermissions = new Set(
     (nativeCapabilities.permissions ?? []).map(normalizePermissionLabel).filter(Boolean),
@@ -164,6 +194,45 @@ export function requestWidgetCapability(
     action: request.action,
     grantedPackages: requirements.packages,
     grantedPermissions: requirements.permissions,
+  };
+}
+
+export function widgetCapabilityConsentScope(request: WidgetCapabilityRequest): readonly string[] {
+  const scope: string[] = [request.action];
+  if (request.kind === 'media-picker') scope.push(`media:${request.media}`);
+  if (request.kind === 'sensor') scope.push(`sensor:${request.sensor}`);
+  return scope;
+}
+
+function consentErrorForDecision(
+  decision: Exclude<ReturnType<NonNullable<WidgetCapabilityRuntime['capabilityDecisionPort']>['decide']>, 'allow'>,
+  request: WidgetCapabilityRequest,
+  installationId: string,
+  packageId: string,
+): WidgetCapabilityError {
+  const code = decision === 'revoked'
+    ? 'package_capability_consent_revoked'
+    : decision === 'checksum_mismatch'
+      ? 'package_capability_consent_checksum_mismatch'
+      : decision === 'deny'
+        ? 'package_capability_consent_denied'
+        : 'package_capability_consent_required';
+  const message = decision === 'revoked'
+    ? 'Active capability consent was revoked.'
+    : decision === 'checksum_mismatch'
+      ? 'Capability consent does not match the active package checksum.'
+      : decision === 'deny'
+        ? 'Capability consent was denied.'
+        : 'Active persisted capability consent is required.';
+  return {
+    code,
+    kind: request.kind,
+    action: request.action,
+    installationId,
+    packageId,
+    message,
+    missingPackages: [],
+    missingPermissions: [],
   };
 }
 

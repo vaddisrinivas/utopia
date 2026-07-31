@@ -1,6 +1,10 @@
 import type { UtopiaRegistryPackage, UtopiaRegistryPublisher, UtopiaRegistrySignature } from './package-install';
 
 export const UTOPIA_TRUST_POLICY_SCHEMA_VERSION = 'utopia.trust-policy.v1' as const;
+const TRUST_SIGNATURE_KEY_ID_PATTERN = /^[a-z0-9._-]+$/i;
+const TRUST_SIGNATURE_KEY_ID_MAX_LENGTH = 128;
+const TRUST_SIGNATURE_VALUE_ALLOWED_CHARS = /^[A-Za-z0-9+/=_-]+$/;
+const TRUST_SIGNATURE_VALUE_MAX_BYTES = 4096;
 
 export type UtopiaTrustedPublisherKey = Readonly<{
   publisherId: string;
@@ -64,7 +68,20 @@ function validateTrustMetadata(
   if (!signature) return 'signature is required for trusted packages';
   if (signature.algorithm !== 'ecdsa-p256-sha256') return `signature algorithm unsupported:${signature.algorithm}`;
   if (!signature.keyId) return 'signature keyId is required for trusted packages';
+  if (!TRUST_SIGNATURE_KEY_ID_PATTERN.test(signature.keyId) || signature.keyId.length > TRUST_SIGNATURE_KEY_ID_MAX_LENGTH) {
+    return 'signature keyId format is invalid for trusted packages';
+  }
   if (!signature.value) return 'signature value is required for trusted packages';
+  if (!isDeterministicSignatureValue(signature.value)) return 'signature value has invalid encoding';
+  if (signature.publicKey !== undefined && typeof signature.publicKey !== 'string') return 'signature publicKey must be text';
   if (signature.signedAt && Number.isNaN(Date.parse(signature.signedAt))) return 'signature signedAt is invalid';
   return null;
+}
+
+function isDeterministicSignatureValue(value: string): boolean {
+  if (value.length === 0 || value.length > TRUST_SIGNATURE_VALUE_MAX_BYTES) return false;
+  if (!TRUST_SIGNATURE_VALUE_ALLOWED_CHARS.test(value.trim())) return false;
+  const normalized = value.trim();
+  if (/^(?:[a-f0-9]{2})+$/i.test(normalized)) return normalized.length % 2 === 0;
+  return true;
 }

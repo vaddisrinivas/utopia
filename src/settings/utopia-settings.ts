@@ -481,6 +481,21 @@ export async function saveUtopiaSettings(settings: UtopiaSettings): Promise<Utop
   return normalized;
 }
 
+export async function clearUtopiaCredentialState(): Promise<void> {
+  const settings = await loadUtopiaSettings();
+  await saveUtopiaSettings({
+    ...settings,
+    ai: {
+      primary: { ...settings.ai.primary, apiKey: '' },
+      fallback: { ...settings.ai.fallback, apiKey: '' },
+    },
+    notion: { ...settings.notion, token: '' },
+    sheets: { ...settings.sheets, token: '' },
+    postgres: { ...settings.postgres, databaseUrl: '' },
+    mcp: { ...settings.mcp, token: '' },
+  });
+}
+
 export function subscribeUtopiaSettings(listener: (settings: UtopiaSettings) => void): () => void {
   listeners.add(listener);
   return () => {

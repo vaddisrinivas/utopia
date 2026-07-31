@@ -18,6 +18,7 @@ type ProofEvidence = {
   status: ProofStatus;
   blockers: string[];
   blockers_note: string | null;
+  next_action: string | null;
   bridge: {
     configured: boolean;
     command: string | null;
@@ -66,6 +67,7 @@ function parseProofEvidence(raw: string): ProofEvidence {
     status: data.status,
     blockers: parseStringArray(data.blockers),
     blockers_note: typeof data.blockers_note === 'string' ? data.blockers_note : null,
+    next_action: typeof data.next_action === 'string' ? data.next_action : null,
     bridge: {
       configured: typeof bridge.configured === 'boolean' ? bridge.configured : false,
       command: typeof bridge.command === 'string' ? bridge.command : null,
@@ -320,6 +322,7 @@ describe('shared-household-board macOS runtime proof script', () => {
     expect(result.status).toBe(1);
     expect(evidence.status).toBe('BLOCKED');
     expect(evidence.blockers).toContain('missing_macos_golden_loop_opt_in');
+    expect(evidence.next_action).toContain('Set UTOPIA_MACOS_GOLDEN_LOOP=1');
     expect(evidence.blockers.length).toBeGreaterThan(0);
     expect(evidence.blockers_note).toBeTypeOf('string');
   });

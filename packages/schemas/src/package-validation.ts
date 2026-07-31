@@ -1,7 +1,4 @@
-import Ajv2020, { type ErrorObject, type ValidateFunction } from 'ajv/dist/2020';
-import AjvDraft07 from 'ajv';
-import addFormats from 'ajv-formats';
-import type Ajv from 'ajv';
+import type { ErrorObject, ValidateFunction } from 'ajv';
 
 import {
   collectAppPackageValidationIssues,
@@ -10,15 +7,9 @@ import {
   type PackageValidationCategory,
 } from '@/packages/shared/contracts/package';
 import { canonicalJson, sha256Canonical } from '@/packages/shared/contracts/canonical-json';
-import { APP_PACKAGE_SCHEMA_DRAFT } from './app-package-schemas';
+import { getSchemaValidator } from '@/packages/shared/contracts/schema/ajv-authority';
 import { getAppPackageSchemaEntry, type AppPackageSchemaRegistryEntry } from './package-registry';
 
-const DRAFT_07_SCHEMA = APP_PACKAGE_SCHEMA_DRAFT;
-const DRAFT_2020_12_SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
-const AJV_OPTIONS = { allErrors: true, strict: false, validateFormats: true };
-const ajv2020 = withFormats(new Ajv2020(AJV_OPTIONS));
-const ajvDraft07 = withFormats(new AjvDraft07(AJV_OPTIONS));
-const validatorCache = new Map<string, ValidateFunction<AppPackage>>();
 
 export type ArtifactValidationCategory = 'structural' | 'reference' | 'compatibility' | 'capability' | 'checksum' | 'policy';
 
@@ -134,30 +125,7 @@ function mapAjvError(error: ErrorObject): ArtifactValidationIssue {
 }
 
 function getValidator(schema: AppPackageSchemaRegistryEntry): ValidateFunction<AppPackage> {
-  const cached = validatorCache.get(schema.schemaId);
-  if (cached) return cached;
-  const compiler = detectSchemaDialect(schema.schema);
-  const validate = compiler.compile(schema.schema) as ValidateFunction<AppPackage>;
-  validatorCache.set(schema.schemaId, validate);
-  return validate;
-}
-
-type AjvLike = {
-  compile<T>(schema: object): ValidateFunction<T>;
-};
-
-function detectSchemaDialect(schema: object): AjvLike {
-  if (!isRecord(schema) || typeof schema.$schema !== 'string' || !schema.$schema.trim()) {
-    throw new Error('schema validation requires explicit $schema; missing or empty $schema');
-  }
-  if (schema.$schema === DRAFT_07_SCHEMA) return ajvDraft07;
-  if (schema.$schema === DRAFT_2020_12_SCHEMA) return ajv2020;
-  throw new Error(`unsupported schema dialect: ${schema.$schema}`);
-}
-
-function withFormats<T extends AjvLike>(ajv: T): T {
-  addFormats(ajv as unknown as Ajv);
-  return ajv;
+  return getSchemaValidator(schema.schema) as ValidateFunction<AppPackage>;
 }
 
 function hasExecutableCode(value: unknown): boolean {

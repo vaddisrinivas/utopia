@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { writeSecurityArtifact } from '../security/security-artifact.mjs';
 
 const root = resolve(process.env.QUALITY_GATE_ROOT?.trim() || process.cwd());
 const outputPrefix = 'SBOM_GATE_JSON=';
@@ -76,8 +77,7 @@ if (syftResult && !syftResult.missingCommand) {
   if (syftOutput.length > 0) {
     try {
       sbom = JSON.parse(syftOutput);
-      mkdirSync(dirname(resolvedSbomPath), { recursive: true });
-      writeFileSync(resolvedSbomPath, `${JSON.stringify(sbom)}\n`);
+      writeSecurityArtifact(root, sbomPath, sbom);
     } catch {
       failures.push('sbom_invalid_json');
     }
@@ -101,14 +101,15 @@ if (policy && typeof policy.format === 'string' && policy.format.toLowerCase() !
 const payload = {
   proof: 'utopia_sbom_gate',
   checked_at: new Date().toISOString(),
-  root,
+  root: '.',
   status: failures.length ? 'BLOCKED' : 'READY',
   blockers: failures,
   warnings,
   policy_path: relative(root, policyPath),
   sbom_path: sbomPath || null,
-  policy,
+  policy_present: Boolean(policy),
   sbom_present: Boolean(sbom),
+  artifact_path: relative(root, resolvedSbomPath),
 };
 
 console.log(`${outputPrefix}${JSON.stringify(payload)}`);

@@ -11,6 +11,7 @@ import {
 import { validateShellProofReceipt } from '../../scripts/quality/golden-loop/shell-proof-protocol.mjs';
 import { hashText } from '../../scripts/quality/golden-loop/web-execution-receipt.mjs';
 import { currentGit } from '../../scripts/quality/evidence-provenance.mjs';
+import { nextActionForWebReceipt } from '../../scripts/quality/golden-loop/web-execution-receipt.mjs';
 
 const tempRoots: string[] = [];
 
@@ -296,6 +297,29 @@ describe('web execution receipt', () => {
     });
   });
 
+  it('uses only the observed request session for network proof context', () => {
+    const metadata = extractReferenceSyncMetadataFromResponse(
+      JSON.stringify({ ok: true, data: { opId: 'op-observed' } }),
+      { session: 'request-session-1', endpoint: 'http://127.0.0.1:18481/reference-sync/v1/stage' },
+    );
+
+    expect(metadata.sessionId).toBe(hashText('request-session-1'));
+    expect(metadata.rawSession).toBe('request-session-1');
+    expect(metadata.endpoint).toBe('http://127.0.0.1:18481/reference-sync/v1/stage');
+    expect(metadata.sessionObserved).toBe(true);
+    expect(metadata.endpointObserved).toBe(true);
+  });
+
+  it('blocks session claims when a network response has no observed session context', () => {
+    const metadata = extractReferenceSyncMetadataFromResponse(
+      JSON.stringify({ ok: true, data: { opId: 'op-unscoped' } }),
+      { endpoint: 'http://127.0.0.1:18481/reference-sync/v1/stage' },
+    );
+
+    expect(metadata.sessionId).toBeNull();
+    expect(metadata.sessionObserved).toBe(false);
+  });
+
   it('does not persist raw cursor values in serialized sync evidence', () => {
     const rawCursor = 'secret-sync-cursor-123';
     const { receiptPath, receipt } = receiptInputs({
@@ -397,5 +421,39 @@ describe('web execution receipt', () => {
     });
 
     expect(validation.pass).toBe(true);
+  });
+
+  it('rejects transport artifacts whose observed operation count drifts', () => {
+    const { receipt, receiptPath } = receiptInputs();
+    const transportRef = receipt.execution?.transport?.observation;
+    if (!transportRef || typeof transportRef.path !== 'string') {
+      throw new Error('transport observation fixture is missing');
+    }
+    const mutatedTransport = JSON.stringify({
+      session: 'sha256:' + 'd'.repeat(64),
+      endpoint: '/reference-sync/v1/sync',
+      operation_ids: [],
+      operations: [],
+    });
+    writeFileSync(transportRef.path, mutatedTransport);
+    transportRef.sha256 = hashText(mutatedTransport);
+    transportRef.bytes = Buffer.byteLength(mutatedTransport);
+
+    const validation = validateShellProofReceipt(receipt, {
+      root: process.cwd(),
+      label: 'web',
+      path: receiptPath,
+      requiredSourceSurface: 'web',
+    });
+
+    expect(validation.pass).toBe(false);
+    expect(validation.blockers).toContain('transport_observation_operation_count_mismatch:0:3');
+  });
+
+  it('computes explicit web next action for blocked runtime conditions', () => {
+    expect(nextActionForWebReceipt(['missing_web_runtime_driver:playwright']))
+      .toContain('Install Playwright');
+    expect(nextActionForWebReceipt(['missing_public_reference_sync_session_hook:session']))
+      .toContain('App Library screen');
   });
 });

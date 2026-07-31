@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { defaultCoreCryptoPort } from '../../adapters/core-crypto';
 
 export type BlobObjectRecord = Readonly<{
   key: string;
@@ -143,10 +143,14 @@ function buildRecord(input: {
     body,
     contentType: input.contentType,
     metadata: { ...input.metadata },
-    etag: `sha256:${createHash('sha256').update(body).digest('hex')}`,
+    etag: `sha256:${toHex(defaultCoreCryptoPort.sha256(body))}`,
     size: body.byteLength,
     writtenAt,
   };
+}
+
+function toHex(value: Uint8Array): string {
+  return Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function cloneRecord(record: BlobObjectRecord): BlobObjectRecord {
