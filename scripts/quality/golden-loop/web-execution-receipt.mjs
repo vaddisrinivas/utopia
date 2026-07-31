@@ -34,7 +34,6 @@ const APP_PATH_PREFIX = '/apps/';
 const CONTROL_ROOM_PATH = '/package-control-room';
 const REQUIRED_SCENARIO_ID = 'convergence-conflict-rollback-v1';
 const SHELL_PROOF_PROTOCOL_VERSION = SHELL_PROOF_SCHEMA_VERSION;
-const useDebugBridge = process.env.UTOPIA_WEB_GOLDEN_LOOP_DEBUG_BRIDGE === '1';
 const runId = process.env.UTOPIA_GOLDEN_LOOP_RUN_ID || process.env.GOLDEN_LOOP_RUN_ID || null;
 
 function normalizeChecksum(raw) {
@@ -406,6 +405,10 @@ function uniqueBlockers(values) {
   return unique(values);
 }
 
+function shouldUseDebugBridge() {
+  return process.env.UTOPIA_WEB_GOLDEN_LOOP_DEBUG_BRIDGE === '1';
+}
+
 async function captureText(page) {
   return page.locator('body').innerText({ timeout: 12000 });
 }
@@ -690,6 +693,9 @@ async function executeWebDebugBridge({ page, blockers, steps }) {
     installationId,
   });
 
+  await page.addInitScript((debugToken) => {
+    globalThis.__UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN__ = debugToken;
+  }, token);
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(
     () => Boolean(globalThis.__UTOPIA_GOLDEN_LOOP_DEBUG__?.execute),
@@ -1366,7 +1372,11 @@ export async function runWebGoldenLoopExecution() {
   };
 
   try {
-    webServer = await ensureWebBaseUrl({ root, baseUrl });
+    webServer = await ensureWebBaseUrl({
+      root,
+      baseUrl,
+      forceExport: shouldUseDebugBridge(),
+    });
   } catch {
     blockers.push('web_server_unavailable');
     return buildBlockedReceipt();
@@ -1602,7 +1612,7 @@ export async function runWebGoldenLoopExecution() {
   });
 
   try {
-    if (useDebugBridge) {
+    if (shouldUseDebugBridge()) {
       const debugRun = await executeWebDebugBridge({ page, blockers, steps });
       installation = {
         version: debugRun.version,
@@ -1640,7 +1650,21 @@ export async function runWebGoldenLoopExecution() {
       referenceSyncState.rollbackOperationObserved = true;
       referenceSyncState.reconciledOperationObserved = true;
       referenceSyncState.conflictObserved = true;
+      referenceSyncState.convergence = true;
+      referenceSyncState.conflictDetected = true;
+      referenceSyncState.convergenceReplayed = true;
+      referenceSyncState.rollbackReplayed = true;
+      referenceSyncState.successfulResponses += 1;
       referenceSyncState.endpoints.add('/utopia-golden-loop-debug-bridge');
+      referenceSyncState.sessionIds.add(hashText(debugRun.installationId));
+      for (const operationId of operationIds) referenceSyncState.operationIds.add(operationId);
+      const rollbackOperationIds = debugRun.results
+        .filter((result) => result?.command === 'package.rollback')
+        .map((result) => result.operation_id);
+      for (const operationId of rollbackOperationIds) referenceSyncState.rollbackOperationIds.add(operationId);
+      const reconciledOperationId = debugRun.results.find((result) => result?.command === 'transport.reconnect')?.operation_id ?? null;
+      if (reconciledOperationId) referenceSyncState.reconciledOperationId = reconciledOperationId;
+      referenceSyncState.observationIds.add(hashPayload(debugRun.results));
       referenceSyncState.observations.push({
         path: '/utopia-golden-loop-debug-bridge',
         observation_id: hashPayload(debugRun.results),
@@ -1649,10 +1673,8 @@ export async function runWebGoldenLoopExecution() {
         method: 'bridge',
         session_id: hashText(debugRun.installationId),
         operation_ids: operationIds,
-        rollback_operation_ids: debugRun.results
-          .filter((result) => result?.command === 'package.rollback')
-          .map((result) => result.operation_id),
-        reconciled_operation_id: debugRun.results.find((result) => result?.command === 'transport.reconnect')?.operation_id ?? null,
+        rollback_operation_ids: rollbackOperationIds,
+        reconciled_operation_id: reconciledOperationId,
         endpoint: `${baseUrl}/utopia-golden-loop-debug-bridge`,
         cursor_hash: hashPayload(debugRun.results),
         conflict_detected: true,

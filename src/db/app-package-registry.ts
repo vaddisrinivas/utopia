@@ -692,7 +692,25 @@ export async function rollbackAppPackage(
   if (!previousPackage) return null;
 
   const now = new Date().toISOString();
+  const previousChecksum = hashValue(previousPackage);
   await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE app_installations
+        SET package_key = $package_key,
+          package_id = $package_id,
+          version = $version,
+          checksum = $checksum,
+          updated_at = $updated_at
+        WHERE installation_id = $installation_id`,
+      {
+        $installation_id: scopedInstallationId,
+        $package_key: state.previous_package_key,
+        $package_id: previousPackage.id,
+        $version: previousPackage.version,
+        $checksum: previousChecksum,
+        $updated_at: now,
+      },
+    );
     await db.runAsync(
       `INSERT OR REPLACE INTO app_installation_package_state
         (installation_id, active_package_key, previous_package_key, updated_at)

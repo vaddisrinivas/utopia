@@ -1,26 +1,25 @@
 const STORAGE_KEY = 'utopia.settings.v1';
 let volatileSettingsValue: string | null = null;
 
-const SECRET_FIELDS = [
-  ['ai', 'primary', 'apiKey'],
-  ['ai', 'fallback', 'apiKey'],
-  ['notion', 'token'],
-  ['sheets', 'token'],
-  ['postgres', 'databaseUrl'],
-  ['mcp', 'token'],
-] as const;
+const SECRET_KEY = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|password|passphrase|secret|client[_-]?secret|database[_-]?url|connection[_-]?string|authorization|cookie|private[_-]?key|credential)/i;
 
-function redactSecrets(value: string): { persisted: string; hadSecrets: boolean } {
-  const parsed = JSON.parse(value) as Record<string, any>;
+export function redactBrowserCredentialPayload(value: string): { persisted: string; hadSecrets: boolean } {
+  const parsed = JSON.parse(value) as unknown;
   let hadSecrets = false;
-  for (const path of SECRET_FIELDS) {
-    let cursor: any = parsed;
-    for (const segment of path.slice(0, -1)) cursor = cursor?.[segment];
-    const key = path[path.length - 1];
-    if (typeof cursor?.[key] === 'string' && cursor[key].length > 0) hadSecrets = true;
-    if (cursor && key in cursor) cursor[key] = '';
-  }
-  return { persisted: JSON.stringify(parsed), hadSecrets };
+
+  const redact = (current: unknown): unknown => {
+    if (Array.isArray(current)) return current.map(redact);
+    if (!current || typeof current !== 'object') return current;
+    return Object.fromEntries(Object.entries(current).flatMap(([key, child]) => {
+      if (SECRET_KEY.test(key)) {
+        if (child !== undefined && child !== null && child !== '') hadSecrets = true;
+        return [];
+      }
+      return [[key, redact(child)]];
+    }));
+  };
+
+  return { persisted: JSON.stringify(redact(parsed)), hadSecrets };
 }
 
 export async function readSettingsValue(): Promise<string | null> {
@@ -29,7 +28,7 @@ export async function readSettingsValue(): Promise<string | null> {
   const value = localStorage.getItem(STORAGE_KEY);
   if (!value) return null;
   try {
-    const redacted = redactSecrets(value);
+    const redacted = redactBrowserCredentialPayload(value);
     if (redacted.hadSecrets) localStorage.setItem(STORAGE_KEY, redacted.persisted);
     return redacted.persisted;
   } catch {
@@ -41,7 +40,7 @@ export async function readSettingsValue(): Promise<string | null> {
 export async function writeSettingsValue(value: string): Promise<void> {
   volatileSettingsValue = value;
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, redactSecrets(value).persisted);
+    localStorage.setItem(STORAGE_KEY, redactBrowserCredentialPayload(value).persisted);
   }
 }
 

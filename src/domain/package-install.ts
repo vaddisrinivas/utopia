@@ -21,14 +21,15 @@ import bundledSplitRentPackageJson from '@/apps/split-rent/split-rent.v1.json';
 import bundledWorkoutLoggerPackageJson from '@/apps/workout-logger/workout-logger.v1.json';
 import bundledFocusIntervalsPackageJson from '@/apps/focus-intervals/focus-intervals.v1.json';
 
-export const BUNDLED_UTOPIA_REGISTRY_URL = 'https://wonder.app/registry/bundled.json';
-export const BUNDLED_DEMO_PACKAGE_URL = 'https://wonder.app/bundled/scientific-calculator.package.json';
-export const BUNDLED_AUDIO_LOOP_PACKAGE_URL = 'https://wonder.app/bundled/audio-loop-108.package.json';
-export const BUNDLED_HABIT_GRID_PACKAGE_URL = 'https://wonder.app/bundled/habit-grid.package.json';
-export const BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL = 'https://wonder.app/bundled/expense-splitter.package.json';
-export const BUNDLED_SPLIT_RENT_PACKAGE_URL = 'https://wonder.app/bundled/split-rent.package.json';
-export const BUNDLED_WORKOUT_LOGGER_PACKAGE_URL = 'https://wonder.app/bundled/workout-logger.package.json';
-export const BUNDLED_FOCUS_INTERVALS_PACKAGE_URL = 'https://wonder.app/bundled/focus-intervals.package.json';
+const BUNDLED_PACKAGE_ORIGIN = 'https://bundled.utopia.invalid';
+export const BUNDLED_UTOPIA_REGISTRY_URL = `${BUNDLED_PACKAGE_ORIGIN}/registry.json`;
+export const BUNDLED_DEMO_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/scientific-calculator.package.json`;
+export const BUNDLED_AUDIO_LOOP_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/audio-loop-108.package.json`;
+export const BUNDLED_HABIT_GRID_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/habit-grid.package.json`;
+export const BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/expense-splitter.package.json`;
+export const BUNDLED_SPLIT_RENT_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/split-rent.package.json`;
+export const BUNDLED_WORKOUT_LOGGER_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/workout-logger.package.json`;
+export const BUNDLED_FOCUS_INTERVALS_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/focus-intervals.package.json`;
 export const PACKAGE_INSTALL_FETCH_TIMEOUT_MS = 10_000;
 export const PACKAGE_INSTALL_MAX_BODY_BYTES = 1024 * 1024;
 

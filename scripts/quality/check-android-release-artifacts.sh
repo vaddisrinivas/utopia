@@ -16,7 +16,8 @@ fail() {
 }
 
 if [[ "${BUILD_RELEASE_ARTIFACTS:-0}" == "1" ]]; then
-  WF_ANDROID_BUILD_COMMAND="android/gradlew :app:assembleRelease :app:bundleRelease" \
+  UTOPIA_RELEASE_BUNDLE=1 \
+  WF_ANDROID_BUILD_COMMAND="UTOPIA_RELEASE_BUNDLE=1 android/gradlew :app:assembleRelease :app:bundleRelease" \
     bash -c 'cd android && ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease'
 fi
 
@@ -29,7 +30,7 @@ if [[ ! -f "$apk" ]]; then
 fi
 
 if [[ "${BUILD_RELEASE_ARTIFACTS:-0}" == "1" ]]; then
-  WF_ANDROID_BUILD_COMMAND="android/gradlew :app:assembleRelease :app:bundleRelease" \
+  WF_ANDROID_BUILD_COMMAND="UTOPIA_RELEASE_BUNDLE=1 android/gradlew :app:assembleRelease :app:bundleRelease" \
     node scripts/quality/write-android-release-build-receipt.mjs "$apk" "$aab" "$build_receipt"
 fi
 

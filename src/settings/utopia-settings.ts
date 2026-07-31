@@ -132,15 +132,9 @@ export type UtopiaSettings = {
 
 const listeners = new Set<(settings: UtopiaSettings) => void>();
 const oldCaptureDestinationDefault = 'Writes to Food local graph with no network dependency.';
-const legacyUtopiaFoodDataSourceIds = [
-  '3a7dace3-e35e-4ce9-b817-0b80af6e413c',
-  '50f76b76-1699-4e01-ad1c-452dcf2d158f',
-  '4be44ff0-908c-4c21-bb4a-0b11ffa82c1f',
-  '1b18eb8e-2447-46d3-b37d-c4e7a7368d01',
-  '57bf958d-98a1-42b7-9424-12507049d218',
-  '610b087e-5e45-443c-bb8a-df08aac29718',
-  'a406ca56-de0d-4a63-81c6-203adf8d57a5',
-] as const;
+// Opaque fingerprint lets old bundled defaults migrate without shipping their identifiers.
+const legacyUtopiaFoodDefaultsFingerprint = '93396b97';
+const legacyUtopiaFoodDataSourceFingerprint = '7fd7ea45';
 
 export const defaultUtopiaSettings: UtopiaSettings = {
   ai: {
@@ -166,8 +160,8 @@ export const defaultUtopiaSettings: UtopiaSettings = {
   notion: {
     enabled: false,
     token: '',
-    pageId: '3a45dd53-5a93-81c8-bcc5-daaf19dda1cc',
-    dataSourceIds: 'd9f18e59-501d-4020-a394-b33227575062,4758caaf-3f61-4f05-9850-8e75f8f26e22,0342ada7-fe6a-4188-b13f-cf37678fe549,ca253ce0-4558-412f-90b3-01d050d08f60,b11d1d47-4752-49d4-b31f-a625aa76d721,88e025fd-a4b3-4dbe-8da2-1a406e6e3446,ff584573-0d92-4145-8c3d-3e591f5970d2,17e47090-c0ee-480f-bc67-80d2590463a4,b9302602-b33b-4eec-9ecf-25f03b97f35b,9c2bcdbd-16a2-4ca3-9c01-8bc069a67179,221325fd-e376-454a-868d-ee0116c0ed13,bd5318bb-d426-44a5-9ea6-a2233479886c,72b6d3d5-6041-49e7-a5fd-f6bed68a7f7e,61bef4eb-ac70-486a-8b29-6dded5efc48f,fdb1a1c6-6d57-4e7d-be6e-31e9b5e9d389',
+    pageId: '',
+    dataSourceIds: '',
   },
   sheets: {
     enabled: false,
@@ -298,6 +292,7 @@ function normalizeProfile(
 function normalizeSettings(input: Partial<UtopiaSettings> | null): UtopiaSettings {
   const runtime = input?.runtime;
   const notionDataSourceIds = typeof input?.notion?.dataSourceIds === 'string' ? input.notion.dataSourceIds.trim() : '';
+  const legacyNotionDefaults = isLegacyUtopiaFoodDefaults(input?.notion?.pageId, notionDataSourceIds);
   const strings = (value: unknown, fallback: string[]) =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : fallback;
   const skillInstructions =
@@ -316,12 +311,8 @@ function normalizeSettings(input: Partial<UtopiaSettings> | null): UtopiaSetting
     notion: {
       enabled: Boolean(input?.notion?.enabled),
       token: typeof input?.notion?.token === 'string' ? input.notion.token.trim() : '',
-      pageId: typeof input?.notion?.pageId === 'string' && input.notion.pageId.trim()
-        ? input.notion.pageId.trim()
-        : defaultUtopiaSettings.notion.pageId,
-      dataSourceIds: notionDataSourceIds && !isLegacyUtopiaFoodDataSourceList(notionDataSourceIds)
-        ? notionDataSourceIds
-        : defaultUtopiaSettings.notion.dataSourceIds,
+      pageId: legacyNotionDefaults ? '' : typeof input?.notion?.pageId === 'string' ? input.notion.pageId.trim() : '',
+      dataSourceIds: legacyNotionDefaults ? '' : notionDataSourceIds,
     },
     sheets: {
       enabled: Boolean(input?.sheets?.enabled),
@@ -356,9 +347,22 @@ function normalizeSettings(input: Partial<UtopiaSettings> | null): UtopiaSetting
   };
 }
 
-function isLegacyUtopiaFoodDataSourceList(value: string) {
-  const ids = value.split(',').map((id) => id.trim()).filter(Boolean);
-  return ids.length > 0 && ids.every((id) => legacyUtopiaFoodDataSourceIds.includes(id as (typeof legacyUtopiaFoodDataSourceIds)[number]));
+function isLegacyUtopiaFoodDefaults(pageId: unknown, dataSourceIds: string) {
+  if (!dataSourceIds) return false;
+  let hash = 2166136261;
+  for (const character of dataSourceIds) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const dataSourceFingerprint = (hash >>> 0).toString(16).padStart(8, '0');
+  if (dataSourceFingerprint === legacyUtopiaFoodDataSourceFingerprint) return true;
+  if (typeof pageId !== 'string') return false;
+  hash = 2166136261;
+  for (const character of `${pageId.trim()}\n${dataSourceIds}`) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0') === legacyUtopiaFoodDefaultsFingerprint;
 }
 
 function normalizePositiveString(value: unknown, fallback: string) {

@@ -18,8 +18,10 @@ function consent(capability: string, scope: string[], overrides: Record<string, 
     packageId: 'package-123',
     packageVersion: '1.0.0',
     packageChecksum: CHECKSUM,
+    publisherId: 'trusted.publisher',
     capability,
     scope,
+    declaredPurpose: 'use the requested native widget capability',
     decision: 'allow' as const,
     decidedBy: 'user',
     decidedAt: '2026-07-30T00:00:00.000Z',
@@ -36,6 +38,8 @@ function makeRuntime(overrides: Partial<WidgetCapabilityRuntime> = {}): WidgetCa
       id: 'package-123',
       version: '1.0.0',
       checksum: CHECKSUM,
+      publisherId: 'trusted.publisher',
+      declaredPurpose: 'use the requested native widget capability',
       nativeCapabilities: {
         schemaVersion: 'wonder.app-package-native-capabilities.v1',
         platform: 'expo',
@@ -96,6 +100,8 @@ describe('widget capability broker', () => {
         id: 'package-123',
         version: '1.0.0',
         checksum: CHECKSUM,
+        publisherId: 'trusted.publisher',
+        declaredPurpose: 'use the requested native widget capability',
         nativeCapabilities: {
           schemaVersion: 'wonder.app-package-native-capabilities.v1',
           platform: 'expo',
@@ -156,6 +162,65 @@ describe('widget capability broker', () => {
     });
   });
 
+  it('fails closed when publisher identity is missing', () => {
+    const result = requestWidgetCapability(makeRuntime({
+      activePackage: {
+        ...makeRuntime().activePackage!,
+        publisherId: ' ',
+      },
+    }), {
+      kind: 'audio-recorder',
+      action: 'record',
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'package_capability_metadata_missing' },
+    });
+  });
+
+  it('fails closed when explicit purpose is missing', () => {
+    const result = requestWidgetCapability(makeRuntime({
+      activePackage: {
+        ...makeRuntime().activePackage!,
+        declaredPurpose: '',
+      },
+    }), {
+      kind: 'audio-recorder',
+      action: 'record',
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'package_capability_metadata_missing' },
+    });
+  });
+
+  it('passes installed publisher and request purpose metadata to the ledger independently of checksum and version', () => {
+    let received: unknown;
+    const result = requestWidgetCapability(makeRuntime({
+      capabilityDecisionPort: {
+        decide(input) {
+          received = input;
+          return 'allow';
+        },
+      },
+    }), {
+      kind: 'audio-recorder',
+      action: 'record',
+      publisherId: 'malicious.spoof',
+      declaredPurpose: 'record a local voice note for this widget',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(received).toMatchObject({
+      packageVersion: '1.0.0',
+      packageChecksum: CHECKSUM,
+      publisherId: 'trusted.publisher',
+      declaredPurpose: 'record a local voice note for this widget',
+    });
+  });
+
   it('denies revoked consent immediately', () => {
     const result = requestWidgetCapability(makeRuntime({
       capabilityDecisionPort: createCapabilityDecisionPort([
@@ -195,6 +260,38 @@ describe('widget capability broker', () => {
     });
   });
 
+  it('requires explicit migration identity before retaining an older publisher grant', () => {
+    const result = requestWidgetCapability(makeRuntime({
+      activePackage: {
+        id: 'package-123',
+        version: '1.0.1',
+        checksum: `sha256:${'b'.repeat(64)}`,
+        publisherId: 'trusted.publisher',
+        declaredPurpose: 'use the requested native widget capability',
+        nativeCapabilities: makeRuntime().activePackage?.nativeCapabilities,
+      },
+      capabilityDecisionPort: createCapabilityDecisionPort([
+        consent('native.audio-recorder', ['record'], {
+          packageVersion: '1.0.0',
+          packageChecksum: CHECKSUM,
+          publisherId: 'trusted.publisher',
+          declaredPurpose: 'record audio',
+        }),
+      ], {
+        mode: 'retain_same_trusted_publisher',
+        trustedPublisherIds: ['trusted.publisher'],
+      }),
+    }), {
+      kind: 'audio-recorder',
+      action: 'record',
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'package_capability_consent_required' },
+    });
+  });
+
   it('denies undeclared actions and missing grants with deterministic errors', () => {
     const missingGrant = requestWidgetCapability(
       {
@@ -203,6 +300,8 @@ describe('widget capability broker', () => {
           id: 'package-123',
           version: '1.0.0',
           checksum: CHECKSUM,
+          publisherId: 'trusted.publisher',
+          declaredPurpose: 'use the requested native widget capability',
           nativeCapabilities: {
             schemaVersion: 'wonder.app-package-native-capabilities.v1',
             platform: 'expo',

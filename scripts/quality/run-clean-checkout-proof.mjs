@@ -30,6 +30,11 @@ const CLEAN_ENV_KEYS = [
 export const CLEAN_CHECKOUT_PROOF_ID = 'utopia_golden_loop_clean_checkout';
 export const CLEAN_CHECKOUT_STAGES = [
   {
+    id: 'pinned_gate_tooling',
+    kind: 'required',
+    command: ['npm', 'run', 'check:no-mutable-npx'],
+  },
+  {
     id: 'clean_npm_install',
     kind: 'required',
     command: ['npm', 'ci', '--no-audit', '--no-fund'],

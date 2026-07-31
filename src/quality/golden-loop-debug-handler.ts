@@ -13,6 +13,7 @@ import {
   activateApprovedAppPackageUpdate,
   deleteAppInstallationAndData,
   getActiveAppPackage,
+  getPackageInstallAppInstallation,
   installApprovedAppPackage,
   rollbackAppPackage,
 } from '@/src/db/app-package-registry';
@@ -34,6 +35,7 @@ import {
 
 const backups = new Map<string, RecoveryExport>();
 const transportModes = new Map<string, 'connected' | 'disconnected'>();
+const pendingTransportOperations = new Map<string, GoldenLoopDebugCommand[]>();
 
 export async function executeGoldenLoopDebugCommand(
   db: SQLiteDatabase,
@@ -43,33 +45,49 @@ export async function executeGoldenLoopDebugCommand(
   const now = options.now ?? (() => new Date().toISOString());
   try {
     validateGoldenLoopDebugCommand(command, options.expectedToken);
+    let result: GoldenLoopDebugResult;
     switch (command.command) {
       case 'package.install':
-        return await installPackage(db, command, now);
+        result = await installPackage(db, command, now);
+        break;
       case 'record.write':
-        return await writeRecord(db, command, now);
+        result = await writeRecord(db, command, now);
+        break;
       case 'transport.disconnect':
       case 'transport.reconnect':
-        return setTransportMode(command, now);
+        result = await setTransportMode(command, now);
+        break;
       case 'package.update':
-        return await updatePackage(db, command, now);
+        result = await updatePackage(db, command, now);
+        break;
       case 'package.rollback':
-        return await rollbackPackage(db, command, now);
+        result = await rollbackPackage(db, command, now);
+        break;
       case 'backup.export':
-        return await exportBackup(db, command, now);
+        result = await exportBackup(db, command, now);
+        break;
       case 'installation.reset':
-        return await resetInstallation(db, command, now);
+        result = await resetInstallation(db, command, now);
+        break;
       case 'backup.restore':
-        return await restoreBackup(db, command, now);
+        result = await restoreBackup(db, command, now);
+        break;
       case 'capability.grant':
-        return await grantCapability(db, command, now);
+        result = await grantCapability(db, command, now);
+        break;
       case 'capability.revoke':
-        return await revokeCapability(db, command, now);
+        result = await revokeCapability(db, command, now);
+        break;
       case 'state.checksum':
-        return await stateChecksum(db, command, now);
+        result = await stateChecksum(db, command, now);
+        break;
       default:
-        return blocked(command, now(), 'golden_loop_debug_command_unknown');
+        result = blocked(command, now(), 'golden_loop_debug_command_unknown');
+        break;
     }
+    await recordDebugOperation(db, command, result);
+    await observeDebugOperation(command);
+    return result;
   } catch (error) {
     const fallback = command as Partial<GoldenLoopDebugCommand>;
     return {
@@ -82,6 +100,44 @@ export async function executeGoldenLoopDebugCommand(
       applied_at: now(),
     };
   }
+}
+
+async function recordDebugOperation(
+  db: SQLiteDatabase,
+  command: GoldenLoopDebugCommand,
+  result: GoldenLoopDebugResult,
+) {
+  await db.runAsync(
+    `INSERT OR IGNORE INTO operations (
+      op_id, app_installation_id, kind, domain, collection, record_id, expected_revision, result_revision,
+      actor, origin, idempotency_key, changes_json, before_json, after_json, inverse_op_id,
+      status, reject_reason, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      command.operation_id,
+      command.installation_id,
+      'create',
+      'golden-loop-debug',
+      command.command,
+      command.operation_id,
+      null,
+      null,
+      'agent',
+      'golden-loop-debug',
+      command.operation_id,
+      JSON.stringify({
+        command: command.command,
+        status: result.status,
+        receipt_id: result.receipt_id,
+      }),
+      null,
+      null,
+      null,
+      result.status === 'applied' ? 'applied' : 'rejected',
+      result.status === 'applied' ? null : result.error ?? result.blockers?.join(',') ?? 'golden_loop_debug_not_applied',
+      result.applied_at,
+    ],
+  );
 }
 
 async function installPackage(
@@ -157,16 +213,112 @@ async function writeRecord(
   return applied(command, now(), { package_version: pkg.version });
 }
 
-function setTransportMode(
+async function setTransportMode(
   command: GoldenLoopDebugCommand,
   now: () => string,
-): GoldenLoopDebugResult {
-  transportModes.set(command.installation_id, command.command === 'transport.disconnect' ? 'disconnected' : 'connected');
+): Promise<GoldenLoopDebugResult> {
+  const nextMode = command.command === 'transport.disconnect' ? 'disconnected' : 'connected';
+  transportModes.set(command.installation_id, nextMode);
+  if (nextMode === 'connected') {
+    await flushPendingTransportOperations(command);
+  }
   return applied(command, now(), {
     checksum: sha256Canonical({
       installation_id: command.installation_id,
       transport: transportModes.get(command.installation_id),
     }),
+  });
+}
+
+async function observeDebugOperation(command: GoldenLoopDebugCommand) {
+  const endpoint = textArg(command, 'reference_sync_endpoint');
+  if (!endpoint) return;
+  const mode = transportModes.get(command.installation_id) ?? 'connected';
+  if (mode === 'disconnected' && command.command !== 'transport.reconnect') {
+    const pending = pendingTransportOperations.get(command.installation_id) ?? [];
+    pendingTransportOperations.set(command.installation_id, [...pending, command]);
+    return;
+  }
+  await stageReferenceOperation(endpoint, command);
+  await syncReferenceDevice(endpoint, command);
+}
+
+async function flushPendingTransportOperations(command: GoldenLoopDebugCommand) {
+  const endpoint = textArg(command, 'reference_sync_endpoint');
+  if (!endpoint) return;
+  const pending = pendingTransportOperations.get(command.installation_id) ?? [];
+  pendingTransportOperations.delete(command.installation_id);
+  for (const pendingCommand of pending) {
+    await stageReferenceOperation(endpoint, pendingCommand);
+  }
+}
+
+function referenceDeviceId(command: GoldenLoopDebugCommand): string {
+  return textArg(command, 'device_id') ?? `debug-device-${command.installation_id}`;
+}
+
+function referenceOperation(command: GoldenLoopDebugCommand) {
+  const observedAt = new Date().toISOString();
+  return {
+    op_id: command.operation_id,
+    kind: 'create',
+    domain: 'golden-loop-debug',
+    collection: command.command,
+    record_id: command.operation_id,
+    expected_revision: 0,
+    record: {
+      id: command.operation_id,
+      domain: 'golden-loop-debug',
+      collection: command.command,
+      title: command.command,
+      properties: {
+        installation_id: command.installation_id,
+      },
+      relations: [],
+      source: {
+        provider: 'reference-sync',
+        external_id: command.operation_id,
+        url: null,
+        observed_at: observedAt,
+        content_hash: sha256Canonical({
+          command: command.command,
+          operation_id: command.operation_id,
+        }),
+      },
+      archived_at: null,
+    },
+    actor: 'agent',
+    origin: 'sync',
+    idempotency_key: command.operation_id,
+  };
+}
+
+async function postReferenceSync(endpoint: string, path: string, body: Record<string, unknown>) {
+  const base = endpoint.replace(/\/$/, '').replace(/\/reference-sync$/, '');
+  const response = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`golden_loop_reference_sync_failed:${path}:${response.status}`);
+}
+
+async function stageReferenceOperation(endpoint: string, command: GoldenLoopDebugCommand) {
+  await postReferenceSync(endpoint, '/reference-sync/v1/stage', {
+    schemaVersion: 'utopia.vendor-neutral-shared-state-sync.v1',
+    workspaceId: 'golden-loop',
+    installationId: command.installation_id,
+    deviceId: referenceDeviceId(command),
+    operation: referenceOperation(command),
+  });
+}
+
+async function syncReferenceDevice(endpoint: string, command: GoldenLoopDebugCommand) {
+  await postReferenceSync(endpoint, '/reference-sync/v1/sync', {
+    schemaVersion: 'utopia.vendor-neutral-shared-state-sync.v1',
+    workspaceId: 'golden-loop',
+    installationId: command.installation_id,
+    deviceId: referenceDeviceId(command),
   });
 }
 
@@ -253,6 +405,9 @@ async function grantCapability(
 ): Promise<GoldenLoopDebugResult> {
   const pkg = await getActiveAppPackage(db, command.installation_id);
   if (!pkg) return blocked(command, now(), 'golden_loop_debug_no_active_package');
+  const installation = await getPackageInstallAppInstallation(db, command.installation_id);
+  const installedChecksum = installation?.packageBinding?.checksum;
+  if (!installedChecksum) return blocked(command, now(), 'golden_loop_debug_installation_checksum_unavailable');
   const capability = textArg(command, 'capability') ?? 'debug.local-sync';
   const scope = stringListArg(command, 'scope') ?? ['golden-loop'];
   const decidedAt = now();
@@ -261,9 +416,11 @@ async function grantCapability(
     installationId: command.installation_id,
     packageId: pkg.id,
     packageVersion: pkg.version,
-    packageChecksum: sha256Canonical(pkg),
+    packageChecksum: installedChecksum,
+    publisherId: textArg(command, 'publisher_id') ?? 'utopia.local-debug',
     capability,
     scope,
+    declaredPurpose: textArg(command, 'declared_purpose') ?? 'golden loop runtime proof',
     decision: 'allow',
     decidedBy: 'golden-loop-debug',
     decidedAt,
@@ -290,6 +447,8 @@ async function revokeCapability(
     packageId: pkg.id,
     capability,
     scope,
+    publisherId: textArg(command, 'publisher_id') ?? 'utopia.local-debug',
+    declaredPurpose: textArg(command, 'declared_purpose') ?? 'golden loop runtime proof',
   });
   const current = await getCapabilityConsentLedgerRecord(db, command.installation_id, recordId);
   if (!current) return blocked(command, now(), 'golden_loop_debug_capability_record_not_found');

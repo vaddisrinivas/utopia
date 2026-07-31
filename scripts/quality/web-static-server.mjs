@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 
 const mimeTypes = {
@@ -53,7 +53,8 @@ function createStaticServer(webRoot) {
   });
 }
 
-function ensureWebExport(root, webRoot) {
+function ensureWebExport(root, webRoot, { force = false } = {}) {
+  if (force) rmSync(webRoot, { recursive: true, force: true });
   if (existsSync(join(webRoot, 'index.html'))) return;
   const result = spawnSync('npm', ['run', 'export:web'], {
     cwd: root,
@@ -65,7 +66,7 @@ function ensureWebExport(root, webRoot) {
   }
 }
 
-export async function ensureWebBaseUrl({ root, baseUrl }) {
+export async function ensureWebBaseUrl({ root, baseUrl, forceExport = false }) {
   const sitemapUrl = `${baseUrl.replace(/\/$/, '')}/_sitemap`;
   if (await canReach(sitemapUrl)) {
     return { baseUrl, close: async () => {} };
@@ -75,7 +76,7 @@ export async function ensureWebBaseUrl({ root, baseUrl }) {
   }
   const parsed = new URL(baseUrl);
   const webRoot = join(root, 'dist', 'web');
-  ensureWebExport(root, webRoot);
+  ensureWebExport(root, webRoot, { force: forceExport });
   const server = createStaticServer(webRoot);
   await new Promise((resolve, reject) => {
     server.once('error', reject);

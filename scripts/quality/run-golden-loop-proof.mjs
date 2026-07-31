@@ -17,6 +17,11 @@ const maxBufferBytes = 30 * 1024 * 1024;
 
 export const GOLDEN_LOOP_SUITES = [
   {
+    id: 'pinned_gate_tooling',
+    kind: 'required',
+    command: ['npm', 'run', 'check:no-mutable-npx'],
+  },
+  {
     id: 'golden_vertical',
     kind: 'required',
     command: ['npx', 'vitest', 'run', 'tests/platform/golden-loop.test.ts'],

@@ -184,6 +184,7 @@ function runCommand(commandName, args, { timeout = COMMAND_TIMEOUT_MS, allowFail
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
+      maxBuffer: 32 * 1024 * 1024,
     });
     return {
       ok: true,
@@ -425,6 +426,37 @@ function assertPackageExists(serial, packageId, rootDir, artifacts) {
   }
 }
 
+function clearPackageDataIfInstalled(serial, packageId, rootDir, artifacts) {
+  const installed = packageList(serial, rootDir, artifacts);
+  if (!installed.includes(packageId)) return;
+  runAndRecord(
+    rootDir,
+    artifacts,
+    `pm-clear-${safeLabel(serial)}-${safeLabel(packageId)}`,
+    ADB,
+    ['-s', serial, 'shell', 'pm', 'clear', packageId],
+    { timeout: COMMAND_TIMEOUT_MS, allowFailure: true },
+  );
+}
+
+function configureRelayPortForward(serial, port, rootDir, artifacts) {
+  const result = runAndRecord(
+    rootDir,
+    artifacts,
+    `adb-reverse-reference-sync-${safeLabel(serial)}`,
+    ADB,
+    ['-s', serial, 'reverse', `tcp:${port}`, `tcp:${port}`],
+    { timeout: COMMAND_TIMEOUT_MS, allowFailure: true },
+  );
+  if (!result.ok) {
+    throw new LaneBlocked('missing:android_reference_sync_port_forward', {
+      serial,
+      port,
+      stderr: result.stderr,
+    });
+  }
+}
+
 function installApk(serial, apkPath, rootDir, artifacts, label) {
   const out = runAndRecord(
     rootDir,
@@ -458,6 +490,19 @@ function runAs(serial, packageId, shellCommand, rootDir, artifacts, label, optio
   ], options);
 }
 
+function execOutRunAs(serial, packageId, shellCommand, rootDir, artifacts, label, options = {}) {
+  return runAndRecord(rootDir, artifacts, `exec-out-run-as-${safeLabel(label)}-${safeLabel(serial)}`, ADB, [
+    '-s',
+    serial,
+    'exec-out',
+    'run-as',
+    packageId,
+    'sh',
+    '-c',
+    shellCommand,
+  ], options);
+}
+
 function parseDbName(raw) {
   const dbs = raw
     .split('\n')
@@ -466,6 +511,16 @@ function parseDbName(raw) {
     .filter((line) => line.endsWith('.db'));
 
   return dbs.find((name) => name === 'utopia.db') || dbs[0];
+}
+
+function parseDbPath(raw) {
+  const dbs = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => line.endsWith('.db'));
+
+  return dbs.find((name) => name.endsWith('/utopia.db')) || dbs[0];
 }
 
 function runQuery(dbPath, query, rootDir, stage, artifacts) {
@@ -522,6 +577,74 @@ function parseJsonRows(raw) {
   return [];
 }
 
+export function missingRequiredOperationIds(observedOperationIds = [], requiredOperationIds = []) {
+  const observed = new Set((observedOperationIds || []).map((value) => `${value || ''}`.trim()).filter(Boolean));
+  return [...new Set((requiredOperationIds || []).map((value) => `${value || ''}`.trim()).filter(Boolean))]
+    .filter((operationId) => !observed.has(operationId));
+}
+
+function assertCommandObserved(state, command, serial, phase, { bridgeProbe = false } = {}) {
+  const missing = missingRequiredOperationIds(state?.operationIds, [command?.operation_id]);
+  if (missing.length > 0) {
+    throw new LaneBlocked(bridgeProbe ? 'missing:android_golden_loop_debug_bridge' : 'missing:android_runtime_bridge_observation', {
+      serial,
+      phase,
+      operationIds: missing,
+      detail: bridgeProbe
+        ? 'The app database did not expose the first dispatched debug operation; the debug bridge is absent or not enabled in this APK.'
+        : 'The app database did not expose the dispatched debug operation after the deep link returned.',
+    });
+  }
+}
+
+function collectTransportOperationIds(value, found = new Set()) {
+  if (!value || typeof value !== 'object') return found;
+  if (Array.isArray(value)) {
+    for (const entry of value) collectTransportOperationIds(entry, found);
+    return found;
+  }
+  for (const [key, entry] of Object.entries(value)) {
+    if (['opId', 'op_id', 'operationId', 'operation_id'].includes(key) && typeof entry === 'string' && entry.trim()) {
+      found.add(entry.trim());
+    } else if (entry && typeof entry === 'object') {
+      collectTransportOperationIds(entry, found);
+    }
+  }
+  return found;
+}
+
+function readRelayTransportObservation(relay, rootDir, artifacts) {
+  if (!relay?.statePath || !existsSync(relay.statePath)) {
+    throw new LaneBlocked('missing:reference_sync_transport_observations', {
+      statePath: relay?.statePath || null,
+    });
+  }
+  let raw;
+  try {
+    raw = readFileSync(relay.statePath, 'utf8');
+  } catch (error) {
+    throw new LaneBlocked('invalid:reference_sync_transport_observations', { error: String(error) });
+  }
+  let state;
+  try {
+    state = JSON.parse(raw);
+  } catch (error) {
+    throw new LaneBlocked('invalid:reference_sync_transport_observations', { error: String(error) });
+  }
+  const operationIds = [...collectTransportOperationIds(state)].sort();
+  if (operationIds.length === 0) {
+    throw new LaneBlocked('missing:reference_sync_transport_operations', { statePath: relay.statePath });
+  }
+  const artifact = toArtifact(rootDir, 'reference-sync-relay/observed-state.json', {
+    source: 'reference-sync-transport-relay',
+    state_path: relay.statePath,
+    observed_at: nowIso(),
+    state_sha256: sha256Of(raw),
+    operation_ids: operationIds,
+  }, artifacts);
+  return { operationIds, artifact };
+}
+
 function resolveTables(tables = []) {
   const set = new Set(tables.map((value) => `${value || ''}`.trim()));
   const state = {
@@ -540,25 +663,31 @@ function resolveTables(tables = []) {
 }
 
 function snapshotDatabase(serial, packageId, stage, rootDir, artifacts) {
-  const lsResult = runAs(
+  const dataRoot = `/data/user/0/${packageId}`;
+  const lsResult = execOutRunAs(
     serial,
     packageId,
-    `ls /data/data/${packageId}/databases || true`,
+    [
+      `find ${dataRoot}/databases -maxdepth 1 -type f -name '*.db' 2>/dev/null`,
+      `find ${dataRoot}/files/SQLite -maxdepth 1 -type f -name '*.db' 2>/dev/null`,
+      `true`,
+    ].join(' ; '),
     rootDir,
     artifacts,
     `ls-databases-${safeLabel(serial)}-${safeLabel(stage)}`,
     { allowFailure: true },
   );
 
-  const dbName = parseDbName(lsResult.stdout);
-  if (!dbName) {
+  const dbPathOnDevice = parseDbPath(lsResult.stdout);
+  if (!dbPathOnDevice) {
     throw new LaneBlocked('missing:android_app_database', { serial, packageId });
   }
+  const dbName = dbPathOnDevice.split('/').pop();
 
-  const dump = runAs(
+  const dump = execOutRunAs(
     serial,
     packageId,
-    `cat /data/data/${packageId}/databases/${dbName} | base64 | tr -d '\\n'`,
+    `cat ${dbPathOnDevice} | base64 | tr -d '\\n'`,
     rootDir,
     artifacts,
     `snapshot-db-${safeLabel(serial)}-${safeLabel(stage)}`,
@@ -570,18 +699,37 @@ function snapshotDatabase(serial, packageId, stage, rootDir, artifacts) {
       serial,
       packageId,
       dbName,
+      dbPathOnDevice,
       stderr: dump.stderr,
     });
   }
 
   const tmpDir = mkdtempSync(join(tmpdir(), 'utopia-android-db-'));
   const dbPath = join(tmpDir, `${safeLabel(serial)}-${safeLabel(stage)}.db`);
+  const sidecars = [
+    { suffix: '-wal', path: `${dbPath}-wal` },
+    { suffix: '-shm', path: `${dbPath}-shm` },
+  ];
 
   let dbSize = 0;
   let dbHash = '';
 
   try {
     writeFileSync(dbPath, Buffer.from(dump.stdout.trim(), 'base64'));
+    for (const sidecar of sidecars) {
+      const sidecarDump = execOutRunAs(
+        serial,
+        packageId,
+        `cat ${dbPathOnDevice}${sidecar.suffix} 2>/dev/null | base64 | tr -d '\\n'`,
+        rootDir,
+        artifacts,
+        `snapshot-db${sidecar.suffix}-${safeLabel(serial)}-${safeLabel(stage)}`,
+        { timeout: 120_000, allowFailure: true },
+      );
+      if (sidecarDump.ok && sidecarDump.stdout.trim()) {
+        writeFileSync(sidecar.path, Buffer.from(sidecarDump.stdout.trim(), 'base64'));
+      }
+    }
     dbSize = statSync(dbPath).size;
     dbHash = sha256Of(readFileSync(dbPath));
 
@@ -758,11 +906,17 @@ async function startReferenceSyncRelay(port, rootDir, artifacts) {
     { cmd: 'node', args: [RELAY_SCRIPT, '--port', String(port)], label: 'node-script' },
     { cmd: 'node', args: commandArgs, label: 'node-script-tsx' },
   ];
+  const statePath = join(rootDir, 'reference-sync-relay', 'state.json');
 
   for (const candidate of candidates) {
     const proc = spawn(candidate.cmd, candidate.args, {
       cwd: ROOT,
       detached: true,
+      env: {
+        ...process.env,
+        UTOPIA_REFERENCE_SYNC_TRANSPORT_PORT: String(port),
+        UTOPIA_REFERENCE_SYNC_STATE_PATH: statePath,
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -796,6 +950,7 @@ async function startReferenceSyncRelay(port, rootDir, artifacts) {
         return {
           child: proc,
           port,
+          statePath,
           endpoint: `http://${RELAY_HOST}:${port}`,
           log: relayLog.path,
           command,
@@ -818,7 +973,7 @@ async function startReferenceSyncRelay(port, rootDir, artifacts) {
       proc.kill();
     } catch {}
 
-    if (lastError) {
+    if (lastError && candidate === candidates[candidates.length - 1]) {
       throw lastError;
     }
   }
@@ -856,12 +1011,14 @@ function buildObservationArtifact(serialState, stage, rootDir, artifacts) {
 
 function buildTransportObservationArtifact(serialState, relay, operationIds, rootDir, artifacts) {
   const payload = {
+    source: 'reference-sync-transport-relay-state',
     session: relay.session,
     endpoint: relay.endpoint,
+    observed_at: nowIso(),
     operation_ids: operationIds,
     operations: operationIds.map((opId) => ({
       op_id: opId,
-      status: 'executed',
+      status: 'observed',
       type: 'reference_sync',
       timestamp: nowIso(),
       source_timestamp: nowIso(),
@@ -874,10 +1031,12 @@ function buildReceipt(serialState, inputs, relay, convergenceIds, rootDir = ROOT
   const packageV1 = withSha256Prefix(inputs.apkV1Hash);
   const packageV2 = withSha256Prefix(inputs.apkV2Hash);
   const operationIds = collectOperationIds(serialState.finalState);
+  const transportOperationIds = (relay.observedOperationIds || [])
+    .filter((operationId) => operationIds.includes(operationId));
   const transportObservation = buildTransportObservationArtifact(
     serialState,
     relay,
-    operationIds,
+    transportOperationIds,
     rootDir,
     serialState.allArtifacts,
   );
@@ -891,6 +1050,7 @@ function buildReceipt(serialState, inputs, relay, convergenceIds, rootDir = ROOT
     schema_version: SHELL_PROOF_PROTOCOL,
     status: 'PASS',
     checked_at: nowIso(),
+    run_id: inputs.runId,
     source: {
       surface: 'android',
       emulator_serial: serialState.serial,
@@ -915,6 +1075,7 @@ function buildReceipt(serialState, inputs, relay, convergenceIds, rootDir = ROOT
     execution: {
       observations: [
         {
+          observer_kind: 'android-shell-driver',
           command: 'utopia://chat?prompt=golden-loop-identity&run=1',
           driver: `adb:${serialState.serial}`,
           source_timestamp: nowIso(),
@@ -930,7 +1091,7 @@ function buildReceipt(serialState, inputs, relay, convergenceIds, rootDir = ROOT
         sync_claimed: true,
         session: relay.session,
         endpoint: relay.endpoint,
-        operation_count: operationIds.length,
+        operation_count: transportOperationIds.length,
         observation: {
           path: transportObservation.path,
           sha256: transportObservation.sha256,
@@ -962,7 +1123,7 @@ function buildReceipt(serialState, inputs, relay, convergenceIds, rootDir = ROOT
         },
       },
     },
-    git: currentGit(ROOT),
+    git: currentGit(rootDir),
     artifacts: buildArtifactList(serialState.allArtifacts, serialState.serial),
     hooks: serialState.hookChecks,
   };
@@ -1016,6 +1177,9 @@ async function run() {
     report.serials = serials;
 
     relay = await startReferenceSyncRelay(validated.relayPort || DEFAULT_RELAY_PORT, evidenceDir, artifacts);
+    for (const serial of serials) {
+      configureRelayPortForward(serial, relay.port, evidenceDir, artifacts);
+    }
 
     const serialStates = [];
 
@@ -1026,6 +1190,7 @@ async function run() {
         token: validated.debugToken,
         installationId,
         recordId: `task-${safeLabel(serial)}`,
+        referenceSyncEndpoint: `${relay.endpoint}/reference-sync`,
       }).commands;
       const commandByOperationId = new Map(debugCommands.map((command) => [command.operation_id, command]));
       const state = {
@@ -1035,17 +1200,20 @@ async function run() {
         finalState: null,
       };
 
+      clearPackageDataIfInstalled(serial, validated.packageId, evidenceDir, artifacts);
       installApk(serial, validated.apkV1Path, evidenceDir, artifacts, `v1-install-${serial}`);
       assertPackageExists(serial, validated.packageId, evidenceDir, artifacts);
       dispatchDebugCommand(serial, commandByOperationId.get('debug-install-v1'), evidenceDir, state.allArtifacts, 'install-v1');
       await sleep(DEEP_LINK_WAIT_MS);
       state.v1State = snapshotDatabase(serial, validated.packageId, `v1-${safeLabel(serial)}`, evidenceDir, artifacts);
+      assertCommandObserved(state.v1State, commandByOperationId.get('debug-install-v1'), serial, 'install-v1', { bridgeProbe: true });
 
       installApk(serial, validated.apkV2Path, evidenceDir, artifacts, `v2-install-${serial}`);
       assertPackageExists(serial, validated.packageId, evidenceDir, artifacts);
       dispatchDebugCommand(serial, commandByOperationId.get('debug-update-v2'), evidenceDir, state.allArtifacts, 'update-v2');
       await sleep(DEEP_LINK_WAIT_MS);
       state.v2State = snapshotDatabase(serial, validated.packageId, `v2-${safeLabel(serial)}`, evidenceDir, artifacts);
+      assertCommandObserved(state.v2State, commandByOperationId.get('debug-update-v2'), serial, 'update-v2');
 
       assertInstallRowsPersist(state.v1State, state.v2State, 'install-update');
 
@@ -1054,6 +1222,7 @@ async function run() {
       dispatchDebugCommand(serial, commandByOperationId.get('debug-rollback'), evidenceDir, state.allArtifacts, 'rollback');
       await sleep(DEEP_LINK_WAIT_MS);
       state.rollbackState = snapshotDatabase(serial, validated.packageId, `rollback-${safeLabel(serial)}`, evidenceDir, artifacts);
+      assertCommandObserved(state.rollbackState, commandByOperationId.get('debug-rollback'), serial, 'rollback');
 
       assertInstallRowsPersist(state.v2State, state.rollbackState, 'install-rollback');
 
@@ -1064,6 +1233,7 @@ async function run() {
       dispatchDebugCommand(serial, commandByOperationId.get('debug-write-record'), evidenceDir, state.allArtifacts, 'write-record');
       await sleep(DEEP_LINK_WAIT_MS);
       const afterBoard = snapshotDatabase(serial, validated.packageId, `board-post-${safeLabel(serial)}`, evidenceDir, artifacts);
+      assertCommandObserved(afterBoard, commandByOperationId.get('debug-write-record'), serial, 'write-record');
       const boardBlock = boardGrowth(beforeBoard, afterBoard, serial);
       if (boardBlock) state.hookChecks.push(boardBlock);
 
@@ -1075,6 +1245,8 @@ async function run() {
       dispatchDebugCommand(serial, commandByOperationId.get('debug-transport-reconnect'), evidenceDir, state.allArtifacts, 'transport-reconnect');
       await sleep(DEEP_LINK_WAIT_MS);
       state.finalState = snapshotDatabase(serial, validated.packageId, `sync-post-${safeLabel(serial)}`, evidenceDir, artifacts);
+      assertCommandObserved(state.finalState, commandByOperationId.get('debug-offline-write'), serial, 'offline-write');
+      assertCommandObserved(state.finalState, commandByOperationId.get('debug-transport-reconnect'), serial, 'transport-reconnect');
       const syncBlock = syncGrowth(beforeSync, state.finalState, serial);
       if (syncBlock) state.hookChecks.push(syncBlock);
 
@@ -1087,6 +1259,17 @@ async function run() {
     }
 
     const convergenceIds = proveSyncConvergence(serialStates.map((state) => state.finalState));
+    const transportObservation = readRelayTransportObservation(relay, evidenceDir, artifacts);
+    const missingTransportOperations = missingRequiredOperationIds(
+      transportObservation.operationIds,
+      convergenceIds,
+    );
+    if (missingTransportOperations.length > 0) {
+      throw new LaneBlocked('missing:reference_sync_transport_operation_observation', {
+        operationIds: missingTransportOperations,
+      });
+    }
+    relay.observedOperationIds = transportObservation.operationIds;
 
     const missingHook = serialStates.flatMap((state) => state.hookChecks).find((entry) => entry && entry.status === 'BLOCKED');
     if (missingHook) {

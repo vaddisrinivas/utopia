@@ -143,12 +143,15 @@ describe('package install link and registry contracts', () => {
   });
 
   it('serves bundled registry and demo package without remote fetch', async () => {
-    const fetcher = createPackageInstallFetcher(async () => {
+    const remoteFetch = vi.fn(async () => {
       throw new Error('remote_fetch_forbidden');
     });
+    const fetcher = createPackageInstallFetcher(remoteFetch);
     const manifest = await fetchRegistryManifest(BUNDLED_UTOPIA_REGISTRY_URL, fetcher);
     const bundled = getBundledRegistryManifest();
 
+    expect(new URL(BUNDLED_UTOPIA_REGISTRY_URL).hostname).toBe('bundled.utopia.invalid');
+    expect(manifest.packages.every((item) => new URL(item.url).hostname === 'bundled.utopia.invalid')).toBe(true);
     expect(manifest).toEqual(bundled);
     expect(manifest.packages).toHaveLength(7);
     expect(manifest.packages[0]).toMatchObject({
@@ -193,6 +196,7 @@ describe('package install link and registry contracts', () => {
     );
     expect(expenseCandidate.preview.widgetsRequired).toContain('dataTable');
     expect(expenseCandidate.preview.trust.status).toBe('checksum_verified');
+    expect(remoteFetch).not.toHaveBeenCalled();
   });
 
   it('builds review-only preview with checksum trust metadata', async () => {

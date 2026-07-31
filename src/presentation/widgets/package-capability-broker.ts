@@ -21,7 +21,7 @@ export type WidgetCapabilityKind =
   | 'speech'
   | 'video-player';
 
-export type WidgetCapabilityRequest =
+type WidgetCapabilityRequestBody =
   | Readonly<{ kind: 'audio-file'; action: 'choose' }>
   | Readonly<{ kind: 'audio-recorder'; action: 'record' }>
   | Readonly<{ kind: 'biometric'; action: 'authenticate' }>
@@ -36,6 +36,11 @@ export type WidgetCapabilityRequest =
   | Readonly<{ kind: 'sensor'; action: 'watch'; sensor: 'accelerometer' | 'gyroscope' | 'magnetometer' }>
   | Readonly<{ kind: 'speech'; action: 'speak' | 'stop'; textLength: number }>
   | Readonly<{ kind: 'video-player'; action: 'render' }>;
+
+export type WidgetCapabilityRequest = WidgetCapabilityRequestBody & Readonly<{
+  publisherId?: string;
+  declaredPurpose?: string;
+}>;
 
 export type WidgetCapabilityGrant = Readonly<{
   ok: true;
@@ -65,7 +70,8 @@ export type WidgetCapabilityError = Readonly<{
     | 'package_capability_consent_required'
     | 'package_capability_consent_denied'
     | 'package_capability_consent_revoked'
-    | 'package_capability_consent_checksum_mismatch';
+    | 'package_capability_consent_checksum_mismatch'
+    | 'package_capability_metadata_missing';
   kind: WidgetCapabilityKind | 'unknown';
   action: string;
   installationId: string | null;
@@ -81,6 +87,8 @@ export type WidgetCapabilityRuntime = Readonly<{
     id: string;
     version?: string;
     checksum?: string;
+    publisherId?: string;
+    declaredPurpose?: string;
     nativeCapabilities?: AppPackageNativeCapability | null;
   } | null;
   capabilityDecisionPort?: CapabilityDecisionPort | null;
@@ -148,13 +156,29 @@ export function requestWidgetCapability(
 
   const packageVersion = activePackage.version?.trim() ?? '';
   const packageChecksum = activePackage.checksum?.trim() || sha256Canonical(activePackage);
+  const publisherId = activePackage.publisherId?.trim() || '';
+  const declaredPurpose = request.declaredPurpose?.trim() || activePackage.declaredPurpose?.trim() || '';
+  if (!publisherId || !declaredPurpose) {
+    return deny({
+      code: 'package_capability_metadata_missing',
+      kind: request.kind,
+      action: request.action,
+      installationId,
+      packageId: activePackage.id,
+      message: 'Publisher identity and explicit capability purpose are required before native capabilities can be used.',
+      missingPackages: [],
+      missingPermissions: [],
+    });
+  }
   const consentInput: CapabilityDecisionInput = {
     installationId,
     packageId: activePackage.id,
     packageVersion,
     packageChecksum,
+    publisherId,
     capability: `native.${request.kind}`,
     scope: widgetCapabilityConsentScope(request),
+    declaredPurpose,
   };
   const consentDecision = packageVersion && packageChecksum && runtime.capabilityDecisionPort
     ? runtime.capabilityDecisionPort.decide(consentInput)

@@ -83,6 +83,71 @@ describe('Cloudflare registry worker', () => {
 
     expect(response.status).toBe(204);
     expect(response.headers.get('access-control-allow-headers')).toContain('x-utopia-telemetry-token');
+    expect(response.headers.get('access-control-allow-headers')).not.toContain('x-utopia-admin-token');
+  });
+
+  it('does not expose admin endpoints through cross-origin preflight', async () => {
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/admin/publications/reconcile', {
+      method: 'OPTIONS',
+    }), fakeEnv());
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
+    expect(response.headers.get('access-control-allow-headers')).toBeNull();
+    expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+  });
+
+  it('applies strict install-page security headers and rejects credential-bearing targets', async () => {
+    const env = fakeEnv();
+    const published = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(validPackage)),
+    }), env);
+    const packageUrl = (await published.json() as { package_url: string }).package_url;
+    const valid = await handleRequest(new Request(
+      `https://utoia.thetechcruise.com/install?url=${encodeURIComponent(packageUrl)}`,
+    ), env);
+
+    expect(valid.status).toBe(200);
+    expect(valid.headers.get('cache-control')).toBe('no-store');
+    expect(valid.headers.get('content-security-policy')).toBe(
+      "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'none'; connect-src 'none'; img-src 'none'; media-src 'none'; object-src 'none'; font-src 'none'; style-src 'unsafe-inline'",
+    );
+    expect(valid.headers.get('x-frame-options')).toBe('DENY');
+    expect(valid.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(valid.headers.get('permissions-policy')).toContain('microphone=()');
+    expect(valid.headers.get('cross-origin-opener-policy')).toBe('same-origin');
+    expect(valid.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+    expect(await valid.text()).toContain('utopia://install?url=');
+
+    const secret = 'do-not-echo-this-token';
+    const rejected = await handleRequest(new Request(
+      `https://utoia.thetechcruise.com/install?url=${encodeURIComponent(`${packageUrl}?access_token=${secret}`)}`,
+    ), env);
+    expect(rejected.status).toBe(400);
+    const rejectedBody = await rejected.text();
+    expect(rejectedBody).toBe('<h1>Utopia install link is invalid</h1>');
+    expect(rejectedBody).not.toContain(secret);
+
+    const extraQuery = await handleRequest(new Request(
+      `https://utoia.thetechcruise.com/install?url=${encodeURIComponent(packageUrl)}&token=${secret}`,
+    ), env);
+    expect(extraQuery.status).toBe(400);
+    expect(await extraQuery.text()).not.toContain(secret);
+  });
+
+  it('keeps public API CORS credential-free and separates cache classes', async () => {
+    const env = fakeEnv();
+    const manifest = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/registry.json'), env);
+    expect(manifest.headers.get('access-control-allow-origin')).toBe('*');
+    expect(manifest.headers.get('access-control-allow-credentials')).toBeNull();
+    expect(manifest.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
+    expect(manifest.headers.get('cache-control')).toBe('no-store');
+
+    const health = await handleRequest(new Request('https://utoia.thetechcruise.com/health'), env);
+    expect(health.headers.get('cache-control')).toBe('no-store');
+    expect(await health.text()).not.toContain(testToken);
   });
 
   it('publishes an unlisted package and returns Utopia install links', async () => {
@@ -104,6 +169,7 @@ describe('Cloudflare registry worker', () => {
 
     const packageResponse = await handleRequest(new Request(payload.package_url), env);
     expect(packageResponse.status).toBe(200);
+    expect(packageResponse.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
     expect(await packageResponse.json()).toMatchObject({ id: 'launch-demo' });
 
     const metadataResponse = await handleRequest(new Request(`https://utoia.thetechcruise.com/v1/packages/${payload.id}`), env);
@@ -146,7 +212,7 @@ describe('Cloudflare registry worker', () => {
   });
 
   it('propagates registry signature metadata into public install descriptors', async () => {
-    const env = fakeEnv();
+    const env = fakeEnv({ REGISTRY_PUBLIC_WRITES_ENABLED: 'true' });
     const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
       method: 'POST',
       headers: {
@@ -179,8 +245,21 @@ describe('Cloudflare registry worker', () => {
     expect(await response.json()).toMatchObject({ error: 'package_signature_invalid' });
   });
 
+  it('rejects public writes unless the public lane is explicitly enabled', async () => {
+    const response = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(validPackage, { visibility: 'public' })),
+    }), fakeEnv());
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'registry_public_writes_disabled' });
+    const manifest = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/registry.json'), fakeEnv());
+    expect(await manifest.json()).toMatchObject({ packages: [] });
+  });
+
   it('rejects immutable republish attempts with lifecycle mismatch', async () => {
-    const env = fakeEnv();
+    const env = fakeEnv({ REGISTRY_PUBLIC_WRITES_ENABLED: 'true' });
     const request = {
       method: 'POST',
       headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
@@ -241,6 +320,94 @@ describe('Cloudflare registry worker', () => {
     const blob = await handleRequest(new Request(`https://utoia.thetechcruise.com/p/${payload.id}.json`), env);
     expect(blob.status).toBe(400);
     expect(await blob.json()).toMatchObject({ error: 'package_publication_incomplete' });
+  });
+
+  it('records failed publication state and allows a safe retry', async () => {
+    const id = sha256Canonical(validPackage).replace('sha256:', '').slice(0, 16);
+    const env = fakeEnv({}, { failOnceKey: `registry/packages/${id}.json` });
+    const body = await signedPublishBody(validPackage);
+    const request = () => handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }), env);
+
+    const failed = await request();
+    expect(failed.status).toBe(400);
+    const publication = await env.PACKAGES.get(`registry/publications/${id}.json`);
+    expect(JSON.parse(await publication!.text())).toMatchObject({ state: 'failed' });
+
+    const retried = await request();
+    expect(retried.status).toBe(201);
+    const completed = await env.PACKAGES.get(`registry/publications/${id}.json`);
+    expect(JSON.parse(await completed!.text())).toMatchObject({ state: 'complete' });
+  });
+
+  it('keeps failed publications invisible through metadata, blob, manifest, and install links', async () => {
+    const id = sha256Canonical(validPackage).replace('sha256:', '').slice(0, 16);
+    const env = fakeEnv({}, { failOnceKey: `registry/packages/${id}.json` });
+    const failed = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(validPackage)),
+    }), env);
+    expect(failed.status).toBe(400);
+
+    const metadata = await handleRequest(new Request(`https://utoia.thetechcruise.com/v1/packages/${id}`), env);
+    expect(metadata.status).toBe(404);
+    expect(await metadata.json()).toMatchObject({ error: 'package_not_found' });
+    const blob = await handleRequest(new Request(`https://utoia.thetechcruise.com/p/${id}.json`), env);
+    expect(blob.status).toBe(404);
+    const install = await handleRequest(new Request(`https://utoia.thetechcruise.com/install?url=${encodeURIComponent(`https://utoia.thetechcruise.com/p/${id}.json`)}`), env);
+    expect(install.status).toBe(404);
+    expect(await (await handleRequest(new Request('https://utoia.thetechcruise.com/v1/registry.json'), env)).json()).toMatchObject({ packages: [] });
+  });
+
+  it('rejects a concurrent conflicting reservation and leaves one complete publication', async () => {
+    const env = fakeEnv({}, { putDelayMs: 2 });
+    const body = await signedPublishBody(validPackage);
+    const request = () => handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }), env);
+
+    const responses = await Promise.all([request(), request()]);
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 400]);
+    const loser = responses.find((response) => response.status === 400);
+    expect(await loser?.json()).toMatchObject({
+      error: expect.stringMatching(/package_publication_(?:in_progress|conflict|already_complete)/),
+    });
+    const id = sha256Canonical(validPackage).replace('sha256:', '').slice(0, 16);
+    const publication = await env.PACKAGES.get(`registry/publications/${id}.json`);
+    expect(JSON.parse(await publication!.text())).toMatchObject({ state: 'complete' });
+  });
+
+  it('keeps reconciliation and GC admin-protected', async () => {
+    const env = fakeEnv({}, { failOnceKey: `registry/packages/${sha256Canonical(validPackage).replace('sha256:', '').slice(0, 16)}.json` });
+    const failed = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/packages', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${testToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(await signedPublishBody(validPackage)),
+    }), env);
+    expect(failed.status).toBe(400);
+    const id = sha256Canonical(validPackage).replace('sha256:', '').slice(0, 16);
+    const unauthorized = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/admin/publications/reconcile', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, action: 'gc' }),
+    }), env);
+    expect(unauthorized.status).toBe(400);
+    expect(await unauthorized.json()).toMatchObject({ error: 'registry_admin_token_not_configured_or_too_short' });
+
+    const authorized = await handleRequest(new Request('https://utoia.thetechcruise.com/v1/admin/publications/reconcile', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-utopia-admin-token': testToken },
+      body: JSON.stringify({ id, action: 'gc' }),
+    }), { ...env, REGISTRY_ADMIN_TOKEN: testToken });
+    expect(authorized.status).toBe(200);
+    expect(await authorized.json()).toMatchObject({ id, state: 'deleted', action: 'gc' });
+    expect(await env.PACKAGES.get(`registry/publications/${id}.json`)).toBeNull();
   });
 
   it('rejects signature replay for unknown package metadata', async () => {
@@ -512,9 +679,13 @@ describe('Cloudflare registry worker', () => {
   });
 });
 
-function fakeEnv(overrides: Partial<UtopiaRegistryEnv> = {}): UtopiaRegistryEnv & { analytics: unknown[] } {
+function fakeEnv(
+  overrides: Partial<UtopiaRegistryEnv> = {},
+  behavior: { failOnceKey?: string; putDelayMs?: number } = {},
+): UtopiaRegistryEnv & { analytics: unknown[] } {
   const objects = new Map<string, string>();
   const analytics: unknown[] = [];
+  let failedKey: string | undefined;
   return {
     PUBLISHER_TOKEN: testToken,
     REGISTRY_WRITE_MODE: 'signed',
@@ -523,11 +694,19 @@ function fakeEnv(overrides: Partial<UtopiaRegistryEnv> = {}): UtopiaRegistryEnv 
     ANDROID_PACKAGE_NAME: 'app.utopia',
     PACKAGES: {
       async put(key, value) {
+        if (behavior.putDelayMs) await new Promise((resolve) => setTimeout(resolve, behavior.putDelayMs));
+        if (behavior.failOnceKey === key && failedKey !== key) {
+          failedKey = key;
+          throw new Error('injected_r2_put_failure');
+        }
         objects.set(key, value);
       },
       async get(key) {
         const value = objects.get(key);
         return value ? { async text() { return value; } } : null;
+      },
+      async delete(key) {
+        objects.delete(key);
       },
     },
     TELEMETRY: {

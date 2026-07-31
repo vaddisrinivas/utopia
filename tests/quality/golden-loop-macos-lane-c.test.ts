@@ -48,6 +48,16 @@ describe('macOS lane C orchestration', () => {
     expect(workflow).toContain('app/build/evidence/golden-loop/macos-lane-c-receipt.json');
     expect(workflow).toContain('app/build/evidence/golden-loop/macos-debug-bridge-receipt.json');
     expect(workflow).toContain('app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl');
+    expect(workflow).toContain('app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl.dispatch.jsonl');
     expect(workflow).toContain('app/build/evidence/golden-loop/macos-build-receipt.json');
+  });
+
+  it('requires the built app to emit correlated runtime evidence', () => {
+    const bridge = readText('scripts/quality/macos/run-golden-loop-debug-bridge.mjs');
+
+    expect(bridge).toContain("spawnSync('open', ['-a', appPath, url]");
+    expect(bridge).toContain('missing_native_runtime_receipt');
+    expect(bridge).toContain('runtime_receipt_correlation_mismatch');
+    expect(bridge).not.toContain("status: blocked ? 'BLOCKED' : 'PASS'");
   });
 });

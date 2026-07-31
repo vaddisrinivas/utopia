@@ -10,13 +10,15 @@ run_gate() {
 }
 
 run_gate npm run config:validate
-run_gate npx --yes -p typescript tsc --noEmit
+run_gate npm run check:no-mutable-npx
+run_gate npm run typecheck
 run_gate npm test
-run_gate npx --yes expo-doctor
-run_gate env UTOPIA_RELEASE_BUNDLE=1 npx --yes expo export --platform web --output-dir dist/web
-run_gate env UTOPIA_RELEASE_BUNDLE=1 npx --yes expo export --platform android --output-dir dist/android
+run_gate npm run doctor
+run_gate env UTOPIA_RELEASE_BUNDLE=1 npm run export:web
+run_gate env UTOPIA_RELEASE_BUNDLE=1 npm run export:android
 run_gate npm run check:ios-export
-run_gate npx --yes tsx --tsconfig tsconfig.json scripts/quality/check-phase3-chat-send.ts
-run_gate npx --yes tsx --tsconfig tsconfig.json scripts/quality/check-phase3-chat-rollback-idempotency.ts
+run_gate npm run phase3:check:chat-send
+run_gate npm run phase3:check:chat-rollback-idempotency
+run_gate npm run check:release-artifact-receipt
 
 echo "release-local: PASS"

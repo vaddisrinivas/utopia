@@ -2,13 +2,34 @@
 
 ## Goal
 
-Deliver public-beta readiness using evidence-backed checks only. No plan item is complete unless reflected in check artifacts and explicit blockers are resolved.
+Deliver a closed Android beta for local-first package apps with private/unlisted
+hosted installation. Sharing, web/macOS parity, public marketplace publishing,
+and ten-minute self-service creation remain experimental.
+
+No item is complete unless reflected in appropriate evidence.
+
+## Critical path
+
+1. Verify the integrated hardening set.
+2. Wire publisher/purpose metadata into live capability requests.
+3. Wire staged recovery activation to Android Expo SQLite/filesystem.
+4. Pin release-gate tooling and remove mutable downloads from blocking gates.
+5. Build a release Android bundle and prove the debug bridge is absent. **Done locally with throwaway release signing; not Play signing proof.**
+6. Prove Audio Loop record/save/rename/restart/replay, or remove that beta claim.
+7. Run one signed Android Golden Loop with actual SQLite state and private
+   registry receipts.
+
+Do not make sync, web, macOS, public publishers, or human creator evidence block
+this narrower beta.
 
 ## Evidence status (current)
 
 - Golden Loop: **BLOCKED** (`npm run proof:golden-loop`).
-- Blockers in the current proof summary: `clean_checkout`, `multi_surface_execution`, `multi_surface_receipts`.
+- Blockers in the current proof summary: `clean_checkout`, `multi_surface_receipts`, and fresh same-run Android x2 aggregation.
 - Local platform checks and local guarantees remain healthy: `npm test` (152 files, 753 tests), `npm run gate:fast`, core schema/recovery/security gates, and focused chat/creator/registry checks pass in repository evidence.
+- Web shell receipt is now real local browser execution.
+- macOS shell receipt is now real local native app execution through Launch Services and a native URL handler.
+- Android x2 emulator receipts exist from the earlier run, but are stale against the current package checksum and must be rerun before the strict aggregate receipt can pass.
 - Synthetic/virtual-lab receipts are explicitly non-final for launch claims.
 - Review artifacts now referenced directly from local files:
   - `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md`
@@ -101,7 +122,7 @@ Evidence must be consumed from:
 
 - Dirty tree blocks `clean-checkout` evidence.
 - Google Sheets live proof needs OAuth + disposable workbook/account binding (existing Notion disposable proof is complete).
-- Real web + Android x2 + macOS shell execution receipts remain infrastructure-dependent.
+- Real web + macOS shell execution receipts pass locally; Android x2 must be rerun for the current package checksum/run id before aggregate parity is launch-grade.
 - Unaided human creator proof under 10 minutes is still external evidence.
 
 ## Required final verification (launch gate)

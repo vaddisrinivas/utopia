@@ -1145,7 +1145,12 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'media-picker', action: source, media: 'image' },
+        {
+          kind: 'media-picker',
+          action: source,
+          media: 'image',
+          declaredPurpose: 'capture or choose an image for this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -1482,13 +1487,21 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const sessionActive = status === 'playing' || status === 'paused' || status === 'between' || status === 'starting';
   const recorderCapability = useMemo(() => requestWidgetCapability(
     runtime,
-    { kind: 'audio-recorder', action: 'record' },
+    {
+      kind: 'audio-recorder',
+      action: 'record',
+      declaredPurpose: 'record local audio for Audio Loop',
+    },
   ), [runtime]);
   const recorderDisabledMessage = recorderCapability.ok ? null : recorderCapability.error.message;
   const canRecordAudio = recorderCapability.ok && !recorderMessage;
   const audioFileCapability = useMemo(() => requestWidgetCapability(
     runtime,
-    { kind: 'audio-file', action: 'choose' },
+    {
+      kind: 'audio-file',
+      action: 'choose',
+      declaredPurpose: 'choose local audio for Audio Loop playback',
+    },
   ), [runtime]);
   const activeAsset = audioLoopState.assets.find((item) => item.id === audioLoopState.activeAssetId) ?? null;
   const activePlaylist = audioLoopState.playlists.find((item) => item.id === audioLoopState.activePlaylistId) ?? null;
@@ -1609,7 +1622,11 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     name: string;
     volume?: number;
   }) => {
-    const playbackCapability = requestWidgetCapability(runtime, { kind: 'audio-file', action: 'choose' });
+    const playbackCapability = requestWidgetCapability(runtime, {
+      kind: 'audio-file',
+      action: 'choose',
+      declaredPurpose: 'choose local audio for Audio Loop playback',
+    });
     if (!playbackCapability.ok) throw new Error(playbackCapability.error.message);
     clearAudioLoopDelay(delayTimerRef);
     playerRef.current?.pause();
@@ -1950,7 +1967,11 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       try {
         if (!requireWidgetCapability(
           runtime,
-          { kind: 'audio-recorder', action: 'record' },
+          {
+            kind: 'audio-recorder',
+            action: 'record',
+            declaredPurpose: 'record local audio for Audio Loop',
+          },
           setRecorderMessage,
         )) {
           return;
@@ -2390,7 +2411,11 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const contentFit = props.contentFit === 'cover' || props.contentFit === 'fill' ? props.contentFit : 'contain';
   const videoCapability = requestWidgetCapability(
     runtime,
-    { kind: 'video-player', action: 'render' },
+    {
+      kind: 'video-player',
+      action: 'render',
+      declaredPurpose: 'render local or package-provided video',
+    },
   );
 
   useEffect(() => {
@@ -2439,7 +2464,12 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'media-picker', action: mode, media: 'video' },
+        {
+          kind: 'media-picker',
+          action: mode,
+          media: 'video',
+          declaredPurpose: 'capture or choose a video for this package feature',
+        },
         setError,
       )) {
         return;
@@ -2514,6 +2544,7 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     kind: 'camera-scanner',
     action: 'scan',
     barcodeTypes,
+    declaredPurpose: 'scan a code for this package feature',
   });
   useEffect(() => {
     let cancelled = false;
@@ -2539,6 +2570,7 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       kind: 'camera-scanner',
       action: 'scan',
       barcodeTypes,
+      declaredPurpose: 'scan a code for this package feature',
     });
     if (!currentCapability.ok) {
       return (
@@ -2669,7 +2701,12 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [error, setError] = useState('');
   const sensorCapability = requestWidgetCapability(
     runtime,
-    { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+    {
+      kind: 'sensor',
+      action: 'watch',
+      sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer',
+      declaredPurpose: 'read a live local sensor sample for this package feature',
+    },
   );
 
   useEffect(() => {
@@ -2694,7 +2731,12 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
     if (!active || !sensorModule) return undefined;
     if (!requireWidgetCapability(
       runtime,
-        { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+        {
+          kind: 'sensor',
+          action: 'watch',
+          sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer',
+          declaredPurpose: 'read a live local sensor sample for this package feature',
+        },
       setError,
     )) {
       setActive(false);
@@ -2750,7 +2792,11 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'notification', action: 'schedule' },
+        {
+          kind: 'notification',
+          action: 'schedule',
+          declaredPurpose: 'schedule a local reminder from this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -2780,7 +2826,11 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     if (!notificationId) return;
     if (!requireWidgetCapability(
       runtime,
-      { kind: 'notification', action: 'cancel' },
+      {
+        kind: 'notification',
+        action: 'cancel',
+        declaredPurpose: 'cancel a local reminder from this package feature',
+      },
       setMessage,
     )) {
       return;
@@ -2817,7 +2867,11 @@ function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'contacts', action: 'pick' },
+        {
+          kind: 'contacts',
+          action: 'pick',
+          declaredPurpose: 'pick one contact for this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -2870,7 +2924,11 @@ function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'calendar', action: 'create' },
+        {
+          kind: 'calendar',
+          action: 'create',
+          declaredPurpose: 'create one reviewed calendar event from this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -2924,7 +2982,11 @@ function BiometricGateWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'biometric', action: 'authenticate' },
+        {
+          kind: 'biometric',
+          action: 'authenticate',
+          declaredPurpose: 'confirm local device authentication before this package action',
+        },
         setMessage,
       )) {
         return;
@@ -2973,7 +3035,12 @@ function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const speak = useCallback(() => {
     if (!requireWidgetCapability(
       runtime,
-      { kind: 'speech', action: 'speak', textLength: phrase.length },
+      {
+        kind: 'speech',
+        action: 'speak',
+        textLength: phrase.length,
+        declaredPurpose: 'speak this package text aloud on this device',
+      },
       setMessage,
     )) {
       return;
@@ -2984,7 +3051,12 @@ function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const stop = useCallback(() => {
     if (!requireWidgetCapability(
       runtime,
-      { kind: 'speech', action: 'stop', textLength: phrase.length },
+      {
+        kind: 'speech',
+        action: 'stop',
+        textLength: phrase.length,
+        declaredPurpose: 'stop speech started by this package feature',
+      },
       setMessage,
     )) {
       return;

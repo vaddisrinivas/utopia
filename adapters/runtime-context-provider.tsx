@@ -14,12 +14,18 @@ type AppRuntimeContextValue = {
   installationId: string | null;
   installation: AppInstallation | null;
   runtime: AppRuntime | null;
-  activePackage: AppPackage | null;
+  activePackage: RuntimeCapabilityPackage | null;
   activeManifest: DomainManifest | null;
   catalog: ParsedCatalog | null;
   activateAppPackage(candidate: unknown): Promise<AppPackage>;
   rollbackAppPackage(): Promise<AppPackage | null>;
   refreshRuntime(): Promise<AppRuntime | null>;
+};
+
+type RuntimeCapabilityPackage = AppPackage & {
+  checksum?: string;
+  publisherId?: string;
+  declaredPurpose?: string;
 };
 
 export const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);
@@ -131,7 +137,7 @@ export function AppRuntimeProvider(
         installationId: scopedInstallationId,
         installation,
         runtime,
-        activePackage: runtime?.activePackage ?? null,
+        activePackage: enrichRuntimePackage(runtime?.activePackage ?? null, installation),
         activeManifest: runtime?.activeManifest ?? null,
         catalog: runtime?.catalog ?? null,
         activateAppPackage: activateRuntimePackage,
@@ -156,4 +162,32 @@ function requireInstallationScope(installationId: string | null): string {
   const value = installationId?.trim() ?? '';
   if (!value) throw new Error('app_runtime_installation_scope_required');
   return value;
+}
+
+function enrichRuntimePackage(activePackage: AppPackage | null, installation: AppInstallation | null): RuntimeCapabilityPackage | null {
+  if (!activePackage) return null;
+  const packageBinding = installation?.packageBinding;
+  const checksum = packageBinding?.checksum?.trim() ?? '';
+  const publisherId = installedPublisherId(installation, activePackage);
+  return {
+    ...activePackage,
+    ...(checksum ? { checksum } : {}),
+    ...(publisherId ? { publisherId } : {}),
+    declaredPurpose: 'Use native capabilities approved for this installed package.',
+  };
+}
+
+function installedPublisherId(installation: AppInstallation | null, activePackage: AppPackage): string {
+  const approvedBy = installation?.approval?.approvedBy?.trim();
+  if (approvedBy) return approvedBy;
+  const sourceUrl = installation?.packageBinding?.sourceUrl?.trim();
+  if (sourceUrl) {
+    try {
+      const host = new URL(sourceUrl).host.trim();
+      if (host) return `source:${host}`;
+    } catch {
+      // Fall through to the local package identity.
+    }
+  }
+  return `package:${activePackage.id}`;
 }

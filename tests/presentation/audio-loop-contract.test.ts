@@ -216,6 +216,8 @@ describe('audio loop contract helpers', () => {
       activePackage: {
         id: 'audio-loop-108',
         version: '1.0.0',
+        publisherId: 'utopia.audio-loop',
+        declaredPurpose: 'record local audio for Audio Loop',
         nativeCapabilities: audioLoopNativeCapabilities as never,
       },
       capabilityDecisionPort: { decide: () => 'allow' },
@@ -224,6 +226,8 @@ describe('audio loop contract helpers', () => {
       installationId: 'audio-loop-install',
       activePackage: {
         id: 'audio-loop-108',
+        publisherId: 'utopia.audio-loop',
+        declaredPurpose: 'record local audio for Audio Loop',
         nativeCapabilities: {
           ...audioLoopNativeCapabilities,
           packages: ['expo-document-picker'],
@@ -231,12 +235,20 @@ describe('audio loop contract helpers', () => {
       },
     };
 
-    expect(requestWidgetCapability(runtime, { kind: 'audio-recorder', action: 'record' }).ok).toBe(true);
+    expect(requestWidgetCapability(runtime, {
+      kind: 'audio-recorder',
+      action: 'record',
+      declaredPurpose: 'record local audio for Audio Loop',
+    }).ok).toBe(true);
     expect(audioLoopNativeCapabilities?.packages).toContain('expo-audio');
     expect(audioLoopNativeCapabilities?.permissions?.map((value) => (
       typeof value === 'string' ? value : value.permission
     ))).toContain('expo-audio');
-    expect(requestWidgetCapability(missingPackageRuntime, { kind: 'audio-recorder', action: 'record' }).ok).toBe(false);
+    expect(requestWidgetCapability(missingPackageRuntime, {
+      kind: 'audio-recorder',
+      action: 'record',
+      declaredPurpose: 'record local audio for Audio Loop',
+    }).ok).toBe(false);
   });
 
   it('retains history/playlist/restore contract vocabulary in runtime/source', () => {

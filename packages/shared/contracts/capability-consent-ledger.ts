@@ -2,6 +2,8 @@ import { sha256Canonical } from './canonical-json';
 import { UTOPIA_PACKAGE_CHECKSUM_PATTERN } from './package-install';
 
 export const UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION = 'utopia.capability-consent-ledger.v1' as const;
+export const UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION = 'utopia.capability-grant.v1' as const;
+export const UTOPIA_CAPABILITY_CONSENT_LEGACY_PURPOSE = 'legacy:unspecified' as const;
 export const UTOPIA_CAPABILITY_CONSENT_DECISION_ALLOW = 'allow' as const;
 export const UTOPIA_CAPABILITY_CONSENT_DECISION_DENY = 'deny' as const;
 
@@ -13,8 +15,11 @@ export type CapabilityConsentRecord = Readonly<{
   packageId: string;
   packageVersion: string;
   packageChecksum: string;
+  publisherId?: string;
   capability: string;
   scope: readonly string[];
+  declaredPurpose?: string;
+  grantSchemaVersion?: typeof UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION;
   decision: CapabilityConsentDecision;
   decidedBy: string;
   decidedAt: string;
@@ -39,11 +44,26 @@ export type CapabilityDecisionInput = Readonly<{
   packageId: string;
   packageVersion: string;
   packageChecksum: string;
+  publisherId?: string;
   capability: string;
   scope: readonly string[];
+  declaredPurpose?: string;
+  grantSchemaVersion?: typeof UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION;
 }>;
 
 export type CapabilityDecision = 'allow' | 'deny' | 'missing' | 'revoked' | 'checksum_mismatch';
+
+export type CapabilityConsentMigrationPolicy = Readonly<{
+  mode: 'reconsent' | 'retain_same_trusted_publisher';
+  trustedPublisherIds?: readonly string[];
+  revokedPublisherIds?: readonly string[];
+  revokedPackageIds?: readonly string[];
+  revokedCapabilities?: readonly string[];
+}>;
+
+export const DEFAULT_CAPABILITY_CONSENT_MIGRATION_POLICY: CapabilityConsentMigrationPolicy = {
+  mode: 'reconsent',
+};
 
 export type CapabilityDecisionPort = Readonly<{
   decide(input: CapabilityDecisionInput): CapabilityDecision;
@@ -61,23 +81,34 @@ export function buildCapabilityConsentLedgerScope(input: readonly string[]): str
 }
 
 export function normalizeCapabilityConsentRecord(input: CapabilityConsentRecord): CapabilityConsentRecord {
+  const publisherId = normalizeOptionalText(input.publisherId);
   return {
     ...input,
     scope: buildCapabilityConsentLedgerScope(input.scope),
+    ...(publisherId ? { publisherId } : {}),
+    declaredPurpose: normalizePurpose(input.declaredPurpose),
+    grantSchemaVersion: input.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION,
   };
 }
 
 export function buildCapabilityConsentRecordId(input: {
   installationId: string;
   packageId: string;
+  publisherId?: string;
   capability: string;
   scope: readonly string[];
+  declaredPurpose?: string;
+  grantSchemaVersion?: typeof UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION;
 }): string {
+  const publisherId = normalizeOptionalText(input.publisherId);
   return sha256Canonical({
     installationId: input.installationId,
     packageId: input.packageId,
+    publisherId: publisherId ?? null,
     capability: input.capability,
     scope: buildCapabilityConsentLedgerScope(input.scope),
+    declaredPurpose: normalizePurpose(input.declaredPurpose),
+    grantSchemaVersion: input.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION,
   });
 }
 
@@ -91,7 +122,10 @@ export function canonicalCapabilityConsentRecord(input: CapabilityConsentRecord)
     scope: buildCapabilityConsentLedgerScope(input.scope),
     packageId: input.packageId.trim(),
     packageVersion: input.packageVersion.trim(),
+    ...(normalizeOptionalText(input.publisherId) ? { publisherId: normalizeOptionalText(input.publisherId) } : {}),
     capability: input.capability.trim(),
+    declaredPurpose: normalizePurpose(input.declaredPurpose),
+    grantSchemaVersion: input.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION,
     decidedBy: input.decidedBy.trim(),
     decidedAt: input.decidedAt,
     createdAt: input.createdAt,
@@ -123,6 +157,9 @@ export function collectCapabilityConsentRecordValidationErrors(input: unknown, p
   if (!isText(record.packageChecksum) || !UTOPIA_PACKAGE_CHECKSUM_PATTERN.test(record.packageChecksum)) {
     errors.push(`${path}packageChecksum must be sha256:<64 hex chars>`);
   }
+  if (record.publisherId !== undefined && !isText(record.publisherId)) {
+    errors.push(`${path}publisherId must be text when present`);
+  }
   if (!isText(record.capability)) errors.push(`${path}capability is required`);
   if (!Array.isArray(record.scope)) {
     errors.push(`${path}scope must be an array`);
@@ -136,6 +173,12 @@ export function collectCapabilityConsentRecordValidationErrors(input: unknown, p
         errors.push(`${path}scope[${index}] must be text`);
       }
     }
+  }
+  if (record.declaredPurpose !== undefined && !isText(record.declaredPurpose)) {
+    errors.push(`${path}declaredPurpose must be text when present`);
+  }
+  if (record.grantSchemaVersion !== undefined && record.grantSchemaVersion !== UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION) {
+    errors.push(`${path}grantSchemaVersion must be ${UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION}`);
   }
 
   if (record.decision !== 'allow' && record.decision !== 'deny') {
@@ -211,18 +254,31 @@ export function getCapabilityConsentLedgerState(input: CapabilityConsentRecord):
 
 export function createCapabilityDecisionPort(
   records: readonly CapabilityConsentRecord[],
+  policy: CapabilityConsentMigrationPolicy = DEFAULT_CAPABILITY_CONSENT_MIGRATION_POLICY,
 ): CapabilityDecisionPort {
   return {
     decide(input) {
+      const publisherId = normalizeOptionalText(input.publisherId);
+      const packageId = input.packageId.trim();
+      const capability = input.capability.trim();
+      if (policy.revokedPackageIds?.includes(packageId)
+        || policy.revokedCapabilities?.includes(capability)
+        || (publisherId && policy.revokedPublisherIds?.includes(publisherId))) {
+        return 'revoked';
+      }
       const scope = buildCapabilityConsentLedgerScope(input.scope);
-      const candidates = records.filter((record) => (
+      const authorizationCandidates = records.filter((record) => (
         record.installationId === input.installationId
-        && record.packageId === input.packageId
-        && record.capability === input.capability
+        && record.packageId === packageId
+        && record.capability === capability
         && buildCapabilityConsentLedgerScope(record.scope).join(LEDGER_SCOPE_SEPARATOR) === scope.join(LEDGER_SCOPE_SEPARATOR)
+        && normalizePurpose(record.declaredPurpose) === normalizePurpose(input.declaredPurpose)
+        && (record.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION)
+          === (input.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION)
       ));
-      const exact = candidates.find((record) => (
-        record.packageVersion === input.packageVersion
+      const exact = authorizationCandidates.find((record) => (
+        normalizeOptionalText(record.publisherId) === publisherId
+        && record.packageVersion === input.packageVersion
         && record.packageChecksum === input.packageChecksum
       ));
       if (exact) {
@@ -230,7 +286,34 @@ export function createCapabilityDecisionPort(
         if (state.isRevoked) return 'revoked';
         return state.effectiveDecision === 'allow' ? 'allow' : 'deny';
       }
-      if (candidates.length > 0) return 'checksum_mismatch';
+
+      const sameVersionCandidates = records.filter((record) => (
+        record.installationId === input.installationId
+        && record.packageId === packageId
+        && record.packageVersion === input.packageVersion
+        && record.capability === capability
+        && normalizeOptionalText(record.publisherId) === publisherId
+        && buildCapabilityConsentLedgerScope(record.scope).join(LEDGER_SCOPE_SEPARATOR) === scope.join(LEDGER_SCOPE_SEPARATOR)
+        && normalizePurpose(record.declaredPurpose) === normalizePurpose(input.declaredPurpose)
+        && (record.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION)
+          === (input.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION)
+      ));
+      if (sameVersionCandidates.length > 0) return 'checksum_mismatch';
+
+      if (policy.mode === 'retain_same_trusted_publisher' && publisherId
+        && policy.trustedPublisherIds?.includes(publisherId)) {
+        const upgrade = authorizationCandidates
+          .filter((record) => (
+            normalizeOptionalText(record.publisherId) === publisherId
+            && isStrictlyNewerPackageVersion(input.packageVersion, record.packageVersion)
+          ))
+          .sort((left, right) => comparePackageVersions(right.packageVersion, left.packageVersion))[0];
+        if (upgrade) {
+          const state = getCapabilityConsentLedgerState(upgrade);
+          if (state.isRevoked) return 'revoked';
+          return state.effectiveDecision === 'allow' ? 'allow' : 'deny';
+        }
+      }
       return 'missing';
     },
   };
@@ -242,8 +325,40 @@ export function buildCapabilityConsentRecordSnapshotText(input: CapabilityConsen
   return `${canonical.installationId}${LEDGER_SCOPE_SEPARATOR}${canonical.packageId}`
     + `${LEDGER_SCOPE_SEPARATOR}${canonical.packageVersion}`
     + `${LEDGER_SCOPE_SEPARATOR}${canonical.packageChecksum}`
+    + `${LEDGER_SCOPE_SEPARATOR}${canonical.publisherId ?? ''}`
+    + `${LEDGER_SCOPE_SEPARATOR}${canonical.declaredPurpose}`
+    + `${LEDGER_SCOPE_SEPARATOR}${canonical.grantSchemaVersion}`
     + `${LEDGER_SCOPE_SEPARATOR}${scope}`
     + `${LEDGER_SCOPE_SEPARATOR}${canonical.decision}`;
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizePurpose(value: string | undefined): string {
+  return normalizeOptionalText(value) ?? UTOPIA_CAPABILITY_CONSENT_LEGACY_PURPOSE;
+}
+
+function comparePackageVersions(left: string, right: string): number {
+  const leftParts = parseStablePackageVersion(left);
+  const rightParts = parseStablePackageVersion(right);
+  if (!leftParts || !rightParts) return 0;
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] !== rightParts[index]) return leftParts[index] > rightParts[index] ? 1 : -1;
+  }
+  return 0;
+}
+
+function isStrictlyNewerPackageVersion(candidate: string, current: string): boolean {
+  return comparePackageVersions(candidate, current) > 0;
+}
+
+function parseStablePackageVersion(value: string): [number, number, number] | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value.trim());
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
 
 function isText(value: unknown): value is string {

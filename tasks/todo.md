@@ -1,11 +1,30 @@
 # Utopia Production-Hardening Checklist
 
+## Closed Android beta critical path
+
+- [x] Replace Audio Loop recorder source with the installed Expo Audio API.
+- [x] Remove private workspace defaults and strengthen browser storage redaction.
+- [x] Add staged recovery activation with interruption and rollback tests.
+- [x] Separate consent authorization identity from checksum/version integrity.
+- [x] Harden private registry publication lifecycle, CSP, CORS, and admin paths.
+- [x] Replace dead bundled URLs with explicit internal bundled sources.
+- [x] Add constrained dumb/moderate/hostile creator-agent evidence without a human claim.
+- [x] Wire publisher/purpose metadata into live capability requests.
+- [x] Wire recovery activation to Android Expo SQLite/filesystem.
+- [x] Pin tools used by blocking release gates; remove mutable `npx --yes`.
+- [x] Build release Android bundle and pass debug-bridge exclusion scan.
+- [ ] Prove Audio Loop record/save/rename/restart/replay on Android, or remove the claim.
+- [ ] Run signed Android Golden Loop with real SQLite and private registry receipts.
+
 ## Evidence truth
 
-- Golden Loop remains blocked on `clean_checkout`, `multi_surface_execution`, `multi_surface_receipts`.
+- Golden Loop remains blocked on `clean_checkout`, `multi_surface_receipts`, and fresh same-run Android x2/web/macOS aggregation.
 - `npm run proof:golden-loop` last observed status: `BLOCKED`.
-- `npm test`: 152 files, 753 tests passed.
-- Real web/Android x2/macOS lifecycle receipts are not yet emitted from real execution lanes.
+- `npm test`: 155 files, 799 tests passed during `npm run release:proof:exports`.
+- Local release-signed Android APK/AAB proof passes with a local throwaway release certificate; this is not Play signing proof.
+- Web lifecycle receipt: PASS (`app/build/evidence/golden-loop/web-execution-receipt.json`).
+- macOS lifecycle receipt: PASS (`app/build/evidence/golden-loop/macos-lane-c-receipt.json` plus native URL-handler shell receipt).
+- Android x2 lifecycle receipts: PASS from earlier emulator run, but stale against the current package checksum; rerun with the same run id before aggregate proof.
 - Live Sheets scenario is blocked by OAuth/disposable-workbook binding; Notion disposable proof is completed.
 - `real sync and multi-surface proof` remains external-hardware dependent.
 
@@ -42,9 +61,9 @@
 - [x] Reference sync transport proof is available in deterministic mode.
 - [x] Registry signature input validation, bounded reference-sync transport, and constrained creator receipt validation are covered by local tests.
 - [ ] Real device/browser/runtime execution receipts:
-  - [ ] web lifecycle receipt
-  - [ ] Android x2 lifecycle receipts
-  - [ ] macOS lifecycle receipt
+  - [x] web lifecycle receipt
+  - [ ] Android x2 lifecycle receipts from the current commit/package checksum
+  - [x] macOS lifecycle receipt
 - [ ] `npm run check:multi-surface-sync` from real execution path
 - [ ] `node scripts/quality/golden-loop/check-multi-surface-receipts.mjs` pass
 
@@ -85,7 +104,7 @@ node scripts/quality/check-creator-study-receipt.mjs
 
 ## External blockers (do not mark internal as complete)
 
-- Real shell parity: hosted Android x2 + web + macOS execution infrastructure.
+- Real shell parity: web and macOS local receipts pass; Android x2 must be rerun from the current package checksum/run id before aggregate parity can pass.
 - Sheets live proof: OAuth + disposable workbook/account binding.
 - Clean-checkout proof: clean git tree + committed source.
 - Unassisted creator UX evidence: external human-run measurement.

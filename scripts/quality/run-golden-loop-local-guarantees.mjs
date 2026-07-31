@@ -2,7 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 
-const result = spawnSync('npx', ['vitest', 'run', 'tests/quality/golden-loop-local-guarantees.test.ts'], {
+const result = spawnSync('./node_modules/.bin/vitest', ['run', 'tests/quality/golden-loop-local-guarantees.test.ts'], {
   cwd: process.cwd(),
   encoding: 'utf8',
   stdio: 'inherit',

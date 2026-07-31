@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { currentGit } from '../../scripts/quality/evidence-provenance.mjs';
 import { SHELL_PROOF_SCHEMA_VERSION } from '../../scripts/quality/golden-loop/shell-proof-protocol.mjs';
+import { receiptFreshnessBlocker } from '../../scripts/quality/golden-loop/check-multi-surface-receipts.mjs';
 
 const scriptPath = join(process.cwd(), 'scripts/quality/golden-loop/check-multi-surface-receipts.mjs');
 const SOURCE_TIMESTAMP = new Date().toISOString();
@@ -283,6 +284,16 @@ function runScript(overrides: {
 }
 
 describe('golden loop multi-surface receipt validation', () => {
+  it('blocks receipts outside the same-run freshness window', () => {
+    const now = Date.parse('2026-07-31T00:00:00.000Z');
+    expect(receiptFreshnessBlocker('2026-07-30T23:40:00.000Z', { now, maxAgeMs: 15 * 60 * 1000 }))
+      .toContain('receipt_checked_at_too_old');
+    expect(receiptFreshnessBlocker('2026-07-31T00:10:00.000Z', { now, maxAgeMs: 15 * 60 * 1000 }))
+      .toContain('receipt_checked_at_in_future');
+    expect(receiptFreshnessBlocker('2026-07-31T00:05:00.000Z', { now, maxAgeMs: 15 * 60 * 1000 }))
+      .toBeNull();
+  });
+
   it('passes when strict shell-proof v1 receipts align on package checksum, lifecycle assertions, operation ids, transport, and convergence', {
     timeout: 15_000,
   }, () => {

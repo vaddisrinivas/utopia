@@ -121,7 +121,7 @@ describe('Golden Loop registry contracts', () => {
   });
 
   it('accepts idempotent republish and enforces immutable metadata', async () => {
-    const env = fakeEnv();
+    const env = fakeEnv({ REGISTRY_PUBLIC_WRITES_ENABLED: 'true' });
     const first = await publishPackage(env, validPackage);
     const second = await publishPackage(env, validPackage);
     const third = await publishPackage(env, validPackage, { visibility: 'public' });

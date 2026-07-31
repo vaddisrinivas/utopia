@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WORKSPACE_ID } from '@/packages/shared/contracts/app-installation';
 import {
   UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION,
+  createCapabilityDecisionPort,
   buildCapabilityConsentRecordId,
   buildCapabilityConsentRecordSnapshotText,
 } from '@/packages/shared/contracts/capability-consent-ledger';
@@ -197,8 +198,16 @@ describe('capability consent ledger persistence', () => {
       workspaceId: DEFAULT_WORKSPACE_ID,
       now: '2026-07-30T00:00:08.000Z',
     });
-    expect(await listCapabilityConsentLedgerRecordsForInstallation(db as any, 'install-a')).toHaveLength(0);
-    expect(await getCapabilityConsentLedgerRecord(db as any, 'install-a', recordAId)).toBeNull();
+    expect(await listCapabilityConsentLedgerRecordsForInstallation(db as any, 'install-a')).toHaveLength(1);
+    expect((await getCapabilityConsentLedgerRecord(db as any, 'install-a', recordAId))?.packageVersion).toBe('1.0.0');
+    expect((await loadCapabilityDecisionPort(db as any, 'install-a')).decide({
+      installationId: 'install-a',
+      packageId: installA.id,
+      packageVersion: packageUpgrade.version,
+      packageChecksum: upgradePreview.trust.computedChecksum ?? '',
+      capability: 'native.camera',
+      scope: ['photos', 'notes'],
+    })).toBe('missing');
   });
 
   it('supports migration forward and backward safely through ledger version', async () => {
@@ -206,7 +215,7 @@ describe('capability consent ledger persistence', () => {
     dbs.push(db);
 
     await runMigrations(db as any);
-    await rollbackDatabase(db as any, DATABASE_VERSION - 1);
+    await rollbackDatabase(db as any, DATABASE_VERSION - 2);
 
     const rolledBackTable = await db.getFirstAsync<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE name = 'capability_consent_ledger'",
@@ -353,5 +362,97 @@ describe('capability consent ledger persistence', () => {
     };
     const staleSnapshot = buildCapabilityConsentRecordSnapshotText(staleRecord);
     expect(staleSnapshot).not.toBe(snapshot);
+  });
+
+  it('retains consent only for an explicit trusted-publisher version migration', () => {
+    const record = {
+      schemaVersion: UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION,
+      installationId: 'install-a',
+      packageId: 'consent.demo',
+      packageVersion: '1.0.0',
+      packageChecksum: `sha256:${'a'.repeat(64)}`,
+      publisherId: 'trusted.publisher',
+      capability: 'native.camera',
+      scope: ['photos'],
+      declaredPurpose: 'scan receipts',
+      decision: 'allow' as const,
+      decidedBy: 'alice',
+      decidedAt: '2026-07-30T00:00:04.000Z',
+      createdAt: '2026-07-30T00:00:04.000Z',
+      updatedAt: '2026-07-30T00:00:04.000Z',
+    };
+    const input = {
+      installationId: 'install-a',
+      packageId: 'consent.demo',
+      packageVersion: '1.0.1',
+      packageChecksum: `sha256:${'b'.repeat(64)}`,
+      publisherId: 'trusted.publisher',
+      capability: 'native.camera',
+      scope: ['photos'],
+      declaredPurpose: 'scan receipts',
+    };
+
+    expect(createCapabilityDecisionPort([record]).decide(input)).toBe('missing');
+    expect(createCapabilityDecisionPort([record], {
+      mode: 'retain_same_trusted_publisher',
+      trustedPublisherIds: ['trusted.publisher'],
+    }).decide(input)).toBe('allow');
+    expect(createCapabilityDecisionPort([record], {
+      mode: 'retain_same_trusted_publisher',
+      trustedPublisherIds: ['other.publisher'],
+    }).decide(input)).toBe('missing');
+  });
+
+  it('blocks publisher changes, wider scopes, and revoked identities', () => {
+    const record = {
+      schemaVersion: UTOPIA_CAPABILITY_CONSENT_LEDGER_SCHEMA_VERSION,
+      installationId: 'install-a',
+      packageId: 'consent.demo',
+      packageVersion: '1.0.0',
+      packageChecksum: `sha256:${'a'.repeat(64)}`,
+      publisherId: 'trusted.publisher',
+      capability: 'native.camera',
+      scope: ['photos'],
+      declaredPurpose: 'scan receipts',
+      decision: 'allow' as const,
+      decidedBy: 'alice',
+      decidedAt: '2026-07-30T00:00:04.000Z',
+      createdAt: '2026-07-30T00:00:04.000Z',
+      updatedAt: '2026-07-30T00:00:04.000Z',
+    };
+    const port = createCapabilityDecisionPort([record], {
+      mode: 'retain_same_trusted_publisher',
+      trustedPublisherIds: ['trusted.publisher', 'changed.publisher'],
+    });
+
+    expect(port.decide({
+      installationId: 'install-a', packageId: 'consent.demo', packageVersion: '1.0.0',
+      packageChecksum: `sha256:${'b'.repeat(64)}`, publisherId: 'changed.publisher',
+      capability: 'native.camera', scope: ['photos'], declaredPurpose: 'scan receipts',
+    })).toBe('missing');
+    expect(port.decide({
+      installationId: 'install-a', packageId: 'consent.demo', packageVersion: '1.0.1',
+      packageChecksum: `sha256:${'b'.repeat(64)}`, publisherId: 'changed.publisher',
+      capability: 'native.camera', scope: ['photos'], declaredPurpose: 'scan receipts',
+    })).toBe('missing');
+    expect(port.decide({
+      installationId: 'install-a', packageId: 'consent.demo', packageVersion: '1.0.1',
+      packageChecksum: `sha256:${'b'.repeat(64)}`, publisherId: 'trusted.publisher',
+      capability: 'native.camera', scope: ['photos', 'notes'], declaredPurpose: 'scan receipts',
+    })).toBe('missing');
+    expect(port.decide({
+      installationId: 'install-a', packageId: 'consent.demo', packageVersion: '1.0.1',
+      packageChecksum: `sha256:${'b'.repeat(64)}`, publisherId: 'trusted.publisher',
+      capability: 'native.camera', scope: ['photos'], declaredPurpose: 'scan receipts',
+    })).toBe('allow');
+    expect(createCapabilityDecisionPort([record], {
+      mode: 'retain_same_trusted_publisher',
+      trustedPublisherIds: ['trusted.publisher'],
+      revokedPublisherIds: ['trusted.publisher'],
+    }).decide({
+      installationId: 'install-a', packageId: 'consent.demo', packageVersion: '1.0.1',
+      packageChecksum: `sha256:${'b'.repeat(64)}`, publisherId: 'trusted.publisher',
+      capability: 'native.camera', scope: ['photos'], declaredPurpose: 'scan receipts',
+    })).toBe('revoked');
   });
 });

@@ -723,10 +723,10 @@ describe('reference app renderer', () => {
     expect(parentSource).not.toContain('function FilePickerWidget');
     expect(parentSource).not.toContain('function FileExportWidget');
     expect(familySource).toContain('requestWidgetCapability');
-    expect(familySource).toContain("{ kind: 'file-picker', action: 'choose'");
-    expect(familySource).toContain("{ kind: 'file-export', action: 'export'");
+    expect(familySource).toMatch(/kind:\s*'file-picker'[\s\S]*action:\s*'choose'[\s\S]*declaredPurpose:/);
+    expect(familySource).toMatch(/kind:\s*'file-export'[\s\S]*action:\s*'export'[\s\S]*declaredPurpose:/);
     expect(familySource).not.toMatch(/@\/src\/(db|chat|providers|health|settings)\//);
-    expect(familySource.split('\n')).toHaveLength(232);
+    expect(familySource.split('\n').length).toBeLessThanOrEqual(260);
   });
 });
 

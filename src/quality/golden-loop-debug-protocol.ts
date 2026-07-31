@@ -1,4 +1,5 @@
 export const GOLDEN_LOOP_DEBUG_MODE = 'goldenLoopDebug' as const;
+export const GOLDEN_LOOP_DEBUG_BRIDGE_VERSION = 'utopia.golden-loop-debug.v1' as const;
 
 export const GOLDEN_LOOP_DEBUG_COMMANDS = [
   'package.install',
@@ -42,14 +43,29 @@ export type GoldenLoopDebugResult = Readonly<{
   applied_at: string;
 }>;
 
-const commandSet = new Set<string>(GOLDEN_LOOP_DEBUG_COMMANDS);
+export type GoldenLoopDebugBridgeStatus = Readonly<{
+  enabled: boolean;
+  ready: boolean;
+  version: typeof GOLDEN_LOOP_DEBUG_BRIDGE_VERSION;
+  commands: readonly GoldenLoopDebugCommandName[];
+}>;
 
-export function isGoldenLoopDebugEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  return env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG === '1';
+const commandSet = new Set<string>(GOLDEN_LOOP_DEBUG_COMMANDS);
+const compiledGoldenLoopDebugEnabled = process.env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG === '1';
+const globalGoldenLoopDebug = globalThis as typeof globalThis & {
+  __UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN__?: string;
+};
+
+export function isGoldenLoopDebugEnabled(env?: Record<string, string | undefined>): boolean {
+  if (env) return env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG === '1';
+  return compiledGoldenLoopDebugEnabled;
 }
 
-export function getGoldenLoopDebugToken(env: Record<string, string | undefined> = process.env): string | null {
-  const token = env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN?.trim();
+export function getGoldenLoopDebugToken(env?: Record<string, string | undefined>): string | null {
+  const token = (env
+    ? env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN
+    : (globalGoldenLoopDebug.__UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN__
+      || process.env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN))?.trim();
   return token && token.length >= 32 ? token : null;
 }
 
@@ -83,4 +99,3 @@ export function parseGoldenLoopDebugPayload(input: string): unknown {
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
-

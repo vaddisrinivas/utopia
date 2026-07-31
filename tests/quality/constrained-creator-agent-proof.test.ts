@@ -17,9 +17,14 @@ describe('constrained creator agent proof', () => {
       });
       expect(existsSync(output)).toBe(true);
       const evidence = JSON.parse(readFileSync(output, 'utf8'));
-      expect(evidence.status).toBe('PASS');
+      expect(evidence.status).toBe('AUTOMATED_AGENT_PASS');
       expect(evidence.human_usability).toBe('NOT_MEASURED');
+      expect(evidence.human_evidence).toBe('BLOCKED');
       expect(evidence.payload.cases).toHaveLength(3);
+      expect(evidence.payload.cases.map((item: { agent: string }) => item.agent)).toEqual(['dumb', 'moderate', 'hostile']);
+      expect(evidence.payload.cases.every((item: { workspace: { isolated: boolean; cleaned: boolean; directFixtureCopy: boolean } }) => (
+        item.workspace.isolated && item.workspace.cleaned && item.workspace.directFixtureCopy === false
+      ))).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

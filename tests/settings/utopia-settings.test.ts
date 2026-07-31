@@ -7,7 +7,12 @@ import {
   updateUtopiaRuntimePreferences,
   updateUtopiaSourceProviderSettings,
 } from '@/src/settings/utopia-settings';
-import { clearBrowserCredentialState, readSettingsValue, writeSettingsValue } from '@/src/settings/settings-storage.web';
+import {
+  clearBrowserCredentialState,
+  readSettingsValue,
+  redactBrowserCredentialPayload,
+  writeSettingsValue,
+} from '@/src/settings/settings-storage.web';
 
 describe('Utopia settings helpers', () => {
   it('keeps browser credentials out of localStorage while retaining them in memory', async () => {
@@ -34,6 +39,43 @@ describe('Utopia settings helpers', () => {
     clearBrowserCredentialState();
     await expect(readSettingsValue()).resolves.not.toContain('sk-browser-secret');
     vi.unstubAllGlobals();
+  });
+
+  it('redacts every browser credential class recursively before persistence', () => {
+    const payload = JSON.stringify({
+      ai: { apiKey: 'ai-secret' },
+      notion: { token: 'notion-secret' },
+      sheets: { accessToken: 'sheets-access' },
+      postgres: { databaseUrl: 'postgres://user:password@host/db', password: 'db-password' },
+      mcp: { refreshToken: 'mcp-refresh' },
+      oauth: { clientSecret: 'oauth-secret', nested: { authorization: 'Bearer secret' } },
+      runtime: { theme: 'dark' },
+    });
+
+    const redacted = redactBrowserCredentialPayload(payload);
+    const persisted = JSON.parse(redacted.persisted) as Record<string, any>;
+
+    expect(redacted.hadSecrets).toBe(true);
+    expect(redacted.persisted).not.toContain('secret');
+    expect(redacted.persisted).not.toContain('password');
+    expect(redacted.persisted).not.toContain('Bearer');
+    expect(persisted.ai).not.toHaveProperty('apiKey');
+    expect(persisted.sheets).not.toHaveProperty('accessToken');
+    expect(persisted.postgres).not.toHaveProperty('databaseUrl');
+    expect(persisted.oauth.nested).not.toHaveProperty('authorization');
+    expect(persisted.runtime.theme).toBe('dark');
+  });
+
+  it('ships no private Notion identifiers and preserves user-provided connections', () => {
+    expect(defaultUtopiaSettings.notion.pageId).toBe('');
+    expect(defaultUtopiaSettings.notion.dataSourceIds).toBe('');
+
+    const configured = updateUtopiaSourceProviderSettings(defaultUtopiaSettings, 'notion', {
+      pageId: 'user-page-id',
+      dataSourceIds: 'user-data-source-id',
+    });
+    expect(configured.notion.pageId).toBe('user-page-id');
+    expect(configured.notion.dataSourceIds).toBe('user-data-source-id');
   });
 
   it('updates persistent theme and density preferences without changing AI keys', () => {

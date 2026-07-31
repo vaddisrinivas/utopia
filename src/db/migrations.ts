@@ -4,7 +4,7 @@ import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
 import { loadCatalog } from '@/src/domain/catalog';
 
 export const DATABASE_NAME = 'utopia.db';
-export const DATABASE_VERSION = 14;
+export const DATABASE_VERSION = 15;
 
 const TABLES = {
   meta: 'meta',
@@ -1006,6 +1006,27 @@ const MIGRATIONS: Migration[] = [
       await db.execAsync(`DROP INDEX IF EXISTS ${TABLES.capability_consent_ledger}_installation_idx`);
       await db.execAsync(`DROP TABLE IF EXISTS ${TABLES.capability_consent_ledger}`);
       await db.execAsync('PRAGMA user_version = 13');
+    },
+  },
+  {
+    version: 15,
+    up: async (db) => {
+      const addColumn = async (columnSql: string) => {
+        const columnName = columnSql.trim().split(/\s+/, 1)[0];
+        const columns = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${TABLES.capability_consent_ledger})`);
+        if (columns.some((column) => column.name === columnName)) return;
+        await db.execAsync(`ALTER TABLE ${TABLES.capability_consent_ledger} ADD COLUMN ${columnSql}`);
+      };
+      await addColumn(`publisher_id TEXT`);
+      await addColumn(`declared_purpose TEXT NOT NULL DEFAULT 'legacy:unspecified'`);
+      await addColumn(`grant_schema_version TEXT NOT NULL DEFAULT 'utopia.capability-grant.v1'`);
+      await db.execAsync(`PRAGMA user_version = 15`);
+    },
+    down: async (db) => {
+      // Keep additive consent columns during downgrade so older readers never
+      // cause authorization history to be discarded. Version 15 re-entry is
+      // idempotent because the upgrade checks column presence.
+      await db.execAsync('PRAGMA user_version = 14');
     },
   },
 ];

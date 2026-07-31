@@ -139,6 +139,7 @@ export function validateReceipt({
     exists: false,
     proof: null,
     status: null,
+    checked_at: null,
     pass: false,
     issues: [],
     checksum: null,
@@ -182,6 +183,7 @@ export function validateReceipt({
   }
 
   result.proof = typeof receipt.proof === 'string' ? receipt.proof : null;
+  result.checked_at = typeof receipt.checked_at === 'string' ? receipt.checked_at : null;
   result.status = receipt.status ?? (receipt.pass === true ? 'passed' : 'failed');
   result.pass = receipt.status === 'passed' || receipt.status === 'PASS' || receipt.pass === true;
   if (!result.pass) blockList.push(`receipt_not_passed:${label}`);
