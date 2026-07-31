@@ -1,7 +1,7 @@
 # Utopia Codebase Deep Review
 
 Date: 2026-07-30
-Reviewed commit: `bf0efff`
+Reviewed commit: `0b340b1`
 Companion index: `docs/CODEBASE_FILE_SCOPE_INDEX_2026-07-30.md`
 
 ## Purpose
@@ -21,7 +21,7 @@ maintenance impact.
 
 ## Review Basis
 
-- 1,177 tracked files inventoried.
+- 1,228 tracked files inventoried, including all 51 files added after `bf0efff`.
 - 1,000+ text/code/config files mechanically scanned.
 - High-risk runtime, install, trust, persistence, sync, registry, settings,
   renderer, server, and Golden Loop files read directly.
@@ -40,7 +40,36 @@ maintenance impact.
 This is source and local-check evidence. It is not physical-device, live sync,
 production deployment, or external creator evidence.
 
-## Current Verdict
+## Post-Commit Update
+
+The original deep findings were written against `bf0efff`. Commit `0b340b1`
+contains the remediation wave and the new files listed in the companion
+index's post-commit section. The current tree now has portable Core ports,
+schema/conformance gates, extracted renderer and chat route families, registry
+and sync hardening, constrained creator receipts, and multi-surface workflows.
+
+Current evidence remains deliberately bounded: local tests and exports pass,
+while clean-checkout, live provider, real multi-surface execution, launch
+identity, and unaided human creator evidence remain external or unproven.
+
+## Current Commit Status (`0b340b1`)
+
+- Local verification is green: 152 test files, 753 tests, typecheck, fast gate,
+  config validation, Expo doctor, web export, Android export, chat proofs,
+  renderer/server boundary checks, and security gates.
+- The current tree includes the 51 post-`bf0efff` files listed in the scope
+  index addendum, including Core ports, route/service/repository extraction,
+  registry/sync hardening, creator proof tooling, and real-surface workflows.
+- Remaining proof boundaries are intentional: clean checkout requires a fresh
+  committed checkout; live provider proof requires disposable authorization;
+  real Android x2/web/macOS receipts require execution; launch readiness needs
+  signing/privacy identity values; human usability needs an unaided person.
+
+The following section is retained as the historical baseline from `bf0efff`.
+It is useful for measuring the remediation, but its findings are not a current
+claim unless repeated by the current gates.
+
+## Historical Baseline (`bf0efff`)
 
 Utopia is no longer an immature CRUD prototype. It has substantial package,
 compiler, operation, flow, install, trust, provider, and proof infrastructure.

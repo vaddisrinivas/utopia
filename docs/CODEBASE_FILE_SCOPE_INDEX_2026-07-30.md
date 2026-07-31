@@ -1,8 +1,8 @@
 # Utopia Tracked-File Scope Index
 
 Generated: 2026-07-30
-Commit: `bf0efff`
-Coverage: 1177 tracked files; 1121 text; 56 binary; 240,472 text lines.
+Commit: `0b340b1`
+Coverage: 1228 tracked files; original index plus 51 post-`bf0efff` additions.
 
 This is the exhaustive scope ledger supporting `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md`. It assigns every tracked file an ownership role and next-review scope. It is not a claim that every line has equal risk. Manual findings in the companion report take precedence over these mechanical classifications.
 
@@ -1185,3 +1185,63 @@ This is the exhaustive scope ledger supporting `docs/CODEBASE_DEEP_REVIEW_2026-0
 | `tests/workflows/timed-flow-runtime.test.ts` | 59 | Automated test | Keep behavior-focused and add negative/failure-path coverage. |
 | `tsconfig.json` | 24 | Repository support | Keep reviewed and covered by its owning gate. |
 | `vitest.config.ts` | 20 | Repository support | Keep reviewed and covered by its owning gate. |
+
+## Post-Commit Additions (0b340b1)
+
+These files were added after the original `bf0efff` review. They are listed
+separately so the original alphabetical index remains stable while the review
+still covers the current commit.
+
+| File | Lines | Role | Improvement scope |
+|---|---:|---|---|
+| `.github/workflows/golden-loop-all-surfaces.yml` | 395 | GitHub workflow | Keep permissions narrow; require real evidence and preserve fail-closed blockers. |
+| `.github/workflows/golden-loop-android-emulators.yml` | 342 | GitHub workflow | Keep permissions narrow; require real evidence and preserve fail-closed blockers. |
+| `.github/workflows/golden-loop-macos.yml` | 57 | GitHub workflow | Keep permissions narrow; require real evidence and preserve fail-closed blockers. |
+| `.github/workflows/golden-loop-web.yml` | 54 | GitHub workflow | Keep permissions narrow; require real evidence and preserve fail-closed blockers. |
+| `adapters/core-crypto.ts` | 27 | Shell adapter | Own concrete runtime dependencies behind Core ports. |
+| `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md` | 1424 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
+| `docs/CODEBASE_FILE_SCOPE_INDEX_2026-07-30.md` | 1247 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
+| `docs/chat-control-decomposition.md` | 25 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
+| `schemas/utopia-spectral-rules.json` | 8 | Schema authority | Validate through canonical JSON Schema and keep generated consumers aligned. |
+| `scripts/factory/run-creator-proof-harness.ts` | 216 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/check-dependency-dead-code-ownership.mjs` | 111 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/check-release-debug-bridge-exclusion.mjs` | 48 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/check-renderer-server-size-ratchet.mjs` | 41 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/check-schema-conformance.ts` | 57 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/dependency-dead-code-ownership-baseline.json` | 13 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/golden-loop/check-constrained-creator-agents.mjs` | 75 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/golden-loop/cross-runtime-conformance.ts` | 489 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/golden-loop/run-web-lane-b.mjs` | 78 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/macos/run-golden-loop-macos-lane.mjs` | 327 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/renderer-server-size-baseline.json` | 13 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |
+| `scripts/quality/security/check-action-permissions-gate.mjs` | 55 | Security gate | Keep scanner output redacted, deterministic, and blocking on missing tooling or findings. |
+| `scripts/quality/security/check-gitleaks-gate.mjs` | 47 | Security gate | Keep scanner output redacted, deterministic, and blocking on missing tooling or findings. |
+| `scripts/quality/security/security-artifact.mjs` | 28 | Security gate | Keep scanner output redacted, deterministic, and blocking on missing tooling or findings. |
+| `server/src/repositories/chat-control-repository.ts` | 98 | Server runtime | Keep route/service/repository ownership explicit and preserve auth, idempotency, streaming, retry, and undo semantics. |
+| `server/src/repositories/chat-runtime-job-repository.ts` | 425 | Server runtime | Keep route/service/repository ownership explicit and preserve auth, idempotency, streaming, retry, and undo semantics. |
+| `server/src/services/chat-control-service.ts` | 342 | Server runtime | Keep route/service/repository ownership explicit and preserve auth, idempotency, streaming, retry, and undo semantics. |
+| `server/src/tools/policy-receipts.ts` | 359 | Server runtime | Keep route/service/repository ownership explicit and preserve auth, idempotency, streaming, retry, and undo semantics. |
+| `server/test/chat-control-boundary-contract.ts` | 20 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `server/test/chat-control-service-contract.ts` | 119 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `server/test/chat-runtime-job-repository-contract.ts` | 98 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `src/domain/crypto-port.ts` | 18 | Core port | Keep the domain headless and make shell/database/crypto dependencies explicit ports. |
+| `src/domain/database-port.ts` | 17 | Core port | Keep the domain headless and make shell/database/crypto dependencies explicit ports. |
+| `src/presentation/widgets/file-widgets.tsx` | 231 | Renderer/widget | Keep widget families generic, capability-brokered, and shell-safe. |
+| `src/presentation/widgets/navigation-widget-family.tsx` | 60 | Renderer/widget | Keep widget families generic, capability-brokered, and shell-safe. |
+| `src/quality/DevelopmentGoldenLoopBridge.tsx` | 1 | Proof bridge | Keep debug-only bridges excluded from release and require observed operations. |
+| `src/quality/ReleaseNoopGoldenLoopBridge.tsx` | 3 | Proof bridge | Keep debug-only bridges excluded from release and require observed operations. |
+| `tests/conformance/fixtures/schema-corpus.json` | 7 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/conformance/schema-conformance.test.ts` | 57 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/contracts/registry-trust-lifecycle.test.ts` | 24 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/contracts/schema-conformance.test.ts` | 42 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/db/records.test.ts` | 61 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/db/recovery.test.ts` | 111 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/constrained-creator-agent-proof.test.ts` | 27 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/creator-proof-harness.test.ts` | 49 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/cross-runtime-conformance.test.ts` | 53 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/golden-loop-macos-lane-c.test.ts` | 53 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/golden-loop-web-lane-b.test.ts` | 33 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/google-sheets-live-proof.test.ts` | 147 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/release-debug-bridge-exclusion.test.ts` | 26 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/static-quality-gates.test.ts` | 38 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
+| `tests/quality/widget-capability-boundaries.test.ts` | 48 | Automated test | Prefer behavior and failure-path assertions; retain provenance checks. |
