@@ -150,7 +150,7 @@ jobs:
         run: node scripts/quality/security/check-action-permissions-gate.mjs
 
       - name: Set up Android SDK tooling
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Provision emulator toolchain
         run: |
