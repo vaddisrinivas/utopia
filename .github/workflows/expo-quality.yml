@@ -85,7 +85,7 @@ jobs:
         env:
           QUALITY_GATE_ROOT: ${{ github.workspace }}
           SYFT_CMD: syft
-          SYFT_ARGS: . -o json
+          SYFT_ARGS: . -o cyclonedx-json
           RELEASE_SBOM_PATH: app/build/evidence/sbom.json
           SBOM_GATE_POLICY_PATH: scripts/quality/sbom/sbom-policy.json
         run: node scripts/quality/sbom/check-sbom-gate.mjs
