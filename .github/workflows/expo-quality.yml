@@ -48,7 +48,7 @@ jobs:
           export GOBIN="${RUNNER_TEMP}/utopia-scan-tools/bin"
           mkdir -p "$GOBIN"
           echo "$GOBIN" >> "$GITHUB_PATH"
-          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@${OSV_SCANNER_VERSION}
+          go install github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}
           go install github.com/anchore/syft/v1/cmd/syft@${SYFT_VERSION}
           go install github.com/gitleaks/gitleaks/v8@${GITLEAKS_VERSION}
           go version
