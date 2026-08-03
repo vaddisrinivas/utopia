@@ -41,7 +41,8 @@ jobs:
       - name: Install pinned supply-chain scanners
         env:
           OSV_SCANNER_VERSION: v1.9.1
-          SYFT_VERSION: v1.14.3
+          SYFT_VERSION: v1.14.2
+          SYFT_LINUX_AMD64_SHA256: 8fea5191eb749805dc891e4cc7942341ebc95e40b32a4d74647fa7bf6b00cd26
           GITLEAKS_VERSION: v8.28.0
         run: |
           set -euo pipefail
@@ -49,7 +50,12 @@ jobs:
           mkdir -p "$GOBIN"
           echo "$GOBIN" >> "$GITHUB_PATH"
           go install github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}
-          go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}
+          syft_archive="${RUNNER_TEMP}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz" \
+            --output "$syft_archive"
+          printf '%s  %s\n' "$SYFT_LINUX_AMD64_SHA256" "$syft_archive" | sha256sum --check -
+          tar --extract --gzip --file "$syft_archive" --directory "$GOBIN" syft
           go install github.com/gitleaks/gitleaks/v8@${GITLEAKS_VERSION}
           go version
           osv-scanner --version
