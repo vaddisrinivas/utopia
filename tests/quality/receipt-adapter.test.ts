@@ -25,9 +25,11 @@ function writeReceipt(root: string, receipt: Record<string, unknown>) {
   return { root, path };
 }
 
-function makeReceipt(overrides: Record<string, unknown> = {}) {
+function makeReceipt(
+  overrides: Record<string, unknown> = {},
+  git = currentGit(process.cwd()),
+) {
   const checksum = 'sha256:' + 'a'.repeat(64);
-  const git = currentGit(process.cwd());
   const base = {
     proof: 'utopia_multi_surface_web_execution_receipt',
     checked_at: new Date().toISOString(),
@@ -56,8 +58,9 @@ describe('receipt adapter', () => {
   it('validates a passable execution receipt', () => {
     const tempRoot = createTempRoot();
     const root = process.cwd();
+    const git = currentGit(root);
     const blockers: string[] = [];
-    const { path } = writeReceipt(tempRoot, makeReceipt());
+    const { path } = writeReceipt(tempRoot, makeReceipt({}, git));
 
     const result = validateReceipt({
       root,
@@ -65,6 +68,7 @@ describe('receipt adapter', () => {
       path,
       blockers,
       requireInstallationId: true,
+      expectedGit: git,
     });
 
     expect(blockers).toEqual([]);
@@ -76,8 +80,9 @@ describe('receipt adapter', () => {
   it('flags missing package checksum', () => {
     const tempRoot = createTempRoot();
     const root = process.cwd();
+    const git = currentGit(root);
     const blockers: string[] = [];
-    const { path } = writeReceipt(tempRoot, makeReceipt({ package_checksum: '' }));
+    const { path } = writeReceipt(tempRoot, makeReceipt({ package_checksum: '' }, git));
 
     validateReceipt({
       root,
@@ -85,6 +90,7 @@ describe('receipt adapter', () => {
       path,
       blockers,
       requireInstallationId: true,
+      expectedGit: git,
     });
 
     expect(blockers).toContain('missing_package_checksum:web');
@@ -93,6 +99,7 @@ describe('receipt adapter', () => {
   it('flags invalid scenario id', () => {
     const tempRoot = createTempRoot();
     const root = process.cwd();
+    const git = currentGit(root);
     const blockers: string[] = [];
     const { path } = writeReceipt(tempRoot, makeReceipt({
       lifecycle: {
@@ -106,7 +113,7 @@ describe('receipt adapter', () => {
           },
         },
       },
-    }));
+    }, git));
 
     validateReceipt({
       root,
@@ -114,6 +121,7 @@ describe('receipt adapter', () => {
       path,
       blockers,
       requireInstallationId: true,
+      expectedGit: git,
     });
 
     expect(blockers.some((entry) => entry.startsWith('invalid_scenario_id:web:'))).toBe(true);

@@ -120,6 +120,7 @@ export function validateLifecycleScenario(receipt, label, requiredScenarioId = R
  *   requiredScenarioId?: string;
  *   requireShellProof?: boolean;
  *   requiredSourceSurface?: string | null;
+ *   expectedGit?: ReturnType<typeof currentGit>;
  * }} options
  */
 export function validateReceipt({
@@ -132,6 +133,7 @@ export function validateReceipt({
   requiredScenarioId = REQUIRED_SCENARIO_ID,
   requireShellProof = false,
   requiredSourceSurface = null,
+  expectedGit = null,
 } = {}) {
   const normalizedRoot = root ?? process.cwd();
   const result = {
@@ -176,7 +178,12 @@ export function validateReceipt({
   }
 
   result.exists = true;
-  result.envelope = validateEvidenceEnvelope(normalizedRoot, path, receipt, currentGit(normalizedRoot));
+  result.envelope = validateEvidenceEnvelope(
+    normalizedRoot,
+    path,
+    receipt,
+    expectedGit ?? currentGit(normalizedRoot),
+  );
   if (!result.envelope.valid) {
     blockList.push(`invalid_envelope:${label}_receipt`);
     result.issues.push(...result.envelope.issues);
