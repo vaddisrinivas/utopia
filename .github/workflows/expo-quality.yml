@@ -75,7 +75,7 @@ jobs:
         env:
           QUALITY_GATE_ROOT: ${{ github.workspace }}
           OSV_SCANNER_CMD: osv-scanner
-          OSV_SCANNER_ARGS: --recursive . --format json
+          OSV_SCANNER_ARGS: scan --recursive --format json .
           OSV_REPORT_PATH: app/build/evidence/osv-report.json
           OSV_GATE_POLICY_PATH: scripts/quality/security/osv-gate-policy.json
         run: node scripts/quality/security/check-osv-gate.mjs
