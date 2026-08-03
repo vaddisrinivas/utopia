@@ -2,7 +2,7 @@ import catalogJson from '../../packages/domain-config/domain-catalog.v1.json';
 import foodManifestJson from '../../packages/domain-config/domains/food.v1.json';
 import healthManifestJson from '../../packages/domain-config/domains/health.v1.json';
 import plantsManifestJson from '../../packages/domain-config/domains/plants.v1.json';
-import type { AppPackage, AppPackageDependencyPin, AppPackageNativeCapability, A2UiSurface, A2UiComponent } from '../../packages/shared/contracts/package';
+import type { AppPackage, AppPackageDependencyPin, AppPackageNativeCapability, A2UiSurface, A2UiComponent, A2UiLocalization } from '../../packages/shared/contracts/package';
 import { isAppPackageNativeIntentKind } from '../../packages/shared/contracts/native-capability-kinds';
 import { isAppPackageUiActionKind, isAppPackageUiComponentKind, isAppPackageUiTone } from '../../packages/shared/contracts/ui-primitives';
 import { isAppPackageWidgetKind } from '../../packages/shared/contracts/ui-widgets';
@@ -486,6 +486,7 @@ function parseUi(value: unknown, path: string, packageCollections: Set<string>):
   const raw = value as Record<string, unknown>;
   const parsed: A2UiSurface = {
     schemaVersion: raw.schemaVersion === 'a2ui.v0_9' ? 'a2ui.v0_9' : undefined,
+    localization: raw.localization === undefined ? undefined : parseUiLocalization(raw.localization, `${path}.localization`),
     openUrlAllowlist: raw.openUrlAllowlist === undefined ? undefined : parseOptionalStringArray(raw.openUrlAllowlist, `${path}.openUrlAllowlist`),
     navigation: undefined,
     components: undefined,
@@ -501,15 +502,13 @@ function parseUi(value: unknown, path: string, packageCollections: Set<string>):
       items: items.map((item, index) => {
         assertCondition(isObject(item), `${path}.navigation.items[${index}] must be an object`);
         const screen = parseString(item.screen, `${path}.navigation.items[${index}].screen`);
-        assertCondition(['home', 'overview', 'chat', 'sources', 'settings'].includes(screen), `${path}.navigation.items[${index}].screen is invalid`);
         assertCondition(!seen.has(screen), `${path}.navigation.items contains duplicate ${screen}`);
         seen.add(screen);
         const icon = item.icon === undefined ? undefined : parseString(item.icon, `${path}.navigation.items[${index}].icon`);
-        assertCondition(icon === undefined || ['home', 'food', 'sparkles', 'sync', 'settings'].includes(icon), `${path}.navigation.items[${index}].icon is invalid`);
         return {
-          screen: screen as 'home' | 'overview' | 'chat' | 'sources' | 'settings',
+          screen,
           label: parseString(item.label, `${path}.navigation.items[${index}].label`),
-          icon: icon as 'home' | 'food' | 'sparkles' | 'sync' | 'settings' | undefined,
+          icon,
         };
       }),
     };
@@ -543,6 +542,35 @@ function parseUi(value: unknown, path: string, packageCollections: Set<string>):
     assertCondition(parsed.defaultScreen === undefined || screenIds.includes(parsed.defaultScreen), `${path}.defaultScreen references missing screen ${String(parsed.defaultScreen)}`);
   }
   return parsed;
+}
+
+function parseUiLocalization(value: unknown, path: string): A2UiLocalization {
+  assertCondition(isObject(value), `${path} must be an object`);
+  const raw = value as Record<string, unknown>;
+  const defaultLocale = parseLocaleTag(raw.defaultLocale, `${path}.defaultLocale`);
+  const messages = raw.messages;
+  assertCondition(isObject(messages), `${path}.messages must be an object`);
+  const parsedMessages: Record<string, Record<string, string>> = {};
+  for (const [locale, entries] of Object.entries(messages)) {
+    const normalizedLocale = parseLocaleTag(locale, `${path}.messages locale`);
+    assertCondition(isObject(entries), `${path}.messages.${locale} must be an object`);
+    parsedMessages[normalizedLocale] = {};
+    for (const [key, message] of Object.entries(entries)) {
+      parsedMessages[normalizedLocale][parseString(key, `${path}.messages.${locale} key`)] = parseString(message, `${path}.messages.${locale}.${key}`);
+    }
+  }
+  return {
+    defaultLocale,
+    ...(raw.fallbackLocale === undefined ? {} : { fallbackLocale: parseLocaleTag(raw.fallbackLocale, `${path}.fallbackLocale`) }),
+    ...(raw.appLocale === undefined ? {} : { appLocale: parseLocaleTag(raw.appLocale, `${path}.appLocale`) }),
+    messages: parsedMessages,
+  };
+}
+
+function parseLocaleTag(value: unknown, path: string): string {
+  const locale = parseString(value, path).replace(/_/g, '-');
+  assertCondition(/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(locale), `${path} must be a locale tag`);
+  return locale.toLowerCase();
 }
 
 function parseDomainManifest(value: unknown, path: string): DomainManifest {

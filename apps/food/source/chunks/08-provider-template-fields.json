@@ -1,4 +1,10 @@
 {
+  "relations_json": [
+    "Relations",
+    "relations",
+    "Related records",
+    "related_records"
+  ],
   "required": [
     "id",
     "title",
@@ -13,11 +19,5 @@
     "Food Detail",
     "Detail JSON",
     "detail_json"
-  ],
-  "relations_json": [
-    "Relations",
-    "relations",
-    "Related records",
-    "related_records"
   ]
 }

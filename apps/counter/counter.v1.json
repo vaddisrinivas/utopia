@@ -1,0 +1,556 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "counter",
+  "version": "2.0.0",
+  "collections": {
+    "counter": {
+      "id": "counter",
+      "fields": {
+        "value": {
+          "type": "number",
+          "required": true
+        },
+        "label": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "step": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "color": {
+          "type": "text"
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "counter-workspace": {
+      "from": "counter",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 24
+    },
+    "active-counter": {
+      "from": "counter",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 1
+    }
+  },
+  "views": {
+    "counter-workspace": {
+      "id": "counter-workspace",
+      "query": "counter-workspace",
+      "mode": "list",
+      "fields": [
+        "title",
+        "value",
+        "label",
+        "step",
+        "maximum",
+        "color"
+      ]
+    },
+    "active-counter": {
+      "id": "active-counter",
+      "query": "active-counter",
+      "mode": "list",
+      "fields": [
+        "title",
+        "value",
+        "label"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "tap-to-increment",
+    "optional-minus-button",
+    "counter-reset",
+    "persistent-value-after-restart",
+    "undo-last-change"
+  ],
+  "presentation": {
+    "label": "Counter",
+    "homeSurface": "count",
+    "surfaces": [
+      {
+        "id": "count",
+        "label": "Tally",
+        "collections": [
+          "counter"
+        ],
+        "views": [
+          "active-counter"
+        ]
+      },
+      {
+        "id": "counters",
+        "label": "Boards",
+        "collections": [
+          "counter"
+        ],
+        "views": [
+          "counter-workspace"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "Log",
+        "collections": [
+          "counter"
+        ],
+        "views": [
+          "active-counter"
+        ]
+      },
+      {
+        "id": "preferences",
+        "label": "Tune",
+        "collections": [
+          "counter"
+        ],
+        "views": [
+          "active-counter"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "counter",
+      "tone": "blue",
+      "accent": "#235FC4",
+      "canvas": "#F5F8FF",
+      "identity": "blue tally instrument with a single large count and a compact utility rail"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "count",
+      "screens": {
+        "count": {
+          "title": "Tally",
+          "subtitle": "Tap to count",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "appBarTitle": "Counter",
+            "scrollable": true,
+            "density": "spacious",
+            "activeTab": "count",
+            "tabs": [
+              {
+                "id": "count",
+                "screen": "count",
+                "label": "Tally"
+              },
+              {
+                "id": "counters",
+                "screen": "counters",
+                "label": "Boards"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Log"
+              },
+              {
+                "id": "preferences",
+                "screen": "preferences",
+                "label": "Tune"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F8FF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F0FF",
+              "ink": "#102A56",
+              "muted": "#587095",
+              "accent": "#235FC4",
+              "accentContrast": "#FFFFFF",
+              "border": "#C9D8F5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 680,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "primary-counter-control",
+              "kind": "widget",
+              "widget": "valueControl",
+              "title": "Current count",
+              "query": {
+                "collections": [
+                  "counter"
+                ],
+                "limit": 1
+              },
+              "props": {
+                "collection": "counter",
+                "recordId": "counter-primary",
+                "recordTitle": "Current count",
+                "valueField": "value",
+                "initialValue": 0,
+                "step": 1,
+                "precision": 0,
+                "min": 0,
+                "resetValue": 0,
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": false,
+                  "offline": "local",
+                  "confirmation": {
+                    "required": false
+                  },
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "validation": {
+                    "mode": "change",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                }
+              }
+            },
+            {
+              "id": "recent-counter-operations",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Last changes",
+              "props": {
+                "collection": "counter",
+                "limit": 5,
+                "emptyText": "Your count changes appear here."
+              }
+            }
+          ]
+        },
+        "counters": {
+          "title": "Boards",
+          "subtitle": "Saved counters",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Counter",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "counters",
+            "tabs": [
+              {
+                "id": "count",
+                "screen": "count",
+                "label": "Tally"
+              },
+              {
+                "id": "counters",
+                "screen": "counters",
+                "label": "Boards"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Log"
+              },
+              {
+                "id": "preferences",
+                "screen": "preferences",
+                "label": "Tune"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F8FF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F0FF",
+              "ink": "#102A56",
+              "muted": "#587095",
+              "accent": "#235FC4",
+              "accentContrast": "#FFFFFF",
+              "border": "#C9D8F5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 960,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "counter-workspace-list",
+              "kind": "recordList",
+              "title": "Counters",
+              "query": {
+                "collections": [
+                  "counter"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "emptyText": "No saved counters yet.",
+                "subtitleFields": [
+                  "value",
+                  "step",
+                  "maximum",
+                  "updated_at"
+                ]
+              }
+            },
+            {
+              "id": "counter-workspace-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Counter details",
+              "query": {
+                "collections": [
+                  "counter"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "label",
+                    "label": "Name"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Count"
+                  },
+                  {
+                    "key": "step",
+                    "label": "Step"
+                  },
+                  {
+                    "key": "maximum",
+                    "label": "Target"
+                  }
+                ],
+                "emptyText": "Saved counters appear here."
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "Log",
+          "subtitle": "Count history",
+          "shell": {
+            "layoutMode": "detailWorkspace",
+            "appBarTitle": "Counter",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "count",
+                "screen": "count",
+                "label": "Tally"
+              },
+              {
+                "id": "counters",
+                "screen": "counters",
+                "label": "Boards"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Log"
+              },
+              {
+                "id": "preferences",
+                "screen": "preferences",
+                "label": "Tune"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F8FF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F0FF",
+              "ink": "#102A56",
+              "muted": "#587095",
+              "accent": "#235FC4",
+              "accentContrast": "#FFFFFF",
+              "border": "#C9D8F5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 900,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "counter-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Change log",
+              "props": {
+                "collection": "counter",
+                "limit": 100,
+                "emptyText": "Count activity appears after the first tap."
+              }
+            },
+            {
+              "id": "counter-history-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Saved values",
+              "query": {
+                "collections": [
+                  "counter"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "label",
+                    "label": "Counter"
+                  },
+                  {
+                    "key": "value",
+                    "label": "Current value"
+                  },
+                  {
+                    "key": "updated_at",
+                    "label": "Updated"
+                  }
+                ],
+                "emptyText": "No saved values yet."
+              }
+            }
+          ]
+        },
+        "preferences": {
+          "title": "Tune",
+          "subtitle": "Counter defaults",
+          "shell": {
+            "layoutMode": "settingsWorkspace",
+            "appBarTitle": "Counter",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "preferences",
+            "tabs": [
+              {
+                "id": "count",
+                "screen": "count",
+                "label": "Tally"
+              },
+              {
+                "id": "counters",
+                "screen": "counters",
+                "label": "Boards"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Log"
+              },
+              {
+                "id": "preferences",
+                "screen": "preferences",
+                "label": "Tune"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F8FF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F0FF",
+              "ink": "#102A56",
+              "muted": "#587095",
+              "accent": "#235FC4",
+              "accentContrast": "#FFFFFF",
+              "border": "#C9D8F5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 680,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "counter-preferences",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Defaults",
+              "props": {
+                "fields": [
+                  {
+                    "id": "default_step",
+                    "label": "Default step",
+                    "type": "number"
+                  },
+                  {
+                    "id": "default_target",
+                    "label": "Default target",
+                    "type": "number"
+                  },
+                  {
+                    "id": "display_mode",
+                    "label": "Display mode",
+                    "type": "text"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

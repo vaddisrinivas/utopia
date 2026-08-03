@@ -12,12 +12,23 @@ import {
 import { useUtopiaDatabase } from '@/src/db/provider';
 import { useAppRuntime } from '@/src/domain/runtime-context';
 import type { WidgetProps } from '@/src/presentation/widgets/widget-sdk';
+import { upsertRecord } from '@/src/db/records';
+import {
+  buildTimedCompletionRecord,
+  normalizeTimedCompletionConfig,
+} from '@/src/presentation/widgets/timed-completion-record';
 import {
   currentFlowClock,
   dispatchPersistedStepFlow,
   loadPersistedStepFlow,
   startPersistedStepFlow,
 } from '@/src/workflows/timed-flow-runtime';
+import {
+  timerActionAccessibilityLabel,
+  timerControlTestId,
+  timerStatusAccessibilityLabel,
+  timerStatusTestId,
+} from '@/src/presentation/widgets/timed-flow-accessibility';
 
 export function StepFlowWidget({ element }: ComponentRenderProps<WidgetProps>) {
   return <TimedFlowWidget element={element} singleTimer={false} />;
@@ -51,6 +62,10 @@ function TimedFlowWidget({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const eventSequence = useRef(0);
+  const completionConfig = useMemo(
+    () => normalizeTimedCompletionConfig(props.completionRecord),
+    [props.completionRecord],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +150,36 @@ function TimedFlowWidget({
         appInstallationId: installationId,
         event: { ...event, id: `${runId}:${eventSequence.current}` } as StepFlowEvent,
       });
+      const completion = completionConfig
+        ? buildTimedCompletionRecord({
+          runId,
+          snapshot,
+          config: completionConfig,
+          completedAt: new Date().toISOString(),
+        })
+        : null;
+      if (completion && runtime.activeManifest && runtime.installationId) {
+        const now = String(completion.properties.completed_at);
+        await upsertRecord(db, runtime.activeManifest, {
+          ...completion,
+          relations: [],
+          source: {
+            provider: 'user',
+            external_id: completion.id,
+            url: null,
+            observed_at: now,
+            content_hash: null,
+          },
+          archived_at: null,
+          created_at: now,
+          updated_at: now,
+          operation_actor: 'workflow',
+          operation_origin: 'workflow',
+          operation_id: `op-${completion.id}`,
+          idempotency_key: `timed-completion:${runtime.installationId}:${completion.id}`,
+          app_installation_id: runtime.installationId,
+        });
+      }
       setPersisted(snapshot);
       setDisplay(snapshot);
     } catch (reason) {
@@ -142,7 +187,7 @@ function TimedFlowWidget({
     } finally {
       setBusy(false);
     }
-  }, [db, installationId, persisted, runId]);
+  }, [completionConfig, db, installationId, persisted, runId, runtime.activeManifest, runtime.installationId]);
 
   if (loading) {
     return (
@@ -164,9 +209,13 @@ function TimedFlowWidget({
       {props.subtitle ? <Text style={styles.subtitle}>{stringValue(props.subtitle)}</Text> : null}
       {!snapshot ? (
         <Pressable
+          accessible
+          accessibilityLabel={timerActionAccessibilityLabel('Start')}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy || !configuredSteps.length }}
           disabled={busy || !configuredSteps.length}
           onPress={() => void start()}
+          testID={timerControlTestId(localRunId, 'Start')}
           style={({ pressed }) => [styles.primary, pressed ? styles.pressed : null]}
         >
           <Text style={styles.primaryText}>{busy ? 'Starting...' : 'Start'}</Text>
@@ -182,19 +231,30 @@ function TimedFlowWidget({
           ) : null}
           <Text style={styles.stepTitle}>{currentStep?.title ?? 'Finished'}</Text>
           {remaining !== null ? <Text style={styles.time}>{formatDuration(remaining)}</Text> : null}
-          <Text style={styles.status}>{statusLabel(snapshot.status)}</Text>
+          <Text
+            accessible
+            accessibilityLabel={timerStatusAccessibilityLabel(snapshot.status)}
+            accessibilityLiveRegion="polite"
+            accessibilityState={{ busy }}
+            accessibilityRole="text"
+            testID={timerStatusTestId(localRunId)}
+            style={styles.status}
+          >
+            {statusLabel(snapshot.status)}
+          </Text>
           <View style={styles.actions}>
             {snapshot.status === 'running' ? (
-              <Action label="Pause" disabled={busy} onPress={() => void dispatch({ kind: 'pause' })} />
+              <Action runId={localRunId} label="Pause" disabled={busy} onPress={() => void dispatch({ kind: 'pause' })} />
             ) : null}
             {snapshot.status === 'paused' ? (
-              <Action label="Resume" disabled={busy} onPress={() => void dispatch({ kind: 'resume' })} />
+              <Action runId={localRunId} label="Resume" disabled={busy} onPress={() => void dispatch({ kind: 'resume' })} />
             ) : null}
             {snapshot.status === 'step_complete' || (!snapshot.timer && snapshot.status === 'running') ? (
-              <Action label={singleTimer ? 'Finish' : 'Next'} disabled={busy} primary onPress={() => void dispatch({ kind: 'next' })} />
+              <Action runId={localRunId} label={singleTimer ? 'Finish' : 'Next'} disabled={busy} primary onPress={() => void dispatch({ kind: 'next' })} />
             ) : null}
             {snapshot.status === 'review_required' ? (
               <Action
+                runId={localRunId}
                 label="Resume saved time"
                 disabled={busy}
                 primary
@@ -205,9 +265,9 @@ function TimedFlowWidget({
               />
             ) : null}
             {snapshot.status === 'cancelled' || snapshot.status === 'completed' ? (
-              <Action label="Restart" disabled={busy} primary onPress={() => void dispatch({ kind: 'retry' })} />
+              <Action runId={localRunId} label="Restart" disabled={busy} primary onPress={() => void dispatch({ kind: 'retry' })} />
             ) : (
-              <Action label="Cancel" disabled={busy} onPress={() => void dispatch({ kind: 'cancel' })} />
+              <Action runId={localRunId} label="Cancel" disabled={busy} onPress={() => void dispatch({ kind: 'cancel' })} />
             )}
           </View>
         </>
@@ -218,11 +278,13 @@ function TimedFlowWidget({
 }
 
 function Action({
+  runId,
   label,
   onPress,
   disabled,
   primary = false,
 }: {
+  runId: string;
   label: string;
   onPress: () => void;
   disabled: boolean;
@@ -230,9 +292,13 @@ function Action({
 }) {
   return (
     <Pressable
+      accessible
+      accessibilityLabel={timerActionAccessibilityLabel(label)}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      testID={timerControlTestId(runId, label)}
       style={({ pressed }) => [
         primary ? styles.primary : styles.secondary,
         pressed ? styles.pressed : null,

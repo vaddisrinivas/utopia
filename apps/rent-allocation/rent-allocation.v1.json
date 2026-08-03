@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "rent-allocation",
+  "version": "1.0.0",
+  "collections": {
+    "housemate": {
+      "id": "housemate",
+      "fields": {
+        "title": { "type": "text", "required": true, "indexed": true },
+        "weight": { "type": "number", "required": true },
+        "basis": { "type": "text", "required": true, "indexed": true },
+        "notes": { "type": "text" }
+      }
+    },
+    "monthly_plan": {
+      "id": "monthly_plan",
+      "fields": {
+        "title": { "type": "text", "required": true, "indexed": true },
+        "total_rent": { "type": "number", "required": true },
+        "month": { "type": "text", "required": true, "indexed": true }
+      }
+    }
+  },
+  "queries": {
+    "housemates": {
+      "from": "housemate",
+      "orderBy": [{ "field": "id", "direction": "asc" }],
+      "limit": 50
+    },
+    "plans": {
+      "from": "monthly_plan",
+      "orderBy": [{ "field": "month", "direction": "desc" }],
+      "limit": 24
+    }
+  },
+  "views": {
+    "housemates": {
+      "id": "housemates",
+      "query": "housemates",
+      "mode": "list",
+      "fields": ["title", "weight", "basis", "notes"]
+    },
+    "plans": {
+      "id": "plans",
+      "query": "plans",
+      "mode": "table",
+      "fields": ["title", "month", "total_rent", "allocations"]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "allocations",
+      "collection": "monthly_plan",
+      "dependsOn": [],
+      "expression": {
+        "allocate_weighted": {
+          "rows": { "var": "queries.housemates.rows" },
+          "key": "id",
+          "weight": "weight",
+          "total": { "var": "record.total_rent" }
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "weighted-rent-allocation",
+    "allocation-total-equals-rent",
+    "remainder-distribution-is-deterministic"
+  ],
+  "presentation": {
+    "label": "Rent Allocation",
+    "homeSurface": "overview",
+    "surfaces": [
+      { "id": "overview", "label": "Split", "icon": "home", "collections": ["housemate", "monthly_plan"], "views": ["housemates", "plans"] },
+      { "id": "edit", "label": "Edit", "icon": "list-plus", "collections": ["housemate", "monthly_plan"], "views": ["housemates", "plans"] },
+      { "id": "compare", "label": "Compare", "icon": "bar-chart-3", "collections": ["housemate", "monthly_plan"], "views": ["housemates", "plans"] },
+      { "id": "history", "label": "History", "icon": "history", "collections": ["housemate", "monthly_plan"], "views": ["housemates", "plans"] },
+      { "id": "settings", "label": "Settings", "icon": "shield-check", "collections": ["housemate", "monthly_plan"], "views": ["housemates", "plans"] }
+    ],
+    "visualIdentity": {
+      "icon": "home",
+      "tone": "moss",
+      "accent": "#146B4B",
+      "accentAlt": "#4F46E5",
+      "canvas": "#F3FAF6",
+      "identity": "A household settlement desk where the agreed split and who-owes-what occupy the first viewport.",
+      "firstViewportWorkflow": "Choose the active month, confirm housemate weights, and inspect the allocation table before recording settlement.",
+      "audience": "housemates and household organizers who need transparent rent shares, recurring charges, reminders, and backup posture."
+    },
+    "render": {
+      "schemaVersion": "utopia.gold-render-contract.v1",
+      "authoredPass": "gpt55-gold-wave3c-001",
+      "firstViewportWorkflow": "Choose the active month, confirm housemate weights, and inspect the allocation table before recording settlement.",
+      "responsiveTargets": ["phone", "desktop"],
+      "referenceScreenshots": ["play-01", "play-02", "play-03", "play-04", "play-05"]
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "overview",
+      "navigation": {
+        "items": [
+          { "screen": "overview", "label": "Split", "icon": "home" },
+          { "screen": "edit", "label": "Edit", "icon": "list-plus" },
+          { "screen": "compare", "label": "Compare", "icon": "bar-chart-3" },
+          { "screen": "history", "label": "History", "icon": "history" },
+          { "screen": "settings", "label": "Control", "icon": "shield-check" }
+        ]
+      },
+      "screens": {
+        "overview": {
+          "title": "Household Split Desk",
+          "subtitle": "Active month, agreed weights, and exact allocation visible immediately.",
+          "shell": {
+            "layoutMode": "householdSettlementWorkspace",
+            "appBarTitle": "Rent Allocation",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "overview",
+            "tabs": [
+              { "id": "overview", "screen": "overview", "label": "Split" },
+              { "id": "edit", "screen": "edit", "label": "Edit" },
+              { "id": "compare", "screen": "compare", "label": "Compare" },
+              { "id": "history", "screen": "history", "label": "History" },
+              { "id": "settings", "screen": "settings", "label": "Control" }
+            ],
+            "theme": {
+              "canvas": "#F3FAF6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E3F2EA",
+              "ink": "#17231D",
+              "muted": "#5D7066",
+              "accent": "#146B4B",
+              "accentContrast": "#FFFFFF",
+              "border": "#C7DCCF",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8EEFF",
+              "statusSuccess": "#DDF5E7",
+              "statusWarning": "#FFF2C4",
+              "statusError": "#FDE1DD",
+              "focusRing": "#4F46E5"
+            },
+            "responsive": { "breakpoint": 760, "maxContentWidth": 1180, "narrowPadding": 16, "widePadding": 32, "phoneColumns": 1, "desktopColumns": 12 },
+            "accessibility": { "minimumTargetSize": 44, "focusOrder": "workflow-first", "dynamicType": true, "nonColorStatus": true, "chartSummaries": true }
+          },
+          "components": [
+            {
+              "id": "rent-allocation-workbench",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Monthly split workbench",
+              "subtitle": "Create or edit the active rent plan with local validation.",
+              "tone": "moss",
+              "query": { "collections": ["monthly_plan"], "limit": 24 },
+              "props": {
+                "collection": "monthly_plan",
+                "placeholder": "August rent",
+                "emptyText": "Add a monthly plan to calculate the split.",
+                "metadataFields": [
+                  { "field": "title", "label": "Plan name", "type": "text", "required": true },
+                  { "field": "month", "label": "Month", "type": "text", "required": true, "sortable": true },
+                  { "field": "total_rent", "label": "Total rent", "type": "number", "required": true, "sortable": true }
+                ],
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": { "enabled": true, "windowMs": 10000 },
+                  "confirmation": { "required": false, "message": "Save this rent plan?" },
+                  "offline": "queue",
+                  "validation": { "mode": "submit", "requiredFields": ["title", "month", "total_rent"] },
+                  "draftPersistence": { "enabled": true, "scope": "local" },
+                  "restartRecovery": { "enabled": true, "maxAgeMs": 604800000 },
+                  "accessibleStatus": { "enabled": true, "labels": { "pending": "Saving plan", "saved": "Plan saved", "error": "Fix rent plan", "queued": "Queued offline", "undone": "Plan undone", "cancelled": "Plan cancelled" } }
+                }
+              }
+            },
+            { "id": "rent-save-plan-action", "kind": "action", "title": "Save split", "placement": "inline", "tone": "moss", "action": { "kind": "propose", "command": "rent_allocation_save_plan", "payload": { "collection": "monthly_plan" } } },
+            { "id": "rent-loading-state", "kind": "metric", "title": "Loading household", "dataState": "loading", "query": { "collections": ["monthly_plan"], "limit": 1 }, "props": { "emptyText": "Reading saved rent plans." } },
+            { "id": "rent-empty-group", "kind": "widget", "widget": "recordReviewCard", "title": "No active household", "subtitle": "Add housemates and a monthly plan before settlement.", "props": { "status": "empty", "emptyText": "No housemates or rent plan yet." } },
+            { "id": "rent-housemate-roster", "kind": "widget", "widget": "dataTable", "title": "Housemate weights", "query": { "collections": ["housemate"], "limit": 50 }, "props": { "columns": [{ "key": "title", "label": "Housemate" }, { "key": "weight", "label": "Weight" }, { "key": "basis", "label": "Basis" }, { "key": "notes", "label": "Notes" }] } },
+            { "id": "rent-allocation-table", "kind": "widget", "widget": "dataTable", "title": "Allocation result", "query": { "collections": ["monthly_plan"], "limit": 24 }, "props": { "itemsFromRecordField": "allocations", "columns": [{ "key": "key", "label": "Housemate" }, { "key": "weight", "label": "Weight" }, { "key": "amount", "label": "Rent" }], "emptyText": "Allocation appears after weights and total rent are saved." } }
+          ]
+        },
+        "edit": {
+          "title": "Split Editor",
+          "subtitle": "Edit housemates, detail records, and validation before balances change.",
+          "shell": { "layoutMode": "recordEditingDesk", "appBarTitle": "Rent Allocation", "scrollable": true, "density": "comfortable", "activeTab": "edit", "tabs": [{ "id": "overview", "screen": "overview", "label": "Split" }, { "id": "edit", "screen": "edit", "label": "Edit" }, { "id": "compare", "screen": "compare", "label": "Compare" }, { "id": "history", "screen": "history", "label": "History" }, { "id": "settings", "screen": "settings", "label": "Control" }], "theme": { "canvas": "#F3FAF6", "surface": "#FFFFFF", "ink": "#17231D", "muted": "#5D7066", "accent": "#146B4B", "accentContrast": "#FFFFFF", "border": "#C7DCCF", "statusError": "#FDE1DD", "focusRing": "#4F46E5" }, "responsive": { "breakpoint": 760, "maxContentWidth": 1180, "narrowPadding": 16, "widePadding": 32 }, "accessibility": { "minimumTargetSize": 44, "focusOrder": "document", "dynamicType": true, "nonColorStatus": true } },
+          "components": [
+            { "id": "rent-housemate-editor", "kind": "widget", "widget": "structuredList", "title": "Housemate editor", "query": { "collections": ["housemate"], "limit": 50 }, "props": { "collection": "housemate", "metadataFields": [{ "field": "title", "label": "Name", "type": "text", "required": true }, { "field": "weight", "label": "Weight", "type": "number", "required": true }, { "field": "basis", "label": "Basis", "type": "text", "required": true }, { "field": "notes", "label": "Notes", "type": "text" }], "commandPolicy": { "autosave": "blur", "optimistic": true, "undo": { "enabled": true, "windowMs": 10000 }, "confirmation": { "required": false, "message": "Save housemate?" }, "offline": "queue", "validation": { "mode": "submit", "requiredFields": ["title", "weight", "basis"] }, "draftPersistence": { "enabled": true, "scope": "local" }, "restartRecovery": { "enabled": true, "maxAgeMs": 604800000 }, "accessibleStatus": { "enabled": true, "labels": { "pending": "Saving person", "saved": "Person saved", "error": "Fix housemate", "queued": "Queued offline", "undone": "Housemate undone", "cancelled": "Housemate cancelled" } } } } },
+            { "id": "rent-plan-detail", "kind": "widget", "widget": "recordReviewCard", "title": "Plan detail", "query": { "collections": ["monthly_plan"], "limit": 1 }, "props": { "primaryFields": ["title", "month", "total_rent", "allocations"], "emptyText": "Select a plan to review." } },
+            { "id": "rent-validation-error", "kind": "widget", "widget": "recordReviewCard", "title": "Split needs attention", "dataState": "error", "props": { "status": "error", "emptyText": "Weights must be present and total rent must be positive." } },
+            { "id": "rent-recurring-rule-card", "kind": "widget", "widget": "recordReviewCard", "title": "Recurring rent rule", "subtitle": "Monthly rent and utility reminders stay tied to the active plan.", "props": { "status": "ready", "fields": ["month", "total_rent"] } },
+            { "id": "rent-record-expense-action", "kind": "action", "title": "Record shared expense", "placement": "inline", "tone": "blue", "action": { "kind": "propose", "command": "rent_allocation_record_expense", "payload": { "collection": "monthly_plan" } } }
+          ]
+        },
+        "compare": {
+          "title": "Scenario Comparison",
+          "subtitle": "Compare equal, exact, percentage, and share split language against the canonical weighted output.",
+          "shell": { "layoutMode": "analyticsWorkspace", "appBarTitle": "Rent Allocation", "scrollable": true, "density": "comfortable", "activeTab": "compare", "tabs": [{ "id": "overview", "screen": "overview", "label": "Split" }, { "id": "edit", "screen": "edit", "label": "Edit" }, { "id": "compare", "screen": "compare", "label": "Compare" }, { "id": "history", "screen": "history", "label": "History" }, { "id": "settings", "screen": "settings", "label": "Control" }], "theme": { "canvas": "#F3FAF6", "surface": "#FFFFFF", "ink": "#17231D", "muted": "#5D7066", "accent": "#4F46E5", "accentContrast": "#FFFFFF", "border": "#C7DCCF", "focusRing": "#146B4B" }, "responsive": { "breakpoint": 760, "maxContentWidth": 1180, "narrowPadding": 16, "widePadding": 32 }, "accessibility": { "minimumTargetSize": 44, "focusOrder": "workflow-first", "dynamicType": true, "chartSummaries": true } },
+          "components": [
+            { "id": "rent-scenario-summary", "kind": "widget", "widget": "recordHeroSummary", "title": "Settlement snapshot", "subtitle": "Balances conserve the monthly rent exactly.", "props": { "badge": "balanced", "stats": [{ "label": "split modes", "value": "equal exact percent share" }, { "label": "source", "value": "weights" }, { "label": "remainder", "value": "deterministic" }] } },
+            { "id": "rent-allocation-chart", "kind": "widget", "widget": "chartBlock", "title": "Allocation share", "query": { "collections": ["monthly_plan"], "limit": 24 }, "props": { "chartType": "bar", "xField": "month", "yField": "total_rent", "summary": "Chart summarizes monthly rent totals; allocation rows remain exact in table." } },
+            { "id": "rent-comparison-table", "kind": "widget", "widget": "dataTable", "title": "Mode comparison", "query": { "collections": ["monthly_plan"], "limit": 24 }, "props": { "columns": [{ "key": "title", "label": "Plan" }, { "key": "month", "label": "Month" }, { "key": "total_rent", "label": "Total" }, { "key": "allocations", "label": "Weighted result" }] } },
+            { "id": "rent-balance-detail", "kind": "widget", "widget": "recordTimeline", "title": "Balance detail", "query": { "collections": ["monthly_plan"], "limit": 12 }, "props": { "dateField": "month", "titleField": "title", "summaryFields": ["total_rent", "allocations"] } },
+            { "id": "rent-settle-action", "kind": "action", "title": "Record settle-up", "placement": "inline", "tone": "moss", "action": { "kind": "propose", "command": "rent_allocation_record_settlement", "payload": { "collection": "monthly_plan" } } }
+          ]
+        },
+        "history": {
+          "title": "Activity History",
+          "subtitle": "Audit expenses, settlements, offline saves, and restored drafts.",
+          "shell": { "layoutMode": "historyWorkspace", "appBarTitle": "Rent Allocation", "scrollable": true, "density": "comfortable", "activeTab": "history", "tabs": [{ "id": "overview", "screen": "overview", "label": "Split" }, { "id": "edit", "screen": "edit", "label": "Edit" }, { "id": "compare", "screen": "compare", "label": "Compare" }, { "id": "history", "screen": "history", "label": "History" }, { "id": "settings", "screen": "settings", "label": "Control" }], "theme": { "canvas": "#F3FAF6", "surface": "#FFFFFF", "ink": "#17231D", "muted": "#5D7066", "accent": "#146B4B", "accentContrast": "#FFFFFF", "border": "#C7DCCF", "focusRing": "#4F46E5" }, "responsive": { "breakpoint": 760, "maxContentWidth": 1180, "narrowPadding": 16, "widePadding": 32 }, "accessibility": { "minimumTargetSize": 44, "focusOrder": "document", "dynamicType": true, "nonColorStatus": true } },
+          "components": [
+            { "id": "rent-activity-history", "kind": "widget", "widget": "operationHistory", "title": "Expense activity", "query": { "collections": ["monthly_plan"], "limit": 24 }, "props": { "emptyText": "No split changes yet.", "statusLabels": ["created", "edited", "settled", "queued", "restored"] } },
+            { "id": "rent-history-table", "kind": "widget", "widget": "dataTable", "title": "Plan history", "query": { "collections": ["monthly_plan"], "limit": 24 }, "props": { "columns": [{ "key": "title", "label": "Plan" }, { "key": "month", "label": "Month" }, { "key": "total_rent", "label": "Total" }] } },
+            { "id": "rent-recovery-panel", "kind": "widget", "widget": "recordReviewCard", "title": "Recovery draft", "dataState": "ready", "props": { "status": "recovery", "emptyText": "Recovered local plan changes appear here after restart." } },
+            { "id": "rent-restore-action", "kind": "action", "title": "Restore last draft", "placement": "inline", "tone": "amber", "action": { "kind": "propose", "command": "rent_allocation_restore_draft", "payload": { "collection": "monthly_plan" } } }
+          ]
+        },
+        "settings": {
+          "title": "Household Controls",
+          "subtitle": "Recurring charges, reminders, backup, accessibility, and offline behavior.",
+          "shell": { "layoutMode": "settingsWorkspace", "appBarTitle": "Rent Allocation", "scrollable": true, "density": "comfortable", "activeTab": "settings", "tabs": [{ "id": "overview", "screen": "overview", "label": "Split" }, { "id": "edit", "screen": "edit", "label": "Edit" }, { "id": "compare", "screen": "compare", "label": "Compare" }, { "id": "history", "screen": "history", "label": "History" }, { "id": "settings", "screen": "settings", "label": "Control" }], "theme": { "canvas": "#F3FAF6", "surface": "#FFFFFF", "ink": "#17231D", "muted": "#5D7066", "accent": "#146B4B", "accentContrast": "#FFFFFF", "border": "#C7DCCF", "statusWarning": "#FFF2C4", "focusRing": "#4F46E5" }, "responsive": { "breakpoint": 760, "maxContentWidth": 1180, "narrowPadding": 16, "widePadding": 32 }, "accessibility": { "minimumTargetSize": 44, "focusOrder": "document", "dynamicType": true, "nonColorStatus": true } },
+          "components": [
+            { "id": "rent-settings-card", "kind": "widget", "widget": "recordReviewCard", "title": "Split defaults", "subtitle": "Default basis, reminder language, and transparent rounding.", "props": { "status": "ready", "fields": ["basis", "weight"] } },
+            { "id": "rent-offline-queue", "kind": "widget", "widget": "recordReviewCard", "title": "Offline queue", "dataState": "ready", "subtitle": "Local changes queue without changing the formula.", "props": { "status": "offline", "emptyText": "No queued rent changes." } },
+            { "id": "rent-backup-panel", "kind": "widget", "widget": "dataTable", "title": "Backup packet", "query": { "collections": ["monthly_plan"], "limit": 24 }, "props": { "columns": [{ "key": "title", "label": "Plan" }, { "key": "month", "label": "Month" }, { "key": "total_rent", "label": "Total" }] } },
+            { "id": "rent-backup-action", "kind": "action", "title": "Prepare backup", "placement": "inline", "tone": "moss", "action": { "kind": "propose", "command": "rent_allocation_prepare_backup", "payload": { "collections": ["housemate", "monthly_plan"] } } }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -562,7 +562,7 @@ describe('Cloudflare registry worker', () => {
     await env.PACKAGES.put('registry/trust/extension-root.json', JSON.stringify({
       schemaVersion: 'utopia.extension-trust-root.v1',
       version: 12,
-      expires: '2026-08-01T00:00:00.000Z',
+      expires: '2099-08-01T00:00:00.000Z',
       rootKeyId: 'root-key',
       delegatedPublishers: [{ publisherId: 'io.utopia', extensionIdPatterns: ['io.utopia.*'], delegatedSigningKeyIds: ['lane-b-key'] }],
     }));
@@ -570,7 +570,7 @@ describe('Cloudflare registry worker', () => {
       schemaVersion: 'utopia.extension-trust-targets.v1',
       publisherId: 'io.utopia',
       version: 4,
-      expires: '2026-08-01T00:00:00.000Z',
+      expires: '2099-08-01T00:00:00.000Z',
       delegatedSigningKeyIds: ['lane-b-key'],
     }));
 
@@ -626,7 +626,7 @@ describe('Cloudflare registry worker', () => {
     const rootKey = (version: number, rootKeyId: string) => JSON.stringify({
       schemaVersion: 'utopia.extension-trust-root.v1',
       version,
-      expires: '2026-08-01T00:00:00.000Z',
+      expires: '2099-08-01T00:00:00.000Z',
       rootKeyId,
       delegatedPublishers: [{ publisherId: 'io.utopia', extensionIdPatterns: ['io.utopia.*'], delegatedSigningKeyIds: ['publisher-key'] }],
     });
@@ -646,7 +646,7 @@ describe('Cloudflare registry worker', () => {
       schemaVersion: 'utopia.extension-trust-targets.v1',
       publisherId: 'io.utopia',
       version,
-      expires: '2026-08-01T00:00:00.000Z',
+      expires: '2099-08-01T00:00:00.000Z',
       delegatedSigningKeyIds: ['lane-b-key'],
     });
     await env.PACKAGES.put('registry/trust/extension-targets-io.utopia.json', targets(4));
@@ -664,7 +664,7 @@ describe('Cloudflare registry worker', () => {
     const root = (delegatedKey: string) => JSON.stringify({
       schemaVersion: 'utopia.extension-trust-root.v1',
       version: 12,
-      expires: '2026-08-01T00:00:00.000Z',
+      expires: '2099-08-01T00:00:00.000Z',
       rootKeyId: 'root-key',
       delegatedPublishers: [{ publisherId: 'io.utopia', extensionIdPatterns: ['io.utopia.*'], delegatedSigningKeyIds: [delegatedKey] }],
     });

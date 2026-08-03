@@ -56,7 +56,7 @@ export default function TabLayout() {
   const items = activeManifest?.ui?.navigation?.items ?? [];
   const item = (screen: NavigationItem['screen'], fallback: NavigationItem): NavigationItem =>
     items.find((candidate) => candidate.screen === screen) ?? fallback;
-  const home = item('home', { screen: 'home', label: 'Home', icon: 'home' });
+  const home: NavigationItem = { screen: 'home', label: 'Library', icon: 'home' };
   const overview = item('overview', { screen: 'overview', label: activeManifest?.label ?? 'App', icon: 'food' });
   const chat = item('chat', { screen: 'chat', label: 'Ask', icon: 'sparkles' });
   const settings = item('settings', { screen: 'settings', label: 'Settings', icon: 'settings' });
@@ -65,6 +65,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        animation: 'none',
         headerShown: false,
         tabBarActiveTintColor: '#2F7448',
         tabBarInactiveTintColor: '#7A7066',
@@ -96,6 +97,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="food"
         options={{
+          href: null,
           title: overview.label,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon {...icon(overview, 'food')} color={color} focused={focused} />

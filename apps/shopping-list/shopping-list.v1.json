@@ -1,0 +1,649 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "shopping-list",
+  "version": "2.0.0",
+  "collections": {
+    "shopping_list": {
+      "id": "shopping_list",
+      "fields": {
+        "name": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "color": {
+          "type": "text"
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "indexed": true
+        }
+      }
+    },
+    "shopping_item": {
+      "id": "shopping_item",
+      "fields": {
+        "checked": {
+          "type": "boolean",
+          "indexed": true
+        },
+        "position": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "list_name": {
+          "type": "text",
+          "indexed": true
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "text",
+          "indexed": true
+        },
+        "price": {
+          "type": "number"
+        },
+        "category": {
+          "type": "text",
+          "indexed": true
+        },
+        "note": {
+          "type": "text"
+        },
+        "product_url": {
+          "type": "text"
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "shopping-items": {
+      "from": "shopping_item",
+      "orderBy": [
+        {
+          "field": "position",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "shopping-lists": {
+      "from": "shopping_list",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 40
+    }
+  },
+  "views": {
+    "shopping-items": {
+      "id": "shopping-items",
+      "query": "shopping-items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "checked",
+        "quantity",
+        "unit",
+        "price",
+        "category",
+        "note"
+      ]
+    },
+    "shopping-lists": {
+      "id": "shopping-lists",
+      "query": "shopping-lists",
+      "mode": "list",
+      "fields": [
+        "title",
+        "name",
+        "color"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "quick-add-item",
+    "reorder-items",
+    "check-off-item",
+    "offline-persistence",
+    "product-categories",
+    "product-quantities"
+  ],
+  "presentation": {
+    "label": "Shopping List",
+    "homeSurface": "shop",
+    "surfaces": [
+      {
+        "id": "shop",
+        "label": "Shop",
+        "collections": [
+          "shopping_item"
+        ],
+        "views": [
+          "shopping-items"
+        ]
+      },
+      {
+        "id": "lists",
+        "label": "Lists",
+        "collections": [
+          "shopping_list"
+        ],
+        "views": [
+          "shopping-lists"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "Changes",
+        "collections": [
+          "shopping_item"
+        ],
+        "views": [
+          "shopping-items"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Options",
+        "collections": [
+          "shopping_item"
+        ],
+        "views": [
+          "shopping-items"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "basket",
+      "tone": "green",
+      "accent": "#237A48",
+      "canvas": "#F5FBF6",
+      "identity": "fresh grocery worklist with a green checkout rhythm and compact item editing"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "shop",
+      "screens": {
+        "shop": {
+          "title": "Shopping",
+          "subtitle": "Add what you need",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Shopping",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "shop",
+            "tabs": [
+              {
+                "id": "shop",
+                "screen": "shop",
+                "label": "Shop"
+              },
+              {
+                "id": "lists",
+                "screen": "lists",
+                "label": "Lists"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Changes"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5FBF6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F4E9",
+              "ink": "#173B27",
+              "muted": "#547362",
+              "accent": "#237A48",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDE6D5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 900,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "shopping-items-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "This trip",
+              "query": {
+                "collections": [
+                  "shopping_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "shopping_item",
+                "pickedField": "checked",
+                "pickedLabel": "picked",
+                "positionField": "position",
+                "placeholder": "Add milk, rice, soap",
+                "emptyText": "Add the first thing you need.",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "commandPolicy": {
+                  "offline": "local"
+                },
+                "metadataFields": [
+                  {
+                    "field": "quantity",
+                    "label": "Quantity",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "unit",
+                    "label": "Unit",
+                    "type": "select",
+                    "options": [
+                      "each",
+                      "kg",
+                      "g",
+                      "L",
+                      "pack"
+                    ],
+                    "filterable": true
+                  },
+                  {
+                    "field": "category",
+                    "label": "Category",
+                    "type": "select",
+                    "options": [
+                      "Produce",
+                      "Dairy",
+                      "Bakery",
+                      "Pantry",
+                      "Household"
+                    ],
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "price",
+                    "label": "Price",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "note",
+                    "label": "Note",
+                    "type": "text"
+                  },
+                  {
+                    "field": "product_url",
+                    "label": "Product link",
+                    "type": "url"
+                  }
+                ],
+                "suggestions": [
+                  "Milk",
+                  "Bananas",
+                  "Rice"
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  {
+                    "kind": "field",
+                    "field": "category",
+                    "label": "Category"
+                  }
+                ],
+                "filterFields": [
+                  "category",
+                  "unit"
+                ]
+              }
+            },
+            {
+              "id": "shopping-progress",
+              "kind": "metric",
+              "title": "Trip status",
+              "query": {
+                "collections": [
+                  "shopping_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "emptyText": "Your picked items show up here."
+              }
+            }
+          ]
+        },
+        "lists": {
+          "title": "Lists",
+          "subtitle": "Named shopping lists",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Shopping",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "lists",
+            "tabs": [
+              {
+                "id": "shop",
+                "screen": "shop",
+                "label": "Shop"
+              },
+              {
+                "id": "lists",
+                "screen": "lists",
+                "label": "Lists"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Changes"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5FBF6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F4E9",
+              "ink": "#173B27",
+              "muted": "#547362",
+              "accent": "#237A48",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDE6D5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 860,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "shopping-list-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Saved lists",
+              "query": {
+                "collections": [
+                  "shopping_list"
+                ],
+                "limit": 60
+              },
+              "props": {
+                "collection": "shopping_list",
+                "placeholder": "Add a list",
+                "emptyText": "Create a named list.",
+                "appearance": "plain",
+                "metadataFields": [
+                  {
+                    "field": "color",
+                    "label": "Color",
+                    "type": "text"
+                  }
+                ],
+                "sorts": [
+                  "alphabetic"
+                ]
+              }
+            },
+            {
+              "id": "shopping-list-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "List details",
+              "query": {
+                "collections": [
+                  "shopping_list"
+                ],
+                "limit": 60
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "name",
+                    "label": "List"
+                  },
+                  {
+                    "key": "color",
+                    "label": "Color"
+                  },
+                  {
+                    "key": "updated_at",
+                    "label": "Updated"
+                  }
+                ],
+                "emptyText": "Named lists appear here."
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "Changes",
+          "subtitle": "Item activity",
+          "shell": {
+            "layoutMode": "detailWorkspace",
+            "appBarTitle": "Shopping",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "shop",
+                "screen": "shop",
+                "label": "Shop"
+              },
+              {
+                "id": "lists",
+                "screen": "lists",
+                "label": "Lists"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Changes"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5FBF6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F4E9",
+              "ink": "#173B27",
+              "muted": "#547362",
+              "accent": "#237A48",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDE6D5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 860,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "shopping-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Recent changes",
+              "props": {
+                "collection": "shopping_item",
+                "limit": 80,
+                "emptyText": "Item changes appear here."
+              }
+            },
+            {
+              "id": "shopping-item-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "All items",
+              "query": {
+                "collections": [
+                  "shopping_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Item"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Category"
+                  },
+                  {
+                    "key": "quantity",
+                    "label": "Qty"
+                  },
+                  {
+                    "key": "unit",
+                    "label": "Unit"
+                  },
+                  {
+                    "key": "price",
+                    "label": "Price"
+                  }
+                ],
+                "emptyText": "No items saved yet."
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Options",
+          "subtitle": "List defaults",
+          "shell": {
+            "layoutMode": "settingsWorkspace",
+            "appBarTitle": "Shopping",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "shop",
+                "screen": "shop",
+                "label": "Shop"
+              },
+              {
+                "id": "lists",
+                "screen": "lists",
+                "label": "Lists"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Changes"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5FBF6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F4E9",
+              "ink": "#173B27",
+              "muted": "#547362",
+              "accent": "#237A48",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDE6D5",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 680,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "shopping-preferences",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Shopping defaults",
+              "props": {
+                "fields": [
+                  {
+                    "id": "default_list",
+                    "label": "Default list name",
+                    "type": "text"
+                  },
+                  {
+                    "id": "default_unit",
+                    "label": "Default unit",
+                    "type": "text"
+                  },
+                  {
+                    "id": "sort_order",
+                    "label": "Default sort",
+                    "type": "text"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

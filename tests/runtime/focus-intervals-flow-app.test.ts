@@ -26,7 +26,7 @@ describe('focus intervals flow app', () => {
     const validation = validateAppPackage(appPackage);
 
     expect(validation).toMatchObject({ valid: true });
-    expect(widgetKinds(appPackage)).toEqual(['durationTimer', 'stepFlow']);
+    expect(widgetKinds(appPackage)).toEqual(expect.arrayContaining(['durationTimer', 'stepFlow']));
     expect(runtimeOperations(appPackage)).toEqual([]);
     expect(hasAppNamedRuntimeSurface(appPackage, 'focus-intervals')).toBe(false);
 

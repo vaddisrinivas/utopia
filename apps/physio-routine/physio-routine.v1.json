@@ -1,0 +1,1251 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "physio-routine",
+  "version": "2.0.0",
+  "collections": {
+    "care_plan": {
+      "id": "care_plan",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "body_area": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "clinician": {
+          "type": "text"
+        },
+        "target_sessions_per_week": {
+          "type": "number",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "precautions": {
+          "type": "text"
+        },
+        "adherence_target": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "routine_session": {
+      "id": "routine_session",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "care_plan_id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "started_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "finished_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "pain_before": {
+          "type": "number"
+        },
+        "pain_after": {
+          "type": "number"
+        },
+        "pain_change": {
+          "type": "number"
+        },
+        "confidence_after": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "exercise_log": {
+      "id": "exercise_log",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "session_id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "exercise": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "sets": {
+          "type": "number",
+          "required": true
+        },
+        "reps": {
+          "type": "number",
+          "required": true
+        },
+        "hold_seconds": {
+          "type": "number"
+        },
+        "total_repetitions": {
+          "type": "number"
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "discomfort": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    }
+  },
+  "queries": {
+    "active-plans": {
+      "from": "care_plan",
+      "where": {
+        "op": "eq",
+        "field": "status",
+        "value": "active"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    },
+    "open-sessions": {
+      "from": "routine_session",
+      "where": {
+        "op": "neq",
+        "field": "status",
+        "value": "finished"
+      },
+      "orderBy": [
+        {
+          "field": "started_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 20
+    },
+    "recent-sessions": {
+      "from": "routine_session",
+      "orderBy": [
+        {
+          "field": "started_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    },
+    "exercise-history": {
+      "from": "exercise_log",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 200
+    }
+  },
+  "views": {
+    "plans": {
+      "id": "plans",
+      "query": "active-plans",
+      "mode": "list",
+      "fields": [
+        "title",
+        "body_area",
+        "clinician",
+        "target_sessions_per_week",
+        "status"
+      ]
+    },
+    "sessions": {
+      "id": "sessions",
+      "query": "recent-sessions",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "care_plan_id",
+        "pain_before",
+        "pain_after",
+        "pain_change",
+        "status"
+      ]
+    },
+    "exercises": {
+      "id": "exercises",
+      "query": "exercise-history",
+      "mode": "table",
+      "fields": [
+        "exercise",
+        "sets",
+        "reps",
+        "hold_seconds",
+        "total_repetitions",
+        "status",
+        "discomfort"
+      ]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "pain_change",
+      "collection": "routine_session",
+      "dependsOn": [],
+      "expression": {
+        "-": [
+          {
+            "var": [
+              "record.pain_after",
+              0
+            ]
+          },
+          {
+            "var": [
+              "record.pain_before",
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "total_repetitions",
+      "collection": "exercise_log",
+      "dependsOn": [],
+      "expression": {
+        "*": [
+          {
+            "var": "record.sets"
+          },
+          {
+            "var": "record.reps"
+          }
+        ]
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "package-validates",
+    "computed-pain-change",
+    "computed-repetition-total",
+    "generic-step-flow-definition",
+    "generic-duration-timer-definition",
+    "background-foreground-observe",
+    "restart-recovery-confirmed-elapsed",
+    "uncertain-elapsed-review-required",
+    "completed-session-record",
+    "generic-widget-only",
+    "gold-from-scratch-presentation",
+    "gold-active-routine-workspace",
+    "gold-safety-feedback-history"
+  ],
+  "presentation": {
+    "label": "Physio Routine",
+    "homeSurface": "today",
+    "surfaces": [
+      {
+        "id": "today",
+        "label": "Today",
+        "icon": "today",
+        "collections": [
+          "care_plan",
+          "routine_session",
+          "exercise_log"
+        ],
+        "views": [
+          "plans",
+          "sessions",
+          "exercises"
+        ]
+      },
+      {
+        "id": "program",
+        "label": "Program",
+        "icon": "program",
+        "collections": [
+          "care_plan",
+          "routine_session",
+          "exercise_log"
+        ],
+        "views": [
+          "plans",
+          "sessions",
+          "exercises"
+        ]
+      },
+      {
+        "id": "progress",
+        "label": "Progress",
+        "icon": "progress",
+        "collections": [
+          "care_plan",
+          "routine_session",
+          "exercise_log"
+        ],
+        "views": [
+          "plans",
+          "sessions",
+          "exercises"
+        ]
+      },
+      {
+        "id": "feedback",
+        "label": "Feedback",
+        "icon": "feedback",
+        "collections": [
+          "care_plan",
+          "routine_session",
+          "exercise_log"
+        ],
+        "views": [
+          "plans",
+          "sessions",
+          "exercises"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "collections": [
+          "care_plan",
+          "routine_session",
+          "exercise_log"
+        ],
+        "views": [
+          "plans",
+          "sessions",
+          "exercises"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "heart-pulse",
+      "tone": "recovery-indigo",
+      "accent": "#7C4DFF",
+      "canvas": "#11144A",
+      "surface": "#FFFFFF",
+      "ink": "#17143A",
+      "muted": "#68637D"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "today",
+      "navigation": {
+        "items": [
+          {
+            "screen": "today",
+            "label": "Today",
+            "icon": "flame"
+          },
+          {
+            "screen": "program",
+            "label": "Program",
+            "icon": "clipboard-list"
+          },
+          {
+            "screen": "progress",
+            "label": "Progress",
+            "icon": "bar-chart"
+          },
+          {
+            "screen": "feedback",
+            "label": "Feedback",
+            "icon": "message-square"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings",
+            "icon": "settings"
+          }
+        ]
+      },
+      "screens": {
+        "today": {
+          "title": "Today",
+          "subtitle": "Open the assigned routine, run holds safely, and record discomfort.",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "appBarTitle": "Physio Routine",
+            "appBarSubtitle": "Do the plan safely.",
+            "appBarEyebrow": "Recovery program",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "today",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "flame"
+              },
+              {
+                "id": "program",
+                "screen": "program",
+                "label": "Program",
+                "icon": "clipboard-list"
+              },
+              {
+                "id": "progress",
+                "screen": "progress",
+                "label": "Progress",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "feedback",
+                "screen": "feedback",
+                "label": "Feedback",
+                "icon": "message-square"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "pain-check",
+                "label": "Pain check",
+                "icon": "clipboard-check",
+                "tone": "secondary",
+                "event": "record-pain"
+              },
+              {
+                "id": "start-routine",
+                "label": "Start",
+                "icon": "play",
+                "tone": "primary",
+                "event": "start-mobility-routine"
+              }
+            ],
+            "theme": {
+              "canvas": "#11144A",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8E6FF",
+              "ink": "#17143A",
+              "muted": "#68637D",
+              "accent": "#7C4DFF",
+              "accentContrast": "#FFFFFF",
+              "border": "#D7D1F8",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEBFF",
+              "statusSuccess": "#DDF7EE",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 960,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "physio-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Recovery today",
+              "props": {
+                "title": "24 day streak",
+                "subtitle": "Leg Strength and Mobility, 80 percent complete this week.",
+                "badge": "Clinician plan",
+                "stats": [
+                  {
+                    "label": "Exercises",
+                    "value": "4"
+                  },
+                  {
+                    "label": "Adherence",
+                    "value": "80%"
+                  },
+                  {
+                    "label": "Hold",
+                    "value": "30s"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "routine-flow",
+              "kind": "widget",
+              "widget": "stepFlow",
+              "title": "Mobility routine",
+              "props": {
+                "runId": "mobility-routine",
+                "recovery": {
+                  "onRestart": "restore-active-step",
+                  "onUncertainElapsed": "require-confirmation"
+                },
+                "steps": [
+                  {
+                    "id": "warmup",
+                    "title": "Warmup",
+                    "durationSeconds": 180
+                  },
+                  {
+                    "id": "mobility",
+                    "title": "Mobility",
+                    "durationSeconds": 300
+                  },
+                  {
+                    "id": "strength",
+                    "title": "Strength"
+                  },
+                  {
+                    "id": "recovery",
+                    "title": "Recovery hold",
+                    "durationSeconds": 120
+                  },
+                  {
+                    "id": "symptoms",
+                    "title": "Symptoms"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "exercise-hold-timer",
+              "kind": "widget",
+              "widget": "durationTimer",
+              "title": "Exercise hold",
+              "props": {
+                "runId": "exercise-hold",
+                "label": "Exercise hold",
+                "durationSeconds": 30,
+                "recovery": {
+                  "onRestart": "restore-active-session",
+                  "onUncertainElapsed": "require-confirmation"
+                }
+              }
+            },
+            {
+              "id": "exercise-media",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Exercise card",
+              "props": {
+                "title": "Straight-leg raise",
+                "subtitle": "3 sets, 12 reps, 30 second hold.",
+                "body": "Keep exercise instructions and offline notes close at hand. Video playback is unavailable in this version.",
+                "badge": "Offline available",
+                "actions": [
+                  {
+                    "label": "Open program",
+                    "route": "/apps/physio-routine?screen=program"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "safety-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Safety check",
+              "props": {
+                "title": "Before completion",
+                "subtitle": "Pain, confidence, and notes are captured before closing the session.",
+                "items": [
+                  {
+                    "title": "Pause is allowed",
+                    "detail": "Timer can pause and resume before moving to the next step.",
+                    "status": "safe"
+                  },
+                  {
+                    "title": "Discomfort scale",
+                    "detail": "Pain before and after produce exact change.",
+                    "status": "tracked"
+                  },
+                  {
+                    "title": "Provider feedback",
+                    "detail": "Notes remain visible in the feedback screen.",
+                    "status": "ready"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "program": {
+          "title": "Program",
+          "subtitle": "Review assigned plans, exercises, dosage, precautions, and offline content.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Physio Routine",
+            "appBarSubtitle": "Do the plan safely.",
+            "appBarEyebrow": "Recovery program",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "program",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "flame"
+              },
+              {
+                "id": "program",
+                "screen": "program",
+                "label": "Program",
+                "icon": "clipboard-list"
+              },
+              {
+                "id": "progress",
+                "screen": "progress",
+                "label": "Progress",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "feedback",
+                "screen": "feedback",
+                "label": "Feedback",
+                "icon": "message-square"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#11144A",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8E6FF",
+              "ink": "#17143A",
+              "muted": "#68637D",
+              "accent": "#7C4DFF",
+              "accentContrast": "#FFFFFF",
+              "border": "#D7D1F8",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEBFF",
+              "statusSuccess": "#DDF7EE",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "active-plans-list",
+              "kind": "recordList",
+              "title": "Assigned plans",
+              "query": {
+                "collections": [
+                  "care_plan"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "emptyText": "No records yet.",
+                "subtitleFields": [
+                  "body_area",
+                  "clinician",
+                  "target_sessions_per_week",
+                  "precautions"
+                ]
+              }
+            },
+            {
+              "id": "plan-detail",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Plan detail",
+              "props": {
+                "title": "Leg Strength and Mobility",
+                "subtitle": "2 weeks, 4 exercises, educational content.",
+                "body": "Review dosage, holds, precautions, and clinician notes without creating an account.",
+                "badge": "80 percent"
+              }
+            },
+            {
+              "id": "exercise-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Exercise list",
+              "query": {
+                "collections": [
+                  "exercise_log"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "exercise_log",
+                "editable": true,
+                "autoSaveEdits": true,
+                "metadataFields": [
+                  {
+                    "field": "exercise",
+                    "label": "Exercise",
+                    "type": "text",
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "sets",
+                    "label": "Sets",
+                    "type": "number",
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "reps",
+                    "label": "Reps",
+                    "type": "number",
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "hold_seconds",
+                    "label": "Hold Seconds",
+                    "type": "number",
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "text",
+                    "sortable": true,
+                    "filterable": true
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": true,
+                  "failure": "inline-error"
+                }
+              }
+            }
+          ]
+        },
+        "progress": {
+          "title": "Progress",
+          "subtitle": "See adherence, pain change, repetition volume, and weekly completion.",
+          "shell": {
+            "layoutMode": "dashboardWorkspace",
+            "appBarTitle": "Physio Routine",
+            "appBarSubtitle": "Do the plan safely.",
+            "appBarEyebrow": "Recovery program",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "progress",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "flame"
+              },
+              {
+                "id": "program",
+                "screen": "program",
+                "label": "Program",
+                "icon": "clipboard-list"
+              },
+              {
+                "id": "progress",
+                "screen": "progress",
+                "label": "Progress",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "feedback",
+                "screen": "feedback",
+                "label": "Feedback",
+                "icon": "message-square"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#11144A",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8E6FF",
+              "ink": "#17143A",
+              "muted": "#68637D",
+              "accent": "#7C4DFF",
+              "accentContrast": "#FFFFFF",
+              "border": "#D7D1F8",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEBFF",
+              "statusSuccess": "#DDF7EE",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "adherence-metric",
+              "kind": "metric",
+              "title": "Completed sessions",
+              "query": {
+                "collections": [
+                  "routine_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "emptyText": "No data yet.",
+                "valueField": "pain_change"
+              }
+            },
+            {
+              "id": "pain-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Pain change by session",
+              "query": {
+                "collections": [
+                  "routine_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "dataBinding": {
+                  "source": "query-records",
+                  "xField": "started_at",
+                  "yField": "pain_change"
+                },
+                "emptyText": "Complete one routine to see pain change."
+              }
+            },
+            {
+              "id": "exercise-progress-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Exercise history",
+              "query": {
+                "collections": [
+                  "exercise_log"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "exercise",
+                    "label": "Exercise"
+                  },
+                  {
+                    "key": "sets",
+                    "label": "Sets"
+                  },
+                  {
+                    "key": "reps",
+                    "label": "Reps"
+                  },
+                  {
+                    "key": "hold_seconds",
+                    "label": "Hold Seconds"
+                  },
+                  {
+                    "key": "total_repetitions",
+                    "label": "Total Repetitions"
+                  },
+                  {
+                    "key": "discomfort",
+                    "label": "Discomfort"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Status"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "progress-history",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Routine history",
+              "query": {
+                "collections": [
+                  "routine_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "status",
+                  "pain_before",
+                  "pain_after",
+                  "pain_change"
+                ]
+              }
+            }
+          ]
+        },
+        "feedback": {
+          "title": "Feedback",
+          "subtitle": "Capture symptoms and provider notes without interrupting the routine.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Physio Routine",
+            "appBarSubtitle": "Do the plan safely.",
+            "appBarEyebrow": "Recovery program",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "feedback",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "flame"
+              },
+              {
+                "id": "program",
+                "screen": "program",
+                "label": "Program",
+                "icon": "clipboard-list"
+              },
+              {
+                "id": "progress",
+                "screen": "progress",
+                "label": "Progress",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "feedback",
+                "screen": "feedback",
+                "label": "Feedback",
+                "icon": "message-square"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#11144A",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8E6FF",
+              "ink": "#17143A",
+              "muted": "#68637D",
+              "accent": "#7C4DFF",
+              "accentContrast": "#FFFFFF",
+              "border": "#D7D1F8",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEBFF",
+              "statusSuccess": "#DDF7EE",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "feedback-form",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Recovery feedback",
+              "props": {
+                "fields": [
+                  {
+                    "id": "pain_before",
+                    "label": "Pain before",
+                    "type": "number"
+                  },
+                  {
+                    "id": "pain_after",
+                    "label": "Pain after",
+                    "type": "number"
+                  },
+                  {
+                    "id": "confidence_after",
+                    "label": "Confidence after",
+                    "type": "number"
+                  },
+                  {
+                    "id": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "autosave": "on-blur",
+                "submitLabel": "Save feedback"
+              }
+            },
+            {
+              "id": "feedback-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Provider review packet",
+              "props": {
+                "title": "Ready for provider",
+                "subtitle": "Session notes, pain change, and exercise completion are grouped together.",
+                "items": [
+                  {
+                    "title": "Pain changed",
+                    "detail": "Updated after every completed session.",
+                    "status": "calculated"
+                  },
+                  {
+                    "title": "Exercise compliance",
+                    "detail": "Sets, reps, and holds stay inspectable.",
+                    "status": "ready"
+                  },
+                  {
+                    "title": "Offline capture",
+                    "detail": "Feedback remains local until sync exists.",
+                    "status": "safe"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Reminders, sound cues, offline access, and accessibility defaults.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Physio Routine",
+            "appBarSubtitle": "Do the plan safely.",
+            "appBarEyebrow": "Recovery program",
+            "scrollable": true,
+            "density": "compact",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "flame"
+              },
+              {
+                "id": "program",
+                "screen": "program",
+                "label": "Program",
+                "icon": "clipboard-list"
+              },
+              {
+                "id": "progress",
+                "screen": "progress",
+                "label": "Progress",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "feedback",
+                "screen": "feedback",
+                "label": "Feedback",
+                "icon": "message-square"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#11144A",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8E6FF",
+              "ink": "#17143A",
+              "muted": "#68637D",
+              "accent": "#7C4DFF",
+              "accentContrast": "#FFFFFF",
+              "border": "#D7D1F8",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEBFF",
+              "statusSuccess": "#DDF7EE",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE1DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "reminder-settings",
+              "kind": "widget",
+              "widget": "notificationScheduler",
+              "title": "Exercise reminders",
+              "props": {
+                "eventTitle": "Physio routine",
+                "startOffsetMinutes": 15,
+                "durationMinutes": 20,
+                "nativeUnavailableCopy": "Reminders need notification permission in a native shell."
+              }
+            },
+            {
+              "id": "physio-settings-form",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Routine defaults",
+              "props": {
+                "fields": [
+                  {
+                    "id": "sound_cues",
+                    "label": "Sound cues",
+                    "type": "text"
+                  },
+                  {
+                    "id": "reminder_days",
+                    "label": "Reminder days",
+                    "type": "text"
+                  },
+                  {
+                    "id": "landscape_mode",
+                    "label": "Landscape mode",
+                    "type": "text"
+                  }
+                ],
+                "autosave": "on-blur"
+              }
+            },
+            {
+              "id": "physio-provider",
+              "kind": "widget",
+              "widget": "providerStatus",
+              "title": "Offline access",
+              "props": {
+                "unavailableText": "Exercises stay available offline. Online provider sync is unavailable."
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

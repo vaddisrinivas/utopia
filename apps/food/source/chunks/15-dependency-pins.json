@@ -1,27 +1,27 @@
 [
   {
     "package": "expo-image-picker",
-    "version": "~57.0.7",
-    "source": "npm"
+    "source": "npm",
+    "version": "~57.0.7"
   },
   {
     "package": "expo-file-system",
-    "version": "~57.0.1",
-    "source": "npm"
+    "source": "npm",
+    "version": "~57.0.1"
   },
   {
     "package": "expo-sharing",
-    "version": "~57.0.8",
-    "source": "npm"
+    "source": "npm",
+    "version": "~57.0.8"
   },
   {
     "package": "expo-linking",
-    "version": "~57.0.4",
-    "source": "npm"
+    "source": "npm",
+    "version": "~57.0.4"
   },
   {
     "package": "react-native-health-connect",
-    "version": "^3.5.3",
-    "source": "npm"
+    "source": "npm",
+    "version": "^3.5.3"
   }
 ]

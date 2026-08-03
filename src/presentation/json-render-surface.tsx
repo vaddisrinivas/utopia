@@ -3,14 +3,18 @@ import { validateSpec } from '@json-render/core';
 import { JSONUIProvider, Renderer, createStandardActionHandlers } from '@json-render/react-native';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Platform } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { A2UiSurface, A2UiAction, A2UiComponent, AppPackageNativeCapability } from '@/packages/shared/contracts/package';
+import type { A2UiSurface, A2UiAction, A2UiComponent, AppPackageNativeCapability, PresentationDataState } from '@/packages/shared/contracts/package';
 import type { ProviderSyncSummary, ProviderStatusKey } from '@/src/db/provider-status';
 import type { DomainRecordViewModel } from '@/src/domain/renderer';
 import { JSON_RENDER_WIDGET_REGISTRY } from '@/src/presentation/json-render-widgets';
+import { localizePackageUiValue, type PackageLocaleOptions } from '@/src/presentation/package-localization';
 import { useUtopiaTheme } from '@/src/theme';
+import { queryChartResult, queryMetricResult, resolveDataBinding } from '@/src/presentation/widgets/query-visualization';
+import { declaredScreenIds, resolveDeclaredScreenId } from '@/src/presentation/screen-navigation';
+import { normalizeProductShellConfig } from '@/src/presentation/widgets/product-shell-config';
 
 type JsonRenderSurfaceProps = {
   eyebrow?: string;
@@ -27,6 +31,10 @@ type JsonRenderSurfaceProps = {
   initialPrompt?: string;
   autoSubmitPrompt?: boolean;
   showBack?: boolean;
+  localeOverride?: string;
+  recordsState?: PresentationDataState;
+  recordsError?: string;
+  screenRouteBase?: string;
 };
 
 type JsonRenderElement = {
@@ -230,8 +238,56 @@ function selectScreen(ui?: A2UiSurface, screen?: string): SurfaceScreen | null {
   if (!ui?.screens) {
     return ui?.components ? { components: ui.components } : null;
   }
-  const screenId = screen ?? ui.defaultScreen ?? Object.keys(ui.screens)[0];
-  return ui.screens[screenId] ?? ui.screens[ui.defaultScreen ?? ''] ?? Object.values(ui.screens)[0] ?? null;
+  const screenId = resolveDeclaredScreenId(ui, screen);
+  return screenId ? ui.screens[screenId] ?? null : null;
+}
+
+function shellNavigationScreens(shell: Record<string, unknown>, ui: A2UiSurface | undefined) {
+  if (!ui?.screens) return {};
+  const declared = new Set(declaredScreenIds(ui));
+  const config = normalizeProductShellConfig(shell);
+  return Object.fromEntries(config.tabs.flatMap((tab) => {
+    const target = tab.screen ?? tab.id;
+    return declared.has(target) ? [[tab.id, target]] : [];
+  }));
+}
+
+function shellWithNavigationIcons(shell: Record<string, unknown>, ui: A2UiSurface | undefined) {
+  const navigationItems = ui?.navigation?.items ?? [];
+  const iconsByScreen = new Map(navigationItems.flatMap((item) => (
+    item.icon ? [[item.screen, item.icon] as const] : []
+  )));
+  const tabs = Array.isArray(shell.tabs)
+    ? shell.tabs.map((tab) => {
+        if (!tab || typeof tab !== 'object' || Array.isArray(tab)) return tab;
+        const value = tab as Record<string, unknown>;
+        if (typeof value.icon === 'string' && value.icon.trim()) return tab;
+        const target = typeof value.screen === 'string'
+          ? value.screen
+          : typeof value.id === 'string'
+            ? value.id
+            : '';
+        const icon = iconsByScreen.get(target);
+        return icon ? { ...value, icon } : tab;
+      })
+    : shell.tabs;
+  return { ...shell, ...(tabs ? { tabs } : {}) };
+}
+
+function shellNavigationRoutes(screens: Record<string, string>, routeBase?: string) {
+  if (!routeBase) return {};
+  return Object.fromEntries(Object.entries(screens).map(([tabId, target]) => (
+    [tabId, `${routeBase}?screen=${encodeURIComponent(target)}`]
+  )));
+}
+
+function shellNavigationBindings(routes: Record<string, string>) {
+  return Object.fromEntries(Object.entries(routes).map(([tabId, route]) => (
+    [`tab:${tabId}`, {
+      action: 'navigate',
+      params: { screen: route },
+    }]
+  )));
 }
 
 function createBuilder() {
@@ -261,6 +317,17 @@ function addActionButton(add: ReturnType<typeof createBuilder>['add'], action: A
 
 function widgetText(value: unknown, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function widgetCellText(value: unknown, fallback = '') {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const instant = (value as Record<string, unknown>).instant;
+    if (typeof instant === 'string' && instant.trim()) return instant.trim();
+  }
+  return fallback;
 }
 
 function widgetRows(value: unknown): Record<string, unknown>[] {
@@ -357,6 +424,9 @@ function addStandardDisplayWidget(
   component: A2UiComponent,
   palette: Palette,
   records: DomainRecordViewModel[] = [],
+  recordsState: PresentationDataState = 'ready',
+  recordsError?: string,
+  viewportWidth = 1024,
 ) {
   const props = component.props ?? {};
   switch (component.widget) {
@@ -457,11 +527,29 @@ function addStandardDisplayWidget(
       }));
     }
     case 'chartBlock': {
-      const points = (widgetRows(props.points).length ? widgetRows(props.points) : [{ label: 'A', value: 6 }, { label: 'B', value: 10 }, { label: 'C', value: 4 }])
+      const binding = resolveDataBinding(component.dataBinding, props.dataBinding);
+      const bound = binding ? queryChartResult(records, binding, component.dataState ?? recordsState, component.dataError ?? recordsError) : null;
+      if (bound?.state === 'loading') {
+        return addStandardWidgetCard(add, component, palette, [
+          add('Badge', { label: 'Loading', variant: 'info', accessibilityLabel: 'Loading chart data' }),
+        ]);
+      }
+      if (bound?.state === 'error') {
+        return addStandardWidgetCard(add, component, palette, [
+          add('Badge', { label: 'Error', variant: 'warning', accessibilityLabel: 'Chart data error' }),
+          add('Paragraph', { text: bound.message ?? 'Unable to render chart data.', color: palette.muted, accessibilityRole: 'alert' }),
+        ]);
+      }
+      if (bound?.points?.length === 0) {
+        return addStandardWidgetCard(add, component, palette, [
+          add('Paragraph', { text: widgetText(props.emptyText, bound.message ?? 'No values yet.'), color: palette.muted, accessibilityLabel: widgetText(props.emptyText, bound.message ?? 'No values yet.') }),
+        ]);
+      }
+      const points = (bound?.points ?? (widgetRows(props.points).length ? widgetRows(props.points) : [{ label: 'A', value: 6 }, { label: 'B', value: 10 }, { label: 'C', value: 4 }]))
         .map((point) => ({ label: widgetLabel(point), value: widgetNumber(point.value) }))
         .filter((point) => Number.isFinite(point.value));
       const max = Math.max(1, ...points.map((point) => point.value));
-      return addStandardWidgetCard(add, component, palette, points.slice(0, 8).map((point) => add('Column', { gap: 6 }, [
+      return addStandardWidgetCard(add, component, palette, points.slice(0, 8).map((point) => add('Column', { gap: 6, accessibilityLabel: `${point.label}: ${point.value}` }, [
         add('Row', { gap: 10, justifyContent: 'space-between', alignItems: 'center' }, [
           add('Label', { text: point.label, color: palette.ink, bold: true, size: 'sm' }),
           add('Label', { text: String(point.value), color: palette.muted, size: 'sm' }),
@@ -545,11 +633,19 @@ function addStandardDisplayWidget(
       ]);
     }
     case 'dataTable': {
-      const columns = (widgetRows(props.columns).length ? widgetRows(props.columns) : [
+      const declaredColumns = widgetRows(props.columns);
+      const fieldColumns: Record<string, unknown>[] = Array.isArray(props.fields)
+        ? props.fields.flatMap((field) => {
+            const key = widgetText(field);
+            return key ? [{ key, label: key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) }] : [];
+          })
+        : [];
+      const fallbackColumns: Record<string, unknown>[] = [
         { key: 'name', label: 'Name' },
         { key: 'status', label: 'Status' },
         { key: 'owner', label: 'Owner' },
-      ]).slice(0, 5).map((column, index) => ({
+      ];
+      const columns = (declaredColumns.length ? declaredColumns : fieldColumns.length ? fieldColumns : fallbackColumns).slice(0, 8).map((column, index) => ({
         key: widgetText(column.key, widgetText(column.field, widgetText(column.id, widgetText(column.name, `column_${index}`)))).toLowerCase().replace(/[^a-z0-9]+/g, '_'),
         title: widgetLabel(column, `Column ${index + 1}`),
       }));
@@ -557,37 +653,68 @@ function addStandardDisplayWidget(
       const boundItems = recordField
         ? records.flatMap((record) => widgetRows(record.properties[recordField] ?? (record as unknown as Record<string, unknown>)[recordField]))
         : [];
+      const queriedItems: Record<string, unknown>[] = recordField
+        ? []
+        : records.map((record) => ({
+          id: record.id,
+          title: record.title,
+          ...record.properties,
+        }));
       const items = (boundItems.length
         ? boundItems
         : widgetRows(props.items).length
           ? widgetRows(props.items)
-          : [{ name: 'Sample', status: 'Ready', owner: 'Team' }]).slice(0, 20);
-      const header = add('Row', { gap: 8 }, columns.map((column) => add('Container', { flex: 1 }, [
+          : queriedItems).slice(0, 20);
+      if (recordsState === 'loading') {
+        return addStandardWidgetCard(add, component, palette, [
+          add('Paragraph', { text: 'Loading table…', color: palette.muted, fontSize: 14 }),
+        ]);
+      }
+      if (recordsState === 'error') {
+        return addStandardWidgetCard(add, component, palette, [
+          add('Paragraph', { text: recordsError || 'Table data is unavailable.', color: palette.muted, fontSize: 14 }),
+        ]);
+      }
+      if (!items.length) {
+        return addStandardWidgetCard(add, component, palette, [
+          add('Paragraph', { text: widgetText(props.emptyText, 'No table rows yet.'), color: palette.muted, fontSize: 14 }),
+        ]);
+      }
+      const narrow = viewportWidth < 600;
+      const header = add('Row', { gap: 8, accessibilityRole: 'row' }, columns.map((column) => add('Container', { flex: 1, minWidth: 0, accessibilityRole: 'columnheader' }, [
         add('Label', { text: column.title, color: palette.muted, bold: true, size: 'xs' }),
-      ])));
+      ])), { visible: !narrow });
       const rows = items.map((item, index) => {
         const press = widgetPressBinding(item);
-        const row = add('Container', { paddingVertical: 10 }, [
-          add('Row', { gap: 8 }, columns.map((column, columnIndex) => add('Container', { flex: 1 }, [
-            add('Paragraph', {
-              text: widgetText(item[column.key], columnIndex === 0 ? widgetLabel(item) : '—'),
-              color: palette.ink,
-              fontSize: 14,
-              numberOfLines: 3,
-            }),
-          ]))),
-        ]);
-        return press ? add('Pressable', {}, [row], { on: { press } }) : add('Container', { margin: 0 }, [row], { visible: true });
+        const row = narrow
+          ? add('Container', { paddingVertical: 10, accessibilityRole: 'group', accessibilityLabel: widgetLabel(item) }, columns.map((column, columnIndex) => add('Row', { gap: 8, alignItems: 'flex-start' }, [
+              add('Label', { text: column.title, color: palette.muted, bold: true, size: 'xs', width: 96 }),
+              add('Paragraph', {
+                text: widgetCellText(item[column.key], columnIndex === 0 ? widgetLabel(item) : '—'),
+                color: palette.ink,
+                fontSize: 14,
+                flex: 1,
+              }),
+            ])))
+          : add('Container', { paddingVertical: 10, accessibilityRole: 'row' }, [
+              add('Row', { gap: 8 }, columns.map((column, columnIndex) => add('Container', { flex: 1, minWidth: 0, accessibilityRole: 'cell' }, [
+                add('Paragraph', {
+                  text: widgetCellText(item[column.key], columnIndex === 0 ? widgetLabel(item) : '—'),
+                  color: palette.ink,
+                  fontSize: 14,
+                }),
+              ]))),
+            ]);
+        return press ? add('Pressable', { accessibilityRole: 'button', accessibilityLabel: widgetLabel(item) }, [row], { on: { press } }) : row;
       });
-      const tableChildren: string[] = [header];
-      rows.forEach((row, index) => {
-        tableChildren.push(add('Divider', { color: palette.blueSoft, margin: 0 }));
-        tableChildren.push(row);
-        if (index === rows.length - 1) {
-          tableChildren.push(add('Divider', { color: palette.blueSoft, margin: 0 }));
-        }
+      const tableChildren: string[] = narrow ? rows : [header];
+      if (!narrow) rows.forEach((row, index) => {
+        tableChildren.push(add('Divider', { color: palette.blueSoft, margin: 0 }), row);
+        if (index === rows.length - 1) tableChildren.push(add('Divider', { color: palette.blueSoft, margin: 0 }));
       });
-      return addStandardWidgetCard(add, component, palette, tableChildren);
+      return addStandardWidgetCard(add, component, palette, [
+        add('Container', { accessibilityRole: narrow ? 'list' : 'table' }, tableChildren),
+      ]);
     }
     case 'themePreview': {
       const colorSource = props.colors && typeof props.colors === 'object' && !Array.isArray(props.colors)
@@ -651,8 +778,29 @@ function addActionBlock(add: ReturnType<typeof createBuilder>['add'], component:
   ] : []);
 }
 
-function addMetricBlock(add: ReturnType<typeof createBuilder>['add'], component: A2UiComponent, records: DomainRecordViewModel[], palette: Palette) {
+function addMetricBlock(
+  add: ReturnType<typeof createBuilder>['add'],
+  component: A2UiComponent,
+  records: DomainRecordViewModel[],
+  palette: Palette,
+  recordsState: PresentationDataState = 'ready',
+  recordsError?: string,
+  viewportWidth = 1024,
+) {
   const rows = queryRecords(records, component.query);
+  const props = componentProps(component);
+  const binding = resolveDataBinding(component.dataBinding, props.dataBinding);
+  const result = queryMetricResult(rows, binding, component.dataState ?? recordsState, component.dataError ?? recordsError);
+  const body = result.state === 'loading'
+    ? [add('Badge', { label: 'Loading', variant: 'info', accessibilityLabel: 'Loading metric data' })]
+    : result.state === 'error'
+      ? [
+          add('Badge', { label: 'Error', variant: 'warning', accessibilityLabel: 'Metric data error' }),
+          add('Paragraph', { text: result.message ?? 'Unable to render metric data.', color: palette.muted, accessibilityRole: 'alert' }),
+        ]
+      : result.value === undefined
+        ? [add('Paragraph', { text: widgetText(props.emptyText, result.message ?? 'No values yet.'), color: palette.muted, accessibilityLabel: widgetText(props.emptyText, result.message ?? 'No values yet.') })]
+        : [add('Heading', { text: String(result.value), level: 'h1', color: palette.ink, accessibilityLabel: `${component.title ?? 'Metric'}: ${result.value}` })];
   return add('Card', {
     title: component.title ?? 'Metric',
     subtitle: component.subtitle ?? null,
@@ -660,9 +808,7 @@ function addMetricBlock(add: ReturnType<typeof createBuilder>['add'], component:
     backgroundColor: toneColor(component.tone, palette),
     borderRadius: 18,
     elevated: false,
-  }, [
-    add('Heading', { text: String(rows.length), level: 'h1', color: palette.ink }),
-  ]);
+  }, body);
 }
 
 function addRecordListBlock(add: ReturnType<typeof createBuilder>['add'], component: A2UiComponent, records: DomainRecordViewModel[], palette: Palette) {
@@ -753,6 +899,9 @@ function addSurfaceComponent(
   providerSync?: ProviderSyncSummary | null,
   initialPrompt?: string,
   autoSubmitPrompt?: boolean,
+  recordsState: PresentationDataState = 'ready',
+  recordsError?: string,
+  viewportWidth = 1024,
 ) {
   if (component.kind === 'widget') {
     const standardWidgetKinds = new Set<string>([
@@ -770,7 +919,7 @@ function addSurfaceComponent(
       'themePreview',
     ]);
     if (component.widget && standardWidgetKinds.has(component.widget)) {
-      const rendered = addStandardDisplayWidget(add, component, palette, queryRecords(records, component.query));
+      const rendered = addStandardDisplayWidget(add, component, palette, queryRecords(records, component.query), recordsState, recordsError, viewportWidth);
       if (rendered) return rendered;
     }
     const typeByWidget: Record<string, string> = {
@@ -793,6 +942,7 @@ function addSurfaceComponent(
       formCard: 'FormCardWidget',
       checklistCard: 'ChecklistCardWidget',
       permissionCard: 'PermissionCardWidget',
+      capabilityExerciser: 'CapabilityExerciserWidget',
       providerStatus: 'ProviderStatusWidget',
       themeDensitySelector: 'ThemeDensitySelectorWidget',
       aiProviderSettings: 'AiProviderSettingsWidget',
@@ -801,25 +951,30 @@ function addSurfaceComponent(
       audioLoopPlayer: 'AudioLoopPlayerWidget',
       stepFlow: 'StepFlowWidget',
       durationTimer: 'DurationTimerWidget',
+      valueControl: 'ValueControlWidget',
+      operationHistory: 'OperationHistoryWidget',
+      quickAddList: 'QuickAddListWidget',
+      structuredList: 'StructuredListWidget',
+      groupedRecordShelf: 'GroupedRecordShelfWidget',
+      horizontalRecordCarousel: 'HorizontalRecordCarouselWidget',
       filePicker: 'FilePickerWidget',
       fileExport: 'FileExportWidget',
-      foodHero: 'FoodHeroWidget',
-      useFirstCarousel: 'UseFirstCarouselWidget',
-      mealTimeline: 'MealTimelineWidget',
-      recipeCard: 'RecipeCardWidget',
-      receiptReviewCard: 'ReceiptReviewCardWidget',
-      pantryShelf: 'PantryShelfWidget',
+      recordHeroSummary: 'RecordHeroSummaryWidget',
+      recordTimeline: 'RecordTimelineWidget',
+      recordContentCard: 'RecordContentCardWidget',
+      recordReviewCard: 'RecordReviewCardWidget',
       askFoodBar: 'AskFoodBarWidget',
     };
     const widgetType = component.widget ? typeByWidget[component.widget] : null;
     if (widgetType) {
+      const usesNamedQuery = typeof component.props?.query === 'string' && component.props.query.trim().length > 0;
       return add(widgetType, {
         title: component.title,
         subtitle: component.subtitle,
         ...(component.widget === 'permissionCard' && component.props?.permissions === undefined && nativePermissions ? { permissions: nativePermissions } : {}),
         ...(component.widget === 'providerStatus' && providerSync ? { providerStatus: providerSync.providers[providerKeyFromComponent(component)] } : {}),
-        ...(component.query ? {
-          records: queryRecords(records, component.query),
+        ...(component.query || usesNamedQuery ? {
+          records: component.query ? queryRecords(records, component.query) : records,
           dataBound: true,
         } : {}),
         ...(component.props ?? {}),
@@ -848,17 +1003,39 @@ function addSurfaceComponent(
     });
   }
   if (component.kind === 'recordList') return addRecordListBlock(add, component, records, palette);
-  if (component.kind === 'metric') return addMetricBlock(add, component, records, palette);
+  if (component.kind === 'metric') return addMetricBlock(add, component, records, palette, recordsState, recordsError);
   if (component.kind === 'action') return addActionBlock(add, component, palette);
   return addTextBlock(add, component, palette);
 }
 
-function composeJsonRenderSpec(props: JsonRenderSurfaceProps, palette: Palette, insets: Insets, density: SurfaceDensity): Spec {
-  const screen = selectScreen(props.ui, props.screen);
+function composeJsonRenderSpec(
+  props: JsonRenderSurfaceProps,
+  palette: Palette,
+  insets: Insets,
+  density: SurfaceDensity,
+  viewportWidth = 1024,
+): Spec {
+  const localeOptions: PackageLocaleOptions = {
+    appLocale: props.localeOverride,
+    deviceLocale: systemLocale(),
+  };
+  const selectedScreenId = resolveDeclaredScreenId(props.ui, props.screen);
+  const screen = localizePackageUiValue(
+    selectScreen(props.ui, selectedScreenId),
+    props.ui?.localization,
+    localeOptions,
+  );
   const components = screen?.components ?? [];
   const topAction = components.find((component) => component.kind === 'action' && component.placement === 'top');
   const fabAction = components.find((component) => component.kind === 'action' && component.placement === 'fab');
   const contentComponents = components.filter((component) => component !== topAction && component !== fabAction);
+  const shellConfig = screen?.shell
+    ? shellWithNavigationIcons(screen.shell, props.ui)
+    : undefined;
+  const shellTabScreens = shellConfig
+    ? shellNavigationScreens(shellConfig, props.ui)
+    : {};
+  const shellTabRoutes = shellNavigationRoutes(shellTabScreens, props.screenRouteBase);
   const fullPageChat = contentComponents.length === 1
     && contentComponents[0]?.kind === 'widget'
     && contentComponents[0]?.widget === 'assistantChat'
@@ -866,8 +1043,8 @@ function composeJsonRenderSpec(props: JsonRenderSurfaceProps, palette: Palette, 
   const { add, elements } = createBuilder();
   const compact = density === 'compact';
   const bottomGap = Math.max(compact ? 30 : 42, insets.bottom + (compact ? 12 : 22));
-  const header = add('ScreenHeaderWidget', {
-    title: props.screenTitle ?? (props.screen === 'record' ? props.records?.[0]?.title : undefined) ?? screen?.title ?? props.title ?? 'App',
+  const header = shellConfig ? null : add('ScreenHeaderWidget', {
+    title: props.screenTitle ?? (selectedScreenId === 'record' ? props.records?.[0]?.title : undefined) ?? screen?.title ?? props.title ?? 'App',
     eyebrow: props.eyebrow,
     showBack: props.showBack === true,
     actionLabel: topAction?.action?.label,
@@ -876,8 +1053,8 @@ function composeJsonRenderSpec(props: JsonRenderSurfaceProps, palette: Palette, 
   const contentChildren = [
   ];
   const subtitle = props.screenSubtitle ?? screen?.subtitle ?? props.subtitle;
-  if (subtitle && !fullPageChat) {
-    contentChildren.push(add('Paragraph', { text: subtitle, color: palette.muted, fontSize: 18 }));
+  if (subtitle && !shellConfig && !fullPageChat) {
+    contentChildren.push(add('Paragraph', { text: subtitle, color: palette.muted, fontSize: 16 }));
   }
   if (contentComponents.length) {
     for (const component of contentComponents) {
@@ -890,6 +1067,9 @@ function composeJsonRenderSpec(props: JsonRenderSurfaceProps, palette: Palette, 
         props.providerSync,
         props.initialPrompt,
         props.autoSubmitPrompt,
+        props.recordsState,
+        props.recordsError,
+        viewportWidth,
       ));
     }
   } else if (!components.length) {
@@ -905,12 +1085,24 @@ function composeJsonRenderSpec(props: JsonRenderSurfaceProps, palette: Palette, 
   if (!fullPageChat) contentChildren.push(add('Spacer', { size: bottomGap }));
   const column = add('Column', {
     gap: fullPageChat ? 0 : compact ? 10 : 14,
-    padding: fullPageChat ? 0 : compact ? 12 : 16,
+    padding: fullPageChat || shellConfig ? 0 : compact ? 12 : 16,
     flex: 1,
   }, contentChildren);
+  const shellRoot = shellConfig
+    ? add('ProductShellWidget', {
+        title: props.screenTitle ?? screen?.title ?? props.title ?? 'App',
+        subtitle: props.screenSubtitle ?? screen?.subtitle ?? props.subtitle,
+        ...shellConfig,
+        tabScreens: shellTabScreens,
+        tabRoutes: shellTabRoutes,
+        ...(selectedScreenId ? { activeTab: selectedScreenId } : {}),
+      }, [column], {
+        on: shellNavigationBindings(shellTabRoutes),
+      })
+    : null;
   const rootChildren = fullPageChat
-    ? [header, column]
-    : [header, add('ScrollContainer', { padding: 0, backgroundColor: palette.canvas, horizontal: false, showsScrollIndicator: true }, [column])];
+      ? [header!, column]
+      : [header!, add('ScrollContainer', { padding: 0, backgroundColor: palette.canvas, horizontal: false, showsScrollIndicator: true }, [column])];
   const fabRoute = actionRoute(fabAction?.action, props.records);
   if (fabAction?.action?.label && fabRoute) {
     rootChildren.push(add('FloatingActionWidget', {
@@ -918,8 +1110,16 @@ function composeJsonRenderSpec(props: JsonRenderSurfaceProps, palette: Palette, 
       route: fabRoute,
     }));
   }
-  const root = add('SafeArea', { backgroundColor: palette.canvas }, rootChildren);
+  const root = shellRoot ?? add('SafeArea', { backgroundColor: palette.canvas }, rootChildren);
   return { root, elements } as Spec;
+}
+
+function systemLocale(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale;
+  } catch {
+    return undefined;
+  }
 }
 
 function assertJsonRenderSpec(spec: Spec): Spec {
@@ -932,20 +1132,21 @@ function assertJsonRenderSpec(spec: Spec): Spec {
 
 export function buildJsonRenderSpec(
   props: JsonRenderSurfaceProps,
-  options: { dark?: boolean; density?: SurfaceDensity; insets?: Partial<Insets> } = {},
+  options: { dark?: boolean; density?: SurfaceDensity; insets?: Partial<Insets>; viewportWidth?: number } = {},
 ): Spec {
   const insets = {
     top: options.insets?.top ?? 0,
     bottom: options.insets?.bottom ?? 0,
   };
-  return assertJsonRenderSpec(composeJsonRenderSpec(props, paletteFor(Boolean(options.dark)), insets, options.density ?? 'comfortable'));
+  return assertJsonRenderSpec(composeJsonRenderSpec(props, paletteFor(Boolean(options.dark)), insets, options.density ?? 'comfortable', options.viewportWidth));
 }
 
 export function JsonRenderSurface(props: JsonRenderSurfaceProps) {
   const router = useRouter();
   const theme = useUtopiaTheme();
   const insets = useSafeAreaInsets();
-  const spec = useMemo(() => buildJsonRenderSpec(props, { dark: theme.dark, density: theme.density, insets }), [insets, props, theme.dark, theme.density]);
+  const { width } = useWindowDimensions();
+  const spec = useMemo(() => buildJsonRenderSpec(props, { dark: theme.dark, density: theme.density, insets, viewportWidth: width }), [insets, props, theme.dark, theme.density, width]);
   const handlers = useMemo(() => createStandardActionHandlers({
     navigate: (screen) => navigateSurfaceRoute(router, screen),
     goBack: () => {

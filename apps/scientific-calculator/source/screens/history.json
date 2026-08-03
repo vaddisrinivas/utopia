@@ -1,11 +1,46 @@
 {
   "label": "History",
-  "subtitle": "Saved calculation records.",
+  "subtitle": "Manual saved calculations plus local change history.",
   "collections": ["calculation"],
   "query": "history",
   "mode": "table",
   "fields": ["title", "expression", "result", "mode", "notes", "updated_at"],
   "components": [
+    {
+      "kind": "widget",
+      "widget": "structuredList",
+      "title": "Save or edit calculations",
+      "subtitle": "Keep named expressions, exact results, angle mode, and notes.",
+      "query": { "collections": ["calculation"], "limit": 50 },
+      "props": {
+        "collection": "calculation",
+        "placeholder": "Mortgage check",
+        "progressiveDisclosure": true,
+        "editable": true,
+        "deletable": true,
+        "emptyText": "Save the first calculation you want to reuse.",
+        "metadataFields": [
+          { "field": "expression", "label": "Expression", "type": "text", "required": true },
+          { "field": "result", "label": "Result", "type": "text", "required": true },
+          { "field": "mode", "label": "Angle mode", "type": "select", "required": true, "options": ["deg", "rad", "n/a"] },
+          { "field": "notes", "label": "Notes", "type": "text" }
+        ],
+        "suggestions": [
+          { "title": "Compound growth", "values": { "expression": "(1 + 0.065 / 12) ^ 60", "result": "1.382955516", "mode": "n/a", "notes": "Five-year monthly compounding factor" } },
+          { "title": "Trig 45 degrees", "values": { "expression": "sin(45)", "result": "0.707106781187", "mode": "deg", "notes": "Set workbench to degrees before evaluating" } }
+        ],
+        "sorts": ["manual", "recent", "alphabetic", { "kind": "field", "field": "mode", "label": "Angle mode", "direction": "asc" }],
+        "filterFields": ["mode", "result"],
+        "commandPolicy": {
+          "autosave": "blur",
+          "optimistic": true,
+          "offline": "local",
+          "draftPersistence": { "enabled": true, "scope": "local" },
+          "accessibleStatus": true,
+          "failure": "inline-error"
+        }
+      }
+    },
     {
       "kind": "recordList",
       "title": "Saved Calculations",
@@ -14,6 +49,17 @@
       "props": {
         "emptyText": "No saved calculations yet.",
         "subtitleFields": ["expression", "result", "mode", "notes"]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "operationHistory",
+      "title": "Change History",
+      "subtitle": "Create, edit, archive, restore, and recover saved rows.",
+      "props": {
+        "collection": "calculation",
+        "limit": 40,
+        "emptyText": "Calculation changes appear here."
       }
     }
   ]

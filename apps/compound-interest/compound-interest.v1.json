@@ -1,0 +1,1442 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "compound-interest",
+  "version": "1.0.0",
+  "collections": {
+    "scenario": {
+      "id": "scenario",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "principal": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "growth_factor": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "period_label": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    }
+  },
+  "computedFields": [
+    {
+      "id": "projected_amount",
+      "collection": "scenario",
+      "dependsOn": [],
+      "expression": {
+        "*": [
+          {
+            "var": "record.principal"
+          },
+          {
+            "var": "record.growth_factor"
+          }
+        ]
+      }
+    },
+    {
+      "id": "interest_earned",
+      "collection": "scenario",
+      "dependsOn": [
+        "projected_amount"
+      ],
+      "expression": {
+        "-": [
+          {
+            "var": "computed.projected_amount"
+          },
+          {
+            "var": "record.principal"
+          }
+        ]
+      }
+    }
+  ],
+  "queries": {
+    "scenarios": {
+      "from": "scenario",
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    }
+  },
+  "views": {
+    "home": {
+      "id": "home",
+      "query": "scenarios",
+      "mode": "table",
+      "fields": [
+        "title",
+        "principal",
+        "growth_factor",
+        "projected_amount",
+        "interest_earned",
+        "period_label"
+      ],
+      "layout": {
+        "size": "feature",
+        "tone": "amber"
+      }
+    },
+    "scenarios": {
+      "id": "scenarios",
+      "query": "scenarios",
+      "mode": "table",
+      "fields": [
+        "title",
+        "principal",
+        "growth_factor",
+        "projected_amount",
+        "interest_earned",
+        "period_label"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "blue"
+      }
+    },
+    "comparison": {
+      "id": "comparison",
+      "query": "scenarios",
+      "mode": "chart",
+      "fields": [
+        "title",
+        "projected_amount",
+        "interest_earned"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "amber"
+      }
+    },
+    "breakdown": {
+      "id": "breakdown",
+      "query": "scenarios",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "principal",
+        "growth_factor",
+        "projected_amount",
+        "interest_earned"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "neutral"
+      }
+    },
+    "settings": {
+      "id": "settings",
+      "query": "scenarios",
+      "mode": "list",
+      "fields": [
+        "title",
+        "period_label",
+        "notes"
+      ],
+      "layout": {
+        "size": "standard",
+        "tone": "moss"
+      }
+    }
+  },
+  "rules": [],
+  "capabilities": [
+    "records.read",
+    "records.write",
+    "offline.local"
+  ],
+  "acceptanceTests": [
+    "principal-growth-factor-inputs-are-required",
+    "projected-amount-is-principal-times-factor",
+    "interest-earned-is-projection-minus-principal",
+    "explicit-growth-factor-projection",
+    "fractional-growth-factor-projection"
+  ],
+  "presentation": {
+    "label": "Compound Interest",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Calculate",
+        "icon": "calculator",
+        "collections": [
+          "scenario"
+        ],
+        "views": [
+          "home"
+        ]
+      },
+      {
+        "id": "scenarios",
+        "label": "Save",
+        "icon": "bookmark",
+        "collections": [
+          "scenario"
+        ],
+        "views": [
+          "scenarios"
+        ]
+      },
+      {
+        "id": "comparison",
+        "label": "Compare",
+        "icon": "line-chart",
+        "collections": [
+          "scenario"
+        ],
+        "views": [
+          "comparison"
+        ]
+      },
+      {
+        "id": "breakdown",
+        "label": "Breakdown",
+        "icon": "table",
+        "collections": [
+          "scenario"
+        ],
+        "views": [
+          "breakdown"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Options",
+        "icon": "shield-check",
+        "collections": [
+          "scenario"
+        ],
+        "views": [
+          "settings"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "identity": "A sober investment projection desk: exact factor math first, saved scenarios and caveats visible.",
+      "firstViewportWorkflow": "Enter principal and explicit growth factor, see projected amount, then save or compare scenarios.",
+      "tone": "amber",
+      "accent": "#B83224",
+      "accentAlt": "#226C8A",
+      "canvas": "#FFF6F3",
+      "audience": "savers comparing deterministic compound-growth scenarios without hidden financial advice",
+      "accessibility": {
+        "minimumTargetSize": 44,
+        "visibleRequiredFields": true,
+        "nonColorStatus": true,
+        "noFinancialAdviceCopy": true
+      }
+    },
+    "render": {
+      "schemaVersion": "utopia.gold-render-contract.v1",
+      "authoredPass": "gpt55-gold-wave2c-001",
+      "firstViewportWorkflow": "Enter principal and explicit growth factor, see projected amount, then save or compare scenarios.",
+      "responsiveTargets": [
+        "phone",
+        "desktop"
+      ],
+      "referenceScreenshots": [
+        "store-01",
+        "store-02",
+        "store-03",
+        "store-04",
+        "store-05",
+        "store-06"
+      ]
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "localization": {
+        "defaultLocale": "en-US",
+        "fallbackLocale": "en-US",
+        "messages": {
+          "en-US": {
+            "app.title": "Compound Interest"
+          }
+        }
+      },
+      "navigation": {
+        "items": [
+          {
+            "screen": "home",
+            "label": "Calculate",
+            "icon": "calculator"
+          },
+          {
+            "screen": "scenarios",
+            "label": "Save",
+            "icon": "bookmark"
+          },
+          {
+            "screen": "comparison",
+            "label": "Compare",
+            "icon": "line-chart"
+          },
+          {
+            "screen": "breakdown",
+            "label": "Breakdown",
+            "icon": "table"
+          },
+          {
+            "screen": "settings",
+            "label": "Options",
+            "icon": "shield-check"
+          }
+        ]
+      },
+      "screens": {
+        "home": {
+          "title": "Interest Desk",
+          "subtitle": "Enter the factor, inspect amount and interest, then save the scenario.",
+          "shell": {
+            "layoutMode": "interestCalculatorDesk",
+            "appBarTitle": "Compound Interest",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "home",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Calculate"
+              },
+              {
+                "id": "scenarios",
+                "screen": "scenarios",
+                "label": "Save"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "breakdown",
+                "screen": "breakdown",
+                "label": "Breakdown"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FFE3DC",
+              "ink": "#321B16",
+              "muted": "#7B5B54",
+              "accent": "#B83224",
+              "accentContrast": "#FFFFFF",
+              "border": "#F0C6BC",
+              "danger": "#A51917",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F0FF",
+              "statusSuccess": "#E2F5E8",
+              "statusWarning": "#FFF2C8",
+              "statusError": "#FCE1DF",
+              "focusRing": "#226C8A"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "interest-summary-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Projected amount",
+              "subtitle": "Principal times explicit growth factor, with interest separated.",
+              "tone": "amber",
+              "props": {
+                "title": "Explicit factor projection",
+                "subtitle": "Projected amount equals principal times the saved growth factor.",
+                "badge": "Factor checked",
+                "stats": [
+                  {
+                    "label": "principal",
+                    "value": "input"
+                  },
+                  {
+                    "label": "factor",
+                    "value": "explicit"
+                  },
+                  {
+                    "label": "output",
+                    "value": "amount + interest"
+                  }
+                ],
+                "actions": [
+                  {
+                    "id": "save",
+                    "label": "Save scenario",
+                    "route": "/apps/compound-interest?screen=scenarios"
+                  },
+                  {
+                    "id": "compare",
+                    "label": "Compare",
+                    "route": "/apps/compound-interest?screen=comparison"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-scenario-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Scenario editor",
+              "subtitle": "Create and edit projection scenarios with local validation and draft recovery.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "scenario",
+                "positionField": "position",
+                "placeholder": "Emergency fund, index fund, deposit ladder",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "emptyText": "Add principal and growth factor to begin.",
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "confirmation": {
+                    "required": false,
+                    "message": "Save this local change?"
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "title",
+                      "principal",
+                      "growth_factor",
+                      "period_label"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true,
+                    "labels": {
+                      "pending": "Saving locally",
+                      "saved": "Saved locally",
+                      "error": "Needs attention",
+                      "queued": "Queued offline",
+                      "undone": "Undo applied",
+                      "cancelled": "Cancelled"
+                    }
+                  }
+                },
+                "metadataFields": [
+                  {
+                    "field": "principal",
+                    "label": "Principal",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "growth_factor",
+                    "label": "Growth factor",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "period_label",
+                    "label": "Period",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "compounding_frequency",
+                    "label": "Frequency note",
+                    "type": "select",
+                    "options": [
+                      "daily",
+                      "monthly",
+                      "quarterly",
+                      "half-yearly",
+                      "yearly",
+                      "explicit factor"
+                    ],
+                    "filterable": true
+                  },
+                  {
+                    "field": "currency",
+                    "label": "Currency",
+                    "type": "select",
+                    "options": [
+                      "USD",
+                      "INR",
+                      "EUR",
+                      "GBP"
+                    ],
+                    "filterable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "Reference 10%",
+                    "values": {
+                      "principal": 1000,
+                      "growth_factor": 1.1,
+                      "period_label": "Reference projection",
+                      "compounding_frequency": "explicit factor",
+                      "currency": "USD"
+                    }
+                  },
+                  {
+                    "title": "Reference 5%",
+                    "values": {
+                      "principal": 2500,
+                      "growth_factor": 1.05,
+                      "period_label": "Reference projection",
+                      "compounding_frequency": "explicit factor",
+                      "currency": "USD"
+                    }
+                  }
+                ],
+                "filterFields": [
+                  "period_label",
+                  "compounding_frequency",
+                  "currency"
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  {
+                    "kind": "field",
+                    "field": "growth_factor",
+                    "label": "Factor",
+                    "direction": "desc"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-current-result",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Saved results",
+              "subtitle": "Exact projected amount and interest earned columns.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 8
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Scenario"
+                  },
+                  {
+                    "key": "principal",
+                    "label": "Principal"
+                  },
+                  {
+                    "key": "growth_factor",
+                    "label": "Factor"
+                  },
+                  {
+                    "key": "projected_amount",
+                    "label": "Projected"
+                  },
+                  {
+                    "key": "interest_earned",
+                    "label": "Interest"
+                  },
+                  {
+                    "key": "period_label",
+                    "label": "Period"
+                  }
+                ],
+                "emptyText": "Saved scenarios appear here."
+              }
+            },
+            {
+              "id": "interest-empty-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Empty state",
+              "subtitle": "Start with principal and factor entry before saving scenarios.",
+              "tone": "neutral",
+              "props": {
+                "title": "No scenarios yet",
+                "badge": "empty",
+                "items": [
+                  {
+                    "id": "interest-empty-state-focus",
+                    "title": "No scenarios yet",
+                    "status": "empty",
+                    "detail": "Start with principal and factor entry before saving scenarios."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-editing-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Editing state",
+              "subtitle": "Required principal, factor, and period fields protect the calculation before save.",
+              "tone": "moss",
+              "props": {
+                "title": "Edit assumptions safely",
+                "badge": "editing",
+                "items": [
+                  {
+                    "id": "interest-editing-state-focus",
+                    "title": "Edit assumptions safely",
+                    "status": "editing",
+                    "detail": "Required principal, factor, and period fields protect the calculation before save."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "scenarios": {
+          "title": "Saved Scenarios",
+          "subtitle": "History, detail, and local save/share boundary.",
+          "shell": {
+            "layoutMode": "interestSavedScenarios",
+            "appBarTitle": "Compound Interest",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "scenarios",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Calculate"
+              },
+              {
+                "id": "scenarios",
+                "screen": "scenarios",
+                "label": "Save"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "breakdown",
+                "screen": "breakdown",
+                "label": "Breakdown"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FFE3DC",
+              "ink": "#321B16",
+              "muted": "#7B5B54",
+              "accent": "#B83224",
+              "accentContrast": "#FFFFFF",
+              "border": "#F0C6BC",
+              "danger": "#A51917",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F0FF",
+              "statusSuccess": "#E2F5E8",
+              "statusWarning": "#FFF2C8",
+              "statusError": "#FCE1DF",
+              "focusRing": "#226C8A"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "interest-scenario-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Scenario table",
+              "subtitle": "Saved scenarios sorted for comparison and review.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Scenario"
+                  },
+                  {
+                    "key": "principal",
+                    "label": "Principal"
+                  },
+                  {
+                    "key": "growth_factor",
+                    "label": "Factor"
+                  },
+                  {
+                    "key": "projected_amount",
+                    "label": "Projected"
+                  },
+                  {
+                    "key": "interest_earned",
+                    "label": "Interest"
+                  },
+                  {
+                    "key": "period_label",
+                    "label": "Period"
+                  }
+                ],
+                "emptyText": "Save a scenario to build history."
+              }
+            },
+            {
+              "id": "interest-history-list",
+              "kind": "recordList",
+              "title": "Scenario history",
+              "subtitle": "Recent saved projections with amount and interest.",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 20
+              },
+              "props": {
+                "emptyText": "No saved projections yet.",
+                "subtitleFields": [
+                  "principal",
+                  "growth_factor",
+                  "period_label"
+                ]
+              }
+            },
+            {
+              "id": "interest-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Scenario changes",
+              "subtitle": "Local create, edit, archive, and restore events.",
+              "tone": "neutral",
+              "props": {
+                "collection": "scenario",
+                "limit": 40,
+                "emptyText": "Scenario edits appear here."
+              }
+            },
+            {
+              "id": "interest-save-share-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Save and share boundary",
+              "subtitle": "Save is local and executable; sharing/export remains visible as a capability boundary.",
+              "tone": "amber",
+              "props": {
+                "badge": "Share options",
+                "items": [
+                  {
+                    "id": "save",
+                    "title": "Save calculation",
+                    "status": "covered",
+                    "detail": "Structured scenario rows persist locally."
+                  },
+                  {
+                    "id": "share",
+                    "title": "Share completed calculation",
+                    "status": "boundary",
+                    "detail": "Sharing and export are unavailable in this calculator."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-populated-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Populated state",
+              "subtitle": "Rows expose principal, factor, amount, and interest for repeat review.",
+              "tone": "blue",
+              "props": {
+                "title": "Saved projections become history",
+                "badge": "populated",
+                "items": [
+                  {
+                    "id": "interest-populated-state-focus",
+                    "title": "Saved projections become history",
+                    "status": "populated",
+                    "detail": "Rows expose principal, factor, amount, and interest for repeat review."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "comparison": {
+          "title": "Scenario Compare",
+          "subtitle": "Compare factors, horizons, currencies, and saved outcomes.",
+          "shell": {
+            "layoutMode": "interestScenarioComparison",
+            "appBarTitle": "Compound Interest",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "comparison",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Calculate"
+              },
+              {
+                "id": "scenarios",
+                "screen": "scenarios",
+                "label": "Save"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "breakdown",
+                "screen": "breakdown",
+                "label": "Breakdown"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FFE3DC",
+              "ink": "#321B16",
+              "muted": "#7B5B54",
+              "accent": "#B83224",
+              "accentContrast": "#FFFFFF",
+              "border": "#F0C6BC",
+              "danger": "#A51917",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F0FF",
+              "statusSuccess": "#E2F5E8",
+              "statusWarning": "#FFF2C8",
+              "statusError": "#FCE1DF",
+              "focusRing": "#226C8A"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "interest-total-earned",
+              "kind": "metric",
+              "title": "Total interest",
+              "subtitle": "Aggregate interest across saved scenarios.",
+              "tone": "amber",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 100
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "interest_earned"
+              },
+              "props": {
+                "emptyText": "Add scenarios to compare interest."
+              }
+            },
+            {
+              "id": "interest-comparison-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Growth comparison",
+              "subtitle": "Projected amount by scenario.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "chartType": "line",
+                "xField": "title",
+                "yField": "projected_amount",
+                "emptyText": "Save scenarios for comparison."
+              }
+            },
+            {
+              "id": "interest-comparison-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Comparison table",
+              "subtitle": "Principal, factor, amount, interest, and period together.",
+              "tone": "neutral",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Scenario"
+                  },
+                  {
+                    "key": "principal",
+                    "label": "Principal"
+                  },
+                  {
+                    "key": "growth_factor",
+                    "label": "Factor"
+                  },
+                  {
+                    "key": "projected_amount",
+                    "label": "Projected"
+                  },
+                  {
+                    "key": "interest_earned",
+                    "label": "Interest"
+                  },
+                  {
+                    "key": "period_label",
+                    "label": "Period"
+                  }
+                ],
+                "emptyText": "No comparison data yet."
+              }
+            },
+            {
+              "id": "interest-assumption-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Assumption rationale",
+              "subtitle": "Rate/frequency selections are represented as notes unless converted into an explicit growth factor.",
+              "tone": "moss",
+              "props": {
+                "badge": "Factor first",
+                "items": [
+                  {
+                    "id": "frequency",
+                    "title": "Compounding frequency",
+                    "status": "represented",
+                    "detail": "Frequency note is stored beside the explicit factor."
+                  },
+                  {
+                    "id": "precision",
+                    "title": "Exact arithmetic",
+                    "status": "covered",
+                    "detail": "Results use deterministic two-decimal math."
+                  },
+                  {
+                    "id": "contributions",
+                    "title": "Monthly contribution formula",
+                    "status": "boundary",
+                    "detail": "Monthly contribution formulas stay out of saved results until entered explicitly."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "breakdown": {
+          "title": "Breakdown",
+          "subtitle": "Readable result anatomy and year/month review surface.",
+          "shell": {
+            "layoutMode": "interestBreakdownAnalytics",
+            "appBarTitle": "Compound Interest",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "breakdown",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Calculate"
+              },
+              {
+                "id": "scenarios",
+                "screen": "scenarios",
+                "label": "Save"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "breakdown",
+                "screen": "breakdown",
+                "label": "Breakdown"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FFE3DC",
+              "ink": "#321B16",
+              "muted": "#7B5B54",
+              "accent": "#B83224",
+              "accentContrast": "#FFFFFF",
+              "border": "#F0C6BC",
+              "danger": "#A51917",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F0FF",
+              "statusSuccess": "#E2F5E8",
+              "statusWarning": "#FFF2C8",
+              "statusError": "#FCE1DF",
+              "focusRing": "#226C8A"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "interest-breakdown-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Result anatomy",
+              "subtitle": "Principal, factor, projected amount, then interest earned.",
+              "tone": "amber",
+              "props": {
+                "items": [
+                  {
+                    "title": "1. Principal",
+                    "subtitle": "Starting value stored on the scenario.",
+                    "detail": "Required input"
+                  },
+                  {
+                    "title": "2. Growth factor",
+                    "subtitle": "Explicit multiplier from trusted assumptions.",
+                    "detail": "Required input"
+                  },
+                  {
+                    "title": "3. Projected amount",
+                    "subtitle": "principal * growth_factor",
+                    "detail": "Calculated result"
+                  },
+                  {
+                    "title": "4. Interest earned",
+                    "subtitle": "projected_amount - principal",
+                    "detail": "Calculated result"
+                  }
+                ],
+                "accessibleLabel": "Compound interest calculation breakdown"
+              }
+            },
+            {
+              "id": "interest-breakdown-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Year/month review model",
+              "subtitle": "The breakdown shows calculation anatomy without inventing schedules.",
+              "tone": "blue",
+              "props": {
+                "columns": [
+                  {
+                    "key": "stage",
+                    "label": "Stage"
+                  },
+                  {
+                    "key": "formula",
+                    "label": "Formula"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Status"
+                  }
+                ],
+                "emptyText": "No records yet.",
+                "items": [
+                  {
+                    "stage": "Amount",
+                    "formula": "principal * growth_factor",
+                    "status": "executable"
+                  },
+                  {
+                    "stage": "Interest",
+                    "formula": "projected_amount - principal",
+                    "status": "executable"
+                  },
+                  {
+                    "stage": "Yearly table",
+                    "formula": "requires period expansion",
+                    "status": "unavailable"
+                  },
+                  {
+                    "stage": "Monthly table",
+                    "formula": "requires period expansion",
+                    "status": "unavailable"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-loading-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Loading state",
+              "subtitle": "Keep formula anatomy visible while saved scenarios hydrate.",
+              "tone": "neutral",
+              "props": {
+                "title": "Breakdown loading",
+                "badge": "loading",
+                "items": [
+                  {
+                    "id": "interest-loading-state-focus",
+                    "title": "Breakdown loading",
+                    "status": "loading",
+                    "detail": "Keep formula anatomy visible while saved scenarios hydrate."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-error-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Error state",
+              "subtitle": "Missing principal, growth factor, or period is surfaced before save.",
+              "tone": "amber",
+              "props": {
+                "title": "Invalid scenario blocked",
+                "badge": "error",
+                "items": [
+                  {
+                    "id": "interest-error-state-focus",
+                    "title": "Invalid scenario blocked",
+                    "status": "error",
+                    "detail": "Missing principal, growth factor, or period is surfaced before save."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Options & Trust",
+          "subtitle": "Currency, theme, offline, recovery, and unsupported formula boundaries.",
+          "shell": {
+            "layoutMode": "interestSettings",
+            "appBarTitle": "Compound Interest",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Calculate"
+              },
+              {
+                "id": "scenarios",
+                "screen": "scenarios",
+                "label": "Save"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "breakdown",
+                "screen": "breakdown",
+                "label": "Breakdown"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Options"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FFE3DC",
+              "ink": "#321B16",
+              "muted": "#7B5B54",
+              "accent": "#B83224",
+              "accentContrast": "#FFFFFF",
+              "border": "#F0C6BC",
+              "danger": "#A51917",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F0FF",
+              "statusSuccess": "#E2F5E8",
+              "statusWarning": "#FFF2C8",
+              "statusError": "#FCE1DF",
+              "focusRing": "#226C8A"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "interest-settings-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Calculation controls",
+              "subtitle": "Currency and theme labels are local preferences; calculation stays factor-based.",
+              "tone": "amber",
+              "props": {
+                "badge": "Local",
+                "items": [
+                  {
+                    "id": "offline",
+                    "title": "Offline calculation",
+                    "status": "covered",
+                    "detail": "All calculations run locally."
+                  },
+                  {
+                    "id": "recovery",
+                    "title": "Recovery",
+                    "status": "covered",
+                    "detail": "Draft and operation history surfaces remain visible."
+                  },
+                  {
+                    "id": "rate-derivation",
+                    "title": "Rate to factor conversion",
+                    "status": "boundary",
+                    "detail": "Convert externally or save the explicit factor."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-accessibility-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Accessibility and responsive IA",
+              "subtitle": "Phone starts at calculator; desktop separates saved, compare, and breakdown workspaces.",
+              "tone": "moss",
+              "props": {
+                "columns": [
+                  {
+                    "key": "target",
+                    "label": "Target"
+                  },
+                  {
+                    "key": "decision",
+                    "label": "Decision"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Status"
+                  }
+                ],
+                "emptyText": "No records yet.",
+                "items": [
+                  {
+                    "target": "Phone",
+                    "decision": "Factor entry before tables",
+                    "status": "covered"
+                  },
+                  {
+                    "target": "Desktop",
+                    "decision": "Comparison and breakdown split into tabs",
+                    "status": "covered"
+                  },
+                  {
+                    "target": "A11y",
+                    "decision": "Required fields, status text, target sizes",
+                    "status": "covered"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-offline-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Offline state",
+              "subtitle": "Exact principal/factor calculations need no network.",
+              "tone": "moss",
+              "props": {
+                "title": "Offline interest math",
+                "badge": "offline",
+                "items": [
+                  {
+                    "id": "interest-offline-state-focus",
+                    "title": "Offline interest math",
+                    "status": "offline",
+                    "detail": "Exact principal/factor calculations need no network."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interest-recovery-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Recovery state",
+              "subtitle": "Local draft policy and operation history protect interrupted scenario entry.",
+              "tone": "blue",
+              "props": {
+                "title": "Recover scenario drafts",
+                "badge": "recovery",
+                "items": [
+                  {
+                    "id": "interest-recovery-state-focus",
+                    "title": "Recover scenario drafts",
+                    "status": "recovery",
+                    "detail": "Local draft policy and operation history protect interrupted scenario entry."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "defaultScreen": "home"
+    }
+  }
+}

@@ -430,13 +430,13 @@ describe('app package SQLite registry', () => {
     const movedWidget = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'move dinner vote first on plan'));
     expect(movedWidget.status).toBe('valid');
     expect(movedWidget.package?.collections.ai_dinner_vote).toBeUndefined();
-    expect(movedWidget.package?.presentation?.ui?.screens?.plan.components?.[0].id).toBe('plan_dinner_vote');
+    expect(movedWidget.package?.presentation?.ui?.screens?.plan.components?.[0].id).toBe('food-plan-recipe-card');
     expect(movedWidget.package?.presentation?.ui?.screens?.plan.components?.length)
       .toBe(active.presentation?.ui?.screens?.plan.components?.length);
 
     const renamedWidget = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'rename dinner vote to "Family vote"'));
     expect(renamedWidget.status).toBe('valid');
-    const dinnerVote = renamedWidget.package?.presentation?.ui?.screens?.plan.components?.find((component) => component.id === 'plan_dinner_vote');
+    const dinnerVote = renamedWidget.package?.presentation?.ui?.screens?.plan.components?.find((component) => component.id === 'food-plan-recipe-card');
     expect(dinnerVote?.title).toBe('Family vote');
 
     const controlRoom = await previewAppPackageChange(db, buildSafePackageChangeRequest(active, 'add settings control room'));

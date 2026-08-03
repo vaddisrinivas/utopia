@@ -1,1 +1,110 @@
-{"acceptanceTests":["schema-native"],"checksum":"sha256:a271563707ba982bd3ebc2e4bc56cdc521ebe964976015ac07d143b5d38685d7","collectionIds":["session"],"diffSummary":{"added":0,"changed":0,"removed":0},"homeSurface":"home","id":"audio-loop-108","label":"Audio Loop","nativeCapabilities":{"intents":["android:deep_link","android:voice"],"packages":["expo-audio","expo-document-picker"],"permissions":["expo:expo-audio","expo:expo-document-picker"],"platform":"android"},"packageSchemaVersion":"wonder.app-package.v3","queryIds":["recent-sessions"],"ruleIds":[],"schemaVersion":"wonder.app-package-preview.v1","sourceCounts":{"acceptance":1,"app":1,"capabilities":2,"collections":1,"fixtures":0,"providers":0,"queries":1,"rules":0,"screens":5,"theme":0,"workflows":0},"surfaces":[{"collections":["session"],"id":"history","label":"History","views":["history"]},{"collections":["session"],"id":"home","label":"Loop","views":["home"]},{"collections":["session"],"id":"library","label":"Library","views":["library"]},{"collections":["session"],"id":"playlist","label":"Playlist","views":["playlist"]},{"collections":["session"],"id":"record","label":"Record","views":["record"]}],"version":"1.0.0","widgets":["audioLoopPlayer","dataTable"]}
+{
+  "schemaVersion": "wonder.app-package-preview.v1",
+  "packageSchemaVersion": "wonder.app-package.v3",
+  "id": "audio-loop-108",
+  "version": "2.0.0",
+  "label": "Audio Loop",
+  "checksum": "sha256:b45b027018501ca374edd1eeed97f70c561ccf7995a7e5af79c4e2db09d410e1",
+  "homeSurface": "home",
+  "surfaces": [
+    {
+      "id": "history",
+      "label": "Sessions",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "history"
+      ]
+    },
+    {
+      "id": "home",
+      "label": "Play",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "home"
+      ]
+    },
+    {
+      "id": "library",
+      "label": "Library",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "library"
+      ]
+    },
+    {
+      "id": "playlist",
+      "label": "Queue",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "playlist"
+      ]
+    },
+    {
+      "id": "record",
+      "label": "Capture",
+      "collections": [
+        "session"
+      ],
+      "views": [
+        "record"
+      ]
+    }
+  ],
+  "collectionIds": [
+    "session"
+  ],
+  "queryIds": [
+    "recent-sessions"
+  ],
+  "ruleIds": [],
+  "widgets": [
+    "audioLoopPlayer",
+    "dataTable"
+  ],
+  "acceptanceTests": [
+    "media-utility",
+    "recording-boundary",
+    "schema-native"
+  ],
+  "sourceCounts": {
+    "app": 1,
+    "collections": 1,
+    "queries": 1,
+    "screens": 5,
+    "rules": 0,
+    "workflows": 0,
+    "providers": 0,
+    "theme": 0,
+    "fixtures": 0,
+    "acceptance": 3,
+    "capabilities": 4
+  },
+  "nativeCapabilities": {
+    "platform": "android",
+    "packages": [
+      "expo-audio",
+      "expo-document-picker"
+    ],
+    "permissions": [
+      "expo:expo-audio",
+      "expo:expo-document-picker"
+    ],
+    "intents": [
+      "android:deep_link",
+      "android:voice"
+    ]
+  },
+  "diffSummary": {
+    "added": 0,
+    "removed": 0,
+    "changed": 0
+  }
+}

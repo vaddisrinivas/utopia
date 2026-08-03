@@ -1,37 +1,292 @@
 {
   "schemaVersion": "wonder.app-package.v2",
   "id": "spaced-repetition",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "collections": {
     "card": {
       "id": "card",
       "fields": {
-        "title": { "type": "text", "required": true, "indexed": true },
-        "collection": { "type": "text", "required": true, "indexed": true },
-        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
-        "properties": { "type": "json", "required": true },
-        "status": { "type": "text", "indexed": true },
-        "topic": { "type": "text", "indexed": true },
-        "as_of": { "type": "timestamp", "indexed": true },
-        "schedule": { "type": "json", "required": true },
-        "ease_factor": { "type": "number", "indexed": true },
-        "notes": { "type": "text" }
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "topic": {
+          "type": "text",
+          "indexed": true
+        },
+        "deck_id": {
+          "type": "text",
+          "indexed": true
+        },
+        "front": {
+          "type": "text"
+        },
+        "back": {
+          "type": "text"
+        },
+        "as_of": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "schedule": {
+          "type": "json",
+          "required": true
+        },
+        "ease_factor": {
+          "type": "number",
+          "indexed": true
+        },
+        "interval_days": {
+          "type": "number"
+        },
+        "repetitions": {
+          "type": "number"
+        },
+        "lapse_count": {
+          "type": "number"
+        },
+        "last_grade": {
+          "type": "number"
+        },
+        "media_status": {
+          "type": "text"
+        },
+        "sync_status": {
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "review_log": {
+      "id": "review_log",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "card_id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "graded_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "grade": {
+          "type": "number",
+          "required": true
+        },
+        "previous_interval_days": {
+          "type": "number"
+        },
+        "scheduled_interval_days": {
+          "type": "number"
+        },
+        "ease_factor": {
+          "type": "number"
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "study_profile": {
+      "id": "study_profile",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "daily_new_limit": {
+          "type": "number"
+        },
+        "daily_review_limit": {
+          "type": "number"
+        },
+        "timezone": {
+          "type": "text"
+        },
+        "answer_mode": {
+          "type": "text"
+        },
+        "sync_status": {
+          "type": "text"
+        },
+        "backup_status": {
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        }
       }
     }
   },
   "queries": {
     "cards": {
       "from": "card",
-      "orderBy": [{ "field": "title", "direction": "asc" }],
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
       "limit": 50
+    },
+    "due-cards": {
+      "from": "card",
+      "where": {
+        "op": "eq",
+        "field": "status",
+        "value": "due"
+      },
+      "orderBy": [
+        {
+          "field": "as_of",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    },
+    "review-history": {
+      "from": "review_log",
+      "orderBy": [
+        {
+          "field": "graded_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 200
+    },
+    "study-profiles": {
+      "from": "study_profile",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 10
     }
   },
   "views": {
     "cards": {
       "id": "cards",
       "query": "cards",
+      "mode": "list",
+      "fields": [
+        "title",
+        "topic",
+        "status",
+        "ease_factor",
+        "interval_days",
+        "next_review"
+      ]
+    },
+    "due": {
+      "id": "due",
+      "query": "due-cards",
+      "mode": "list",
+      "fields": [
+        "title",
+        "front",
+        "status",
+        "next_review"
+      ]
+    },
+    "history": {
+      "id": "history",
+      "query": "review-history",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "card_id",
+        "grade",
+        "scheduled_interval_days",
+        "ease_factor"
+      ]
+    },
+    "settings": {
+      "id": "settings",
+      "query": "study-profiles",
       "mode": "table",
-      "fields": ["title", "topic", "ease_factor", "status", "next_review", "review_window"]
+      "fields": [
+        "title",
+        "daily_new_limit",
+        "daily_review_limit",
+        "timezone",
+        "sync_status"
+      ]
     }
   },
   "computedFields": [
@@ -41,12 +296,16 @@
       "dependsOn": [],
       "expression": {
         "recurrence_next": {
-          "schedule": { "var": "record.schedule" },
-          "after": { "var": "record.as_of" },
+          "schedule": {
+            "var": "record.schedule"
+          },
+          "after": {
+            "var": "record.as_of"
+          },
           "budget": {
-            "maxOccurrences": 1,
-            "maxIterations": 16,
-            "maxRuleEvaluations": 32,
+            "maxOccurrences": 5,
+            "maxIterations": 32,
+            "maxRuleEvaluations": 64,
             "maxLookaheadDays": 1200,
             "maxExclusions": 16,
             "maxOverrides": 16
@@ -57,11 +316,17 @@
     {
       "id": "review_window",
       "collection": "card",
-      "dependsOn": ["next_review"],
+      "dependsOn": [
+        "next_review"
+      ],
       "expression": {
         "recurrence_expand": {
-          "schedule": { "var": "record.schedule" },
-          "after": { "var": "record.as_of" },
+          "schedule": {
+            "var": "record.schedule"
+          },
+          "after": {
+            "var": "record.as_of"
+          },
           "limit": 5,
           "budget": {
             "maxOccurrences": 5,
@@ -73,55 +338,1280 @@
           }
         }
       }
+    },
+    {
+      "id": "projected_interval_days",
+      "collection": "card",
+      "dependsOn": [],
+      "expression": {
+        "*": [
+          {
+            "var": [
+              "record.interval_days",
+              1
+            ]
+          },
+          {
+            "var": [
+              "record.ease_factor",
+              2.5
+            ]
+          }
+        ]
+      }
     }
   ],
-  "rules": [],
-  "capabilities": [],
+  "rules": [
+    {
+      "id": "study-grade-proposal",
+      "trigger": {
+        "kind": "operation"
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": {
+          "kind": "custom",
+          "tool": "grade_spaced_repetition_card"
+        }
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    },
+    {
+      "id": "study-backup-proposal",
+      "trigger": {
+        "kind": "operation"
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": {
+          "kind": "custom",
+          "tool": "export_study_backup"
+        }
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [
+    "records.read",
+    "records.write",
+    "notifications.schedule",
+    "file.read",
+    "file.export",
+    "offline.local"
+  ],
   "acceptanceTests": [
     "recurrence-engine-weekday-reviews",
     "recurrence-engine-monthday-reviews",
-    "package-only-recurrence-proof"
+    "package-only-recurrence-proof",
+    "gold-wave2e-review-grade",
+    "gold-wave2e-history-settings"
   ],
   "presentation": {
     "label": "Spaced Repetition",
-    "homeSurface": "home",
+    "homeSurface": "review",
     "surfaces": [
       {
-        "id": "home",
-        "label": "Study",
-        "collections": ["card"],
-        "views": ["cards"]
+        "id": "review",
+        "label": "Review",
+        "icon": "play",
+        "collections": [
+          "card",
+          "review_log",
+          "study_profile"
+        ],
+        "views": [
+          "cards",
+          "due",
+          "history",
+          "settings"
+        ]
+      },
+      {
+        "id": "decks",
+        "label": "Decks",
+        "icon": "book-open",
+        "collections": [
+          "card",
+          "review_log",
+          "study_profile"
+        ],
+        "views": [
+          "cards",
+          "due",
+          "history",
+          "settings"
+        ]
+      },
+      {
+        "id": "card-detail",
+        "label": "Card",
+        "icon": "bookmark",
+        "collections": [
+          "card",
+          "review_log",
+          "study_profile"
+        ],
+        "views": [
+          "cards",
+          "due",
+          "history",
+          "settings"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "icon": "rotate-ccw",
+        "collections": [
+          "card",
+          "review_log",
+          "study_profile"
+        ],
+        "views": [
+          "cards",
+          "due",
+          "history",
+          "settings"
+        ]
+      },
+      {
+        "id": "analytics",
+        "label": "Stats",
+        "icon": "bar-chart",
+        "collections": [
+          "card",
+          "review_log",
+          "study_profile"
+        ],
+        "views": [
+          "cards",
+          "due",
+          "history",
+          "settings"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "collections": [
+          "card",
+          "review_log",
+          "study_profile"
+        ],
+        "views": [
+          "cards",
+          "due",
+          "history",
+          "settings"
+        ]
       }
     ],
     "visualIdentity": {
-      "icon": "sparkles",
-      "tone": "blue",
-      "accent": "#256B9E",
-      "canvas": "#F5FAFE"
+      "icon": "cards",
+      "tone": "study-slate",
+      "accent": "#2F6F8F",
+      "canvas": "#F5F8FA",
+      "identity": "A quiet review desk: one due card, exact grading controls, visible interval math."
     },
     "ui": {
       "schemaVersion": "a2ui.v0_9",
-      "defaultScreen": "home",
+      "defaultScreen": "review",
+      "navigation": {
+        "items": [
+          {
+            "screen": "review",
+            "label": "Review",
+            "icon": "play"
+          },
+          {
+            "screen": "decks",
+            "label": "Decks",
+            "icon": "book-open"
+          },
+          {
+            "screen": "card-detail",
+            "label": "Card",
+            "icon": "bookmark"
+          },
+          {
+            "screen": "history",
+            "label": "History",
+            "icon": "rotate-ccw"
+          },
+          {
+            "screen": "analytics",
+            "label": "Stats",
+            "icon": "bar-chart"
+          }
+        ]
+      },
       "screens": {
-        "home": {
-          "title": "Spaced Repetition",
-          "subtitle": "Weekday and monthday schedules with a shared recurrence engine.",
+        "review": {
+          "title": "Review",
+          "subtitle": "Reveal, grade, and verify the next review before moving on.",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "appBarTitle": "Spaced Repetition",
+            "appBarSubtitle": "Review due cards, grade memory, and keep the scheduler inspectable.",
+            "appBarEyebrow": "Study queue",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "review",
+            "tabs": [
+              {
+                "id": "review",
+                "screen": "review",
+                "label": "Review",
+                "icon": "play"
+              },
+              {
+                "id": "decks",
+                "screen": "decks",
+                "label": "Decks",
+                "icon": "book-open"
+              },
+              {
+                "id": "card-detail",
+                "screen": "card-detail",
+                "label": "Card",
+                "icon": "bookmark"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Stats",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "reveal-answer",
+                "label": "Reveal",
+                "icon": "search",
+                "tone": "secondary",
+                "event": "reveal-card"
+              },
+              {
+                "id": "grade-good",
+                "label": "Good",
+                "icon": "check",
+                "tone": "primary",
+                "event": "grade-good"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0F5",
+              "ink": "#14212B",
+              "muted": "#5A6974",
+              "accent": "#2F6F8F",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D8E2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E3F1F7",
+              "statusSuccess": "#E2F5E9",
+              "statusWarning": "#FFF1C7",
+              "statusError": "#FCE3DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 960,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
           "components": [
             {
+              "id": "study-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Due now",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "12 cards due",
+                "subtitle": "German verbs, study terms, and cardiology cards.",
+                "badge": "SM-2 queue",
+                "stats": [
+                  {
+                    "label": "New",
+                    "value": "4"
+                  },
+                  {
+                    "label": "Again",
+                    "value": "2"
+                  },
+                  {
+                    "label": "Due",
+                    "value": "12"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "study-card",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Current card",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "What does idempotent mean?",
+                "subtitle": "Tap reveal, then grade once.",
+                "body": "Back side stays hidden until reveal. Grades write interval and ease to the card and a review log.",
+                "badge": "Answer hidden",
+                "chips": [
+                  {
+                    "label": "Deck",
+                    "value": "Runtime"
+                  },
+                  {
+                    "label": "Ease",
+                    "value": "2.5"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "study-grade-controls",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Grade answer",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "Choose one result",
+                "subtitle": "Choose Again, Hard, Good, or Easy before moving to the next card.",
+                "items": [
+                  {
+                    "title": "Again",
+                    "detail": "Reset lapse and short interval.",
+                    "status": "1d"
+                  },
+                  {
+                    "title": "Hard",
+                    "detail": "Conservative interval.",
+                    "status": "16d"
+                  },
+                  {
+                    "title": "Good",
+                    "detail": "Normal interval.",
+                    "status": "18d"
+                  },
+                  {
+                    "title": "Easy",
+                    "detail": "Longer interval.",
+                    "status": "24d"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "study-due-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Due queue",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "card",
+                "metadataFields": [
+                  {
+                    "field": "topic",
+                    "label": "Topic",
+                    "type": "text",
+                    "filterable": true
+                  },
+                  {
+                    "field": "next_review",
+                    "label": "Next",
+                    "type": "timestamp",
+                    "sortable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "text",
+                    "filterable": true
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": true,
+                  "confirmation": {
+                    "required": false,
+                    "message": "Review destructive changes before applying them."
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "title"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                },
+                "emptyText": "No due cards."
+              }
+            },
+            {
+              "id": "study-loading-state",
+              "kind": "text",
+              "title": "Loading cards",
+              "subtitle": "Study queue is restoring from local data.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "study-empty-state",
+              "kind": "text",
+              "title": "No cards due",
+              "subtitle": "Create or import cards before review.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "study-error-state",
+              "kind": "text",
+              "title": "Scheduler conflict",
+              "subtitle": "Invalid schedule is blocked inline.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "study-offline-state",
+              "kind": "text",
+              "title": "Offline review ready",
+              "subtitle": "Cards grade locally while sync is unavailable.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "study-recovery-state",
+              "kind": "text",
+              "title": "Recovered review",
+              "subtitle": "Interrupted reveal state restored without duplicate grading.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            }
+          ]
+        },
+        "decks": {
+          "title": "Decks",
+          "subtitle": "Create cards, edit fields, and import decks without entering review.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Spaced Repetition",
+            "appBarSubtitle": "Review due cards, grade memory, and keep the scheduler inspectable.",
+            "appBarEyebrow": "Study queue",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "decks",
+            "tabs": [
+              {
+                "id": "review",
+                "screen": "review",
+                "label": "Review",
+                "icon": "play"
+              },
+              {
+                "id": "decks",
+                "screen": "decks",
+                "label": "Decks",
+                "icon": "book-open"
+              },
+              {
+                "id": "card-detail",
+                "screen": "card-detail",
+                "label": "Card",
+                "icon": "bookmark"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Stats",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0F5",
+              "ink": "#14212B",
+              "muted": "#5A6974",
+              "accent": "#2F6F8F",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D8E2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E3F1F7",
+              "statusSuccess": "#E2F5E9",
+              "statusWarning": "#FFF1C7",
+              "statusError": "#FCE3DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "study-editor",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Card editor",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "fields": [
+                  {
+                    "id": "title",
+                    "label": "Card title",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "id": "front",
+                    "label": "Front",
+                    "type": "text"
+                  },
+                  {
+                    "id": "back",
+                    "label": "Back",
+                    "type": "text"
+                  },
+                  {
+                    "id": "topic",
+                    "label": "Topic",
+                    "type": "text"
+                  },
+                  {
+                    "id": "status",
+                    "label": "Status",
+                    "type": "text"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "undo": true,
+                  "confirmation": {
+                    "required": false,
+                    "message": "Review destructive changes before applying them."
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "change",
+                    "requiredFields": [
+                      "title"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                },
+                "submitLabel": "Save card"
+              }
+            },
+            {
+              "id": "study-deck-shelf",
+              "kind": "widget",
+              "widget": "groupedRecordShelf",
+              "title": "Decks by topic",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "card",
+                "groupBy": "topic",
+                "subtitleFields": [
+                  "status",
+                  "ease_factor"
+                ],
+                "emptyText": "No decks yet."
+              }
+            },
+            {
+              "id": "study-import",
+              "kind": "widget",
+              "widget": "filePicker",
+              "title": "Import deck",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "accept": [
+                  "application/json",
+                  "text/csv"
+                ],
+                "purpose": "Import cards for review after validation."
+              }
+            }
+          ]
+        },
+        "card-detail": {
+          "title": "Card",
+          "subtitle": "Inspect scheduler state, media status, and recovery notes.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Spaced Repetition",
+            "appBarSubtitle": "Review due cards, grade memory, and keep the scheduler inspectable.",
+            "appBarEyebrow": "Study queue",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "card-detail",
+            "tabs": [
+              {
+                "id": "review",
+                "screen": "review",
+                "label": "Review",
+                "icon": "play"
+              },
+              {
+                "id": "decks",
+                "screen": "decks",
+                "label": "Decks",
+                "icon": "book-open"
+              },
+              {
+                "id": "card-detail",
+                "screen": "card-detail",
+                "label": "Card",
+                "icon": "bookmark"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Stats",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0F5",
+              "ink": "#14212B",
+              "muted": "#5A6974",
+              "accent": "#2F6F8F",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D8E2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E3F1F7",
+              "statusSuccess": "#E2F5E9",
+              "statusWarning": "#FFF1C7",
+              "statusError": "#FCE3DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "study-card-detail-list",
+              "kind": "recordList",
+              "title": "Card fields",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "front",
+                  "back",
+                  "topic",
+                  "interval_days",
+                  "ease_factor"
+                ],
+                "emptyText": "Pick a card."
+              }
+            },
+            {
+              "id": "study-schedule-detail",
               "kind": "widget",
               "widget": "dataTable",
-              "title": "Cards",
-              "query": { "collections": ["card"], "limit": 50 },
+              "title": "Scheduler detail",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
               "props": {
-                "emptyText": "Add a study card.",
                 "columns": [
-                  { "key": "title", "label": "Card" },
-                  { "key": "topic", "label": "Topic" },
-                  { "key": "ease_factor", "label": "Ease" },
-                  { "key": "status", "label": "Status" },
-                  { "key": "next_review", "label": "Next review" },
-                  { "key": "review_window", "label": "Window" }
+                  {
+                    "key": "title",
+                    "label": "Card"
+                  },
+                  {
+                    "key": "interval_days",
+                    "label": "Interval"
+                  },
+                  {
+                    "key": "ease_factor",
+                    "label": "Ease"
+                  },
+                  {
+                    "key": "next_review",
+                    "label": "Next review"
+                  }
                 ]
+              }
+            },
+            {
+              "id": "study-media-boundary",
+              "kind": "widget",
+              "widget": "permissionCard",
+              "title": "Media boundary",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "required": false,
+                "reason": "Media import stays user-approved and local first."
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "History",
+          "subtitle": "Audit every grade, undo mistakes, and recover interrupted sessions.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Spaced Repetition",
+            "appBarSubtitle": "Review due cards, grade memory, and keep the scheduler inspectable.",
+            "appBarEyebrow": "Study queue",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "review",
+                "screen": "review",
+                "label": "Review",
+                "icon": "play"
+              },
+              {
+                "id": "decks",
+                "screen": "decks",
+                "label": "Decks",
+                "icon": "book-open"
+              },
+              {
+                "id": "card-detail",
+                "screen": "card-detail",
+                "label": "Card",
+                "icon": "bookmark"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Stats",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0F5",
+              "ink": "#14212B",
+              "muted": "#5A6974",
+              "accent": "#2F6F8F",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D8E2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E3F1F7",
+              "statusSuccess": "#E2F5E9",
+              "statusWarning": "#FFF1C7",
+              "statusError": "#FCE3DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "study-review-history",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Review timeline",
+              "query": {
+                "collections": [
+                  "review_log"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "grade",
+                  "scheduled_interval_days",
+                  "ease_factor",
+                  "status"
+                ]
+              }
+            },
+            {
+              "id": "study-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Change history",
+              "props": {
+                "collection": "card",
+                "limit": 100,
+                "emptyText": "No card changes yet."
+              }
+            },
+            {
+              "id": "study-history-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Grade ledger",
+              "query": {
+                "collections": [
+                  "review_log"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "graded_at",
+                    "label": "When"
+                  },
+                  {
+                    "key": "card_id",
+                    "label": "Card"
+                  },
+                  {
+                    "key": "grade",
+                    "label": "Grade"
+                  },
+                  {
+                    "key": "scheduled_interval_days",
+                    "label": "Interval"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "analytics": {
+          "title": "Stats",
+          "subtitle": "See workload, retention, intervals, and deck balance.",
+          "shell": {
+            "layoutMode": "dashboardWorkspace",
+            "appBarTitle": "Spaced Repetition",
+            "appBarSubtitle": "Review due cards, grade memory, and keep the scheduler inspectable.",
+            "appBarEyebrow": "Study queue",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "analytics",
+            "tabs": [
+              {
+                "id": "review",
+                "screen": "review",
+                "label": "Review",
+                "icon": "play"
+              },
+              {
+                "id": "decks",
+                "screen": "decks",
+                "label": "Decks",
+                "icon": "book-open"
+              },
+              {
+                "id": "card-detail",
+                "screen": "card-detail",
+                "label": "Card",
+                "icon": "bookmark"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Stats",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0F5",
+              "ink": "#14212B",
+              "muted": "#5A6974",
+              "accent": "#2F6F8F",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D8E2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E3F1F7",
+              "statusSuccess": "#E2F5E9",
+              "statusWarning": "#FFF1C7",
+              "statusError": "#FCE3DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "study-due-metric",
+              "kind": "metric",
+              "title": "Due cards",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "valueField": "interval_days",
+                "emptyText": "No due cards."
+              }
+            },
+            {
+              "id": "study-retention-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Grade mix",
+              "query": {
+                "collections": [
+                  "review_log"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "dataBinding": {
+                  "source": "query-aggregate",
+                  "aggregate": "count",
+                  "groupBy": "status"
+                },
+                "emptyText": "Grade cards to see retention."
+              }
+            },
+            {
+              "id": "study-interval-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Intervals",
+              "query": {
+                "collections": [
+                  "card"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Card"
+                  },
+                  {
+                    "key": "interval_days",
+                    "label": "Interval"
+                  },
+                  {
+                    "key": "projected_interval_days",
+                    "label": "Projected"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Limits, import/export, sync state, and accessible review controls.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Spaced Repetition",
+            "appBarSubtitle": "Review due cards, grade memory, and keep the scheduler inspectable.",
+            "appBarEyebrow": "Study queue",
+            "scrollable": true,
+            "density": "compact",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "review",
+                "screen": "review",
+                "label": "Review",
+                "icon": "play"
+              },
+              {
+                "id": "decks",
+                "screen": "decks",
+                "label": "Decks",
+                "icon": "book-open"
+              },
+              {
+                "id": "card-detail",
+                "screen": "card-detail",
+                "label": "Card",
+                "icon": "bookmark"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Stats",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0F5",
+              "ink": "#14212B",
+              "muted": "#5A6974",
+              "accent": "#2F6F8F",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D8E2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E3F1F7",
+              "statusSuccess": "#E2F5E9",
+              "statusWarning": "#FFF1C7",
+              "statusError": "#FCE3DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "study-preferences",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Review preferences",
+              "query": {
+                "collections": [
+                  "study_profile"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "fields": [
+                  {
+                    "id": "daily_new_limit",
+                    "label": "New cards per day",
+                    "type": "number"
+                  },
+                  {
+                    "id": "daily_review_limit",
+                    "label": "Reviews per day",
+                    "type": "number"
+                  },
+                  {
+                    "id": "timezone",
+                    "label": "Timezone",
+                    "type": "text"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "undo": true,
+                  "confirmation": {
+                    "required": false,
+                    "message": "Review destructive changes before applying them."
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "change",
+                    "requiredFields": [
+                      "title"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                }
+              }
+            },
+            {
+              "id": "study-export",
+              "kind": "widget",
+              "widget": "fileExport",
+              "title": "Export backup",
+              "query": {
+                "collections": [
+                  "card",
+                  "review_log"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "format": [
+                  "json",
+                  "csv"
+                ],
+                "scope": "card"
+              }
+            },
+            {
+              "id": "study-provider",
+              "kind": "widget",
+              "widget": "providerStatus",
+              "title": "Sync status",
+              "props": {
+                "unavailableText": "Local review works. Remote Anki sync is unavailable here."
               }
             }
           ]

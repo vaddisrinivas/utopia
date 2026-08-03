@@ -1,0 +1,235 @@
+{
+  "collections": [
+    "food_item",
+    "product",
+    "inventory",
+    "inventory_lot",
+    "inventory_movement",
+    "ingredient",
+    "purchase_line"
+  ],
+  "components": [
+    {
+      "id": "food-kitchen-inventory-list",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "collection": "inventory",
+        "commandPolicy": {
+          "accessibleStatus": true,
+          "autosave": "change",
+          "confirmation": {
+            "message": "Review destructive changes before applying them.",
+            "required": false
+          },
+          "draftPersistence": {
+            "enabled": true,
+            "scope": "local"
+          },
+          "offline": "local",
+          "optimistic": true,
+          "restartRecovery": {
+            "enabled": true,
+            "maxAgeMs": 86400000
+          },
+          "undo": true
+        },
+        "emptyText": "Add a receipt or manual item to build your kitchen.",
+        "metadataFields": [
+          {
+            "field": "status",
+            "filterable": true,
+            "label": "Status",
+            "sortable": true,
+            "type": "text"
+          },
+          {
+            "field": "meta",
+            "filterable": true,
+            "label": "Shelf",
+            "type": "text"
+          },
+          {
+            "field": "updated_at",
+            "label": "Updated",
+            "sortable": true,
+            "type": "timestamp"
+          }
+        ],
+        "minTapTarget": 44,
+        "placeholder": "Search fridge, pantry, freezer...",
+        "sorts": [
+          "manual",
+          "freshness",
+          "alphabetic"
+        ]
+      },
+      "query": {
+        "collections": [
+          "inventory",
+          "inventory_lot"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Search, filter, sort, and open any row.",
+      "title": "Inventory",
+      "tone": "moss",
+      "widget": "structuredList"
+    },
+    {
+      "id": "food-kitchen-lots",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "columns": [
+          {
+            "key": "title",
+            "label": "Item"
+          },
+          {
+            "key": "status",
+            "label": "Status"
+          },
+          {
+            "key": "meta",
+            "label": "Lot"
+          },
+          {
+            "key": "updated_at",
+            "label": "Updated"
+          }
+        ],
+        "emptyText": "Lots appear after capture or import.",
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "inventory_lot",
+          "inventory_movement",
+          "purchase_line"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Quantities, expiry, receipt source, and use events.",
+      "title": "Lots and movement",
+      "tone": "blue",
+      "widget": "dataTable"
+    },
+    {
+      "id": "food-kitchen-history",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "collection": "inventory",
+        "emptyText": "Inventory changes appear here.",
+        "limit": 40,
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "inventory_movement"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Audit trail for added, used, archived, and restored food.",
+      "title": "Kitchen changes",
+      "tone": "neutral",
+      "widget": "operationHistory"
+    },
+    {
+      "id": "food-offline-state",
+      "kind": "text",
+      "props": {
+        "minTapTarget": 44,
+        "role": "status",
+        "state": "offline",
+        "visibleWhen": "offline"
+      },
+      "subtitle": "Capture and edit locally; provider sync waits until the source is reachable.",
+      "title": "Offline kitchen",
+      "tone": "blue"
+    }
+  ],
+  "fields": [
+    "title",
+    "status",
+    "meta",
+    "body",
+    "updated_at"
+  ],
+  "icon": "archive",
+  "label": "Kitchen",
+  "mode": "list",
+  "query": "all-food-records",
+  "shell": {
+    "accessibility": {
+      "announcements": true,
+      "focusOrder": "document",
+      "minimumTargetSize": 44,
+      "nonColorStatus": true
+    },
+    "activeTab": "kitchen",
+    "density": "comfortable",
+    "layoutMode": "inventoryWorkspace",
+    "responsive": {
+      "breakpoint": 720,
+      "maxContentWidth": 1120,
+      "narrowPadding": 16,
+      "tracks": [
+        "primary",
+        "supporting"
+      ],
+      "widePadding": 32
+    },
+    "scrollable": true,
+    "tabs": [
+      {
+        "id": "home",
+        "label": "Today",
+        "screen": "home"
+      },
+      {
+        "id": "kitchen",
+        "label": "Kitchen",
+        "screen": "kitchen"
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "screen": "plan"
+      },
+      {
+        "id": "shop",
+        "label": "Shop",
+        "screen": "shop"
+      },
+      {
+        "id": "search",
+        "label": "Search",
+        "screen": "search"
+      }
+    ],
+    "theme": {
+      "accent": "#2F7448",
+      "accentContrast": "#FFFFFF",
+      "border": "#D7E2D4",
+      "canvas": "#F5F7EF",
+      "danger": "#B42318",
+      "ink": "#241C16",
+      "muted": "#607066",
+      "statusError": "#FCE4E1",
+      "statusInfo": "#DCECF5",
+      "statusSuccess": "#DDF4E4",
+      "statusWarning": "#FFF0C9",
+      "surface": "#FFFFFF",
+      "surfaceMuted": "#2F744814"
+    }
+  },
+  "subtitle": "Inventory by shelf, lot, expiry, product, and movement."
+}

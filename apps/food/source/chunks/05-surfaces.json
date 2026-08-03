@@ -1,27 +1,17 @@
 [
   {
+    "collections": [],
+    "icon": "🏡",
     "id": "food.overview",
     "label": "Overview",
-    "icon": "🏡",
     "views": [
       "next_meal",
       "use_soon",
       "shopping_summary",
       "food_graph"
-    ],
-    "collections": []
+    ]
   },
   {
-    "id": "food.meals",
-    "label": "Meals",
-    "icon": "🍽️",
-    "views": [
-      "planner",
-      "week_view",
-      "meal_history",
-      "nutrition_summary",
-      "recipe_revisions"
-    ],
     "collections": [
       "meal_plan",
       "meal_log",
@@ -29,20 +19,19 @@
       "recipe",
       "recipe_revision",
       "recipe_step"
+    ],
+    "icon": "🍽️",
+    "id": "food.meals",
+    "label": "Meals",
+    "views": [
+      "planner",
+      "week_view",
+      "meal_history",
+      "nutrition_summary",
+      "recipe_revisions"
     ]
   },
   {
-    "id": "food.kitchen",
-    "label": "Kitchen",
-    "icon": "🥬",
-    "views": [
-      "pantry",
-      "lots",
-      "movements",
-      "products",
-      "pantry_stats",
-      "inventory_trends"
-    ],
     "collections": [
       "food_item",
       "product",
@@ -51,20 +40,20 @@
       "inventory_movement",
       "ingredient",
       "purchase_line"
+    ],
+    "icon": "🥬",
+    "id": "food.kitchen",
+    "label": "Kitchen",
+    "views": [
+      "pantry",
+      "lots",
+      "movements",
+      "products",
+      "pantry_stats",
+      "inventory_trends"
     ]
   },
   {
-    "id": "food.shopping",
-    "label": "Shopping",
-    "icon": "🛒",
-    "views": [
-      "list",
-      "demand",
-      "stores",
-      "budget",
-      "status_board",
-      "receipt_review"
-    ],
     "collections": [
       "shopping_list",
       "shopping_item",
@@ -72,6 +61,17 @@
       "purchase",
       "purchase_line",
       "store"
+    ],
+    "icon": "🛒",
+    "id": "food.shopping",
+    "label": "Shopping",
+    "views": [
+      "list",
+      "demand",
+      "stores",
+      "budget",
+      "status_board",
+      "receipt_review"
     ]
   }
 ]

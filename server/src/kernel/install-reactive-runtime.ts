@@ -2,7 +2,9 @@ import { existsSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, wri
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { buildAppPackageFromManifest } from '@/src/domain/app-package-bridge';
+import { getBundledProductionPackages } from '@/src/domain/bundled-production-packages';
 import { loadCatalog } from '../../../src/domain/catalog';
+import { validateAppPackage, type AppPackage } from './package';
 import {
   createActionEvent,
   drainOperationCommitOutbox,
@@ -496,9 +498,12 @@ export function stopReactiveRuntimeWorker(): void {
 /** Install the default manifest-backed observer at server startup. */
 export function installReactiveRuntime(path = DEFAULT_RUNTIME_PATH): void {
   const manifest = loadCatalog().activeManifest;
-  const registry = new PackageRegistry({ path: DEFAULT_PACKAGE_REGISTRY_PATH });
+  const bundledPackage = loadBundledPackageForManifest(manifest.id, buildAppPackageFromManifest(manifest).package);
+  const registry = new PackageRegistry({ path: DEFAULT_PACKAGE_REGISTRY_PATH, bundledPackages: [bundledPackage] });
   const activePackage = registry.getActive();
-  const appPackage = activePackage ?? registry.activate(buildAppPackageFromManifest(manifest).package);
+  const appPackage = shouldRefreshBundledPackage(activePackage, bundledPackage)
+    ? registry.activate(bundledPackage)
+    : activePackage ?? registry.activate(bundledPackage);
 
   setOperationCommitFailureObserver((failure) => {
     recordReactiveObserverFailure(failure);
@@ -525,6 +530,21 @@ export function installReactiveRuntime(path = DEFAULT_RUNTIME_PATH): void {
   }));
   drainOperationCommitOutbox();
   startReactiveRuntimeWorker({ path });
+}
+
+function loadBundledPackageForManifest(manifestId: string, fallbackPackage: AppPackage): AppPackage {
+  const sourcePackage = getBundledProductionPackages().find((item) => item.portfolioId === manifestId)?.packageJson;
+  const result = validateAppPackage(sourcePackage ?? fallbackPackage);
+  if (!result.valid) throw new Error(`bundled_package_invalid:${manifestId}:${result.errors.join('|')}`);
+  return result.package;
+}
+
+function shouldRefreshBundledPackage(activePackage: AppPackage | null, bundledPackage: AppPackage): boolean {
+  if (!activePackage) return false;
+  if (activePackage.id !== bundledPackage.id) return false;
+  if (activePackage.presentation?.sourceSchemaVersion === undefined) return false;
+  if (activePackage.version === bundledPackage.version) return false;
+  return activePackage.presentation.sourceSchemaVersion.length > 0;
 }
 
 export async function drainReactiveRuntimeOutbox(input: {

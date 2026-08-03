@@ -1,0 +1,233 @@
+{
+  "collections": [
+    "preference",
+    "nutrition_goal",
+    "source_record",
+    "audit_event"
+  ],
+  "components": [
+    {
+      "id": "food-settings-data-homes",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "homes": [
+          "sqlite",
+          "notion",
+          "google_sheets",
+          "postgres"
+        ],
+        "minTapTarget": 44,
+        "noSecretsInPackage": true
+      },
+      "query": {
+        "collections": [
+          "source_record"
+        ],
+        "limit": 100
+      },
+      "subtitle": "SQLite first; optional Notion, Sheets, or Postgres after consent.",
+      "title": "Data homes",
+      "tone": "blue",
+      "widget": "dataHomeSettings"
+    },
+    {
+      "id": "food-settings-providers",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "homes": [
+          {
+            "status": "active",
+            "subtitle": "Default local records",
+            "title": "On-device"
+          },
+          {
+            "status": "optional",
+            "subtitle": "Selected Food page only",
+            "title": "Notion"
+          },
+          {
+            "status": "optional",
+            "subtitle": "Selected workbook only",
+            "title": "Sheets"
+          }
+        ],
+        "minTapTarget": 44,
+        "provider": "summary"
+      },
+      "query": {
+        "collections": [
+          "source_record",
+          "audit_event"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Show sync source, account, freshness, and last error without exposing secrets.",
+      "title": "Source health",
+      "tone": "moss",
+      "widget": "providerStatus"
+    },
+    {
+      "id": "food-settings-export",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "emptyText": "Export is available after records exist.",
+        "format": [
+          "json",
+          "csv"
+        ],
+        "minTapTarget": 44,
+        "scope": "food"
+      },
+      "query": {
+        "collections": [
+          "household",
+          "member",
+          "food_item",
+          "product",
+          "inventory",
+          "inventory_lot",
+          "inventory_movement",
+          "ingredient",
+          "recipe",
+          "recipe_revision",
+          "recipe_step",
+          "recipe_tool",
+          "meal_template",
+          "meal_plan",
+          "meal_log",
+          "meal_consumption",
+          "shopping_list",
+          "shopping_item",
+          "shopping_demand",
+          "purchase",
+          "purchase_line",
+          "store",
+          "preference",
+          "nutrition_goal",
+          "nutrition_profile",
+          "nutrition_observation",
+          "attachment",
+          "audit_event",
+          "source_record"
+        ],
+        "limit": 100
+      },
+      "subtitle": "JSON and CSV exports keep household data portable.",
+      "title": "Export and backup",
+      "tone": "amber",
+      "widget": "fileExport"
+    },
+    {
+      "id": "food-settings-permissions",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "capabilities": [
+          "camera.scan",
+          "files.read",
+          "health.read.optional",
+          "speech.record.optional"
+        ],
+        "consentRequired": true,
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "source_record"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Camera, files, speech, and health remain off until actively approved.",
+      "title": "Native permissions",
+      "tone": "plum",
+      "widget": "permissionCard"
+    }
+  ],
+  "fields": [
+    "title",
+    "status",
+    "meta",
+    "body",
+    "updated_at"
+  ],
+  "icon": "settings",
+  "label": "Settings",
+  "mode": "list",
+  "query": "all-food-records",
+  "shell": {
+    "accessibility": {
+      "announcements": true,
+      "focusOrder": "document",
+      "minimumTargetSize": 44,
+      "nonColorStatus": true
+    },
+    "activeTab": "settings",
+    "density": "comfortable",
+    "layoutMode": "settingsWorkspace",
+    "responsive": {
+      "breakpoint": 720,
+      "maxContentWidth": 1120,
+      "narrowPadding": 16,
+      "tracks": [
+        "primary",
+        "supporting"
+      ],
+      "widePadding": 32
+    },
+    "scrollable": true,
+    "tabs": [
+      {
+        "id": "home",
+        "label": "Today",
+        "screen": "home"
+      },
+      {
+        "id": "kitchen",
+        "label": "Kitchen",
+        "screen": "kitchen"
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "screen": "plan"
+      },
+      {
+        "id": "shop",
+        "label": "Shop",
+        "screen": "shop"
+      },
+      {
+        "id": "search",
+        "label": "Search",
+        "screen": "search"
+      }
+    ],
+    "theme": {
+      "accent": "#2F7448",
+      "accentContrast": "#FFFFFF",
+      "border": "#D7E2D4",
+      "canvas": "#F5F7EF",
+      "danger": "#B42318",
+      "ink": "#241C16",
+      "muted": "#607066",
+      "statusError": "#FCE4E1",
+      "statusInfo": "#DCECF5",
+      "statusSuccess": "#DDF4E4",
+      "statusWarning": "#FFF0C9",
+      "surface": "#FFFFFF",
+      "surfaceMuted": "#2F744814"
+    }
+  },
+  "subtitle": "Data homes, trust settings, exports, native permissions, and theme."
+}

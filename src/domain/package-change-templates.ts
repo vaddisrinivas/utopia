@@ -832,7 +832,7 @@ function deriveScreenEditChange(
   const existing = screens[screenId];
   const compact = /\b(shorten|shorter|smaller|compact|less dense|simplify|tighten)\b/.test(lower);
   const componentIndex = existing.components ? findTargetComponentIndex(existing.components, lower) : -1;
-  const resolvedComponentIndex = componentIndex;
+  const resolvedComponentIndex = compact ? -1 : componentIndex;
   const editsComponent = resolvedComponentIndex >= 0;
   const title = editsComponent ? existing.title : deriveEditedScreenTitle(existing.title, screenId, prompt);
   const subtitle = editsComponent ? existing.subtitle : deriveEditedScreenSubtitle(existing.subtitle, compact, lower);
@@ -1032,10 +1032,13 @@ function findTargetScreenId(
       && lowerPrompt.includes(screen.title.toLowerCase())
   ));
   if (byTitle) return byTitle[0];
-  const byComponent = entries.find(([, screen]) => (
-    screen.components ? findTargetComponentIndex(screen.components, lowerPrompt) >= 0 : false
-  ));
-  if (byComponent) return byComponent[0];
+  const byComponent = entries
+    .map(([screenId, screen]) => ({
+      screenId,
+      score: screen.components ? bestTargetComponentScore(screen.components, lowerPrompt) : 0,
+    }))
+    .sort((a, b) => b.score - a.score)[0];
+  if (byComponent && byComponent.score > 0) return byComponent.screenId;
   if (defaultScreen && screens[defaultScreen]) return defaultScreen;
   const first = entries[0]?.[0];
   if (!first) throw new Error('No JSON-render screens available to edit.');
@@ -1112,19 +1115,73 @@ function tuneScreenComponent(
 }
 
 function findTargetComponentIndex(components: A2UiComponent[], lowerPrompt: string): number {
-  return components.findIndex((component) => {
-    const id = component.id;
-    const strippedId = id?.replace(/^(?:plan|kitchen|food|ai)[_:-]+/, '');
-    const ids = [
-      id,
-      id?.replace(/[_:-]+/g, ' '),
-      strippedId,
-      strippedId?.replace(/[_:-]+/g, ' '),
-      component.title,
-      component.widget,
-    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
-    return ids.some((value) => lowerPrompt.includes(value.toLowerCase()));
+  let bestIndex = -1;
+  let bestScore = 0;
+  components.forEach((component, index) => {
+    const score = componentPromptScore(component, lowerPrompt);
+    if (score > bestScore) {
+      bestIndex = index;
+      bestScore = score;
+    }
   });
+  return bestIndex;
+}
+
+function bestTargetComponentScore(components: A2UiComponent[], lowerPrompt: string): number {
+  return Math.max(0, ...components.map((component) => componentPromptScore(component, lowerPrompt)));
+}
+
+function componentPromptScore(component: A2UiComponent, lowerPrompt: string): number {
+  const id = component.id;
+  const strippedId = id?.replace(/^(?:plan|kitchen|food|ai)[_:-]+/, '');
+  const directValues = [
+    id,
+    id?.replace(/[_:-]+/g, ' '),
+    strippedId,
+    strippedId?.replace(/[_:-]+/g, ' '),
+    component.title,
+    component.widget,
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  const propValues = [
+    typeof component.props?.title === 'string' ? component.props.title : undefined,
+    typeof component.props?.subtitle === 'string' ? component.props.subtitle : undefined,
+    typeof component.props?.body === 'string' ? component.props.body : undefined,
+    typeof component.props?.badge === 'string' ? component.props.badge : undefined,
+    ...componentActionTitles(component),
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  const phraseScore = directValues.some((value) => lowerPrompt.includes(value.toLowerCase()))
+    ? 8
+    : propValues.some((value) => lowerPrompt.includes(value.toLowerCase()))
+      ? 4
+      : 0;
+  const directTokenScore = componentSearchTokens(directValues)
+    .filter((token) => lowerPrompt.includes(token))
+    .length * 3;
+  const propTokenScore = componentSearchTokens(propValues)
+    .filter((token) => lowerPrompt.includes(token))
+    .length;
+  return phraseScore + directTokenScore + propTokenScore;
+}
+
+function componentActionTitles(component: A2UiComponent): string[] {
+  const actions = component.props?.actions;
+  if (!Array.isArray(actions)) return [];
+  return actions
+    .map((action) => (
+      action && typeof action === 'object' && 'title' in action && typeof action.title === 'string'
+        ? action.title
+        : undefined
+    ))
+    .filter((value): value is string => Boolean(value));
+}
+
+function componentSearchTokens(values: string[]): string[] {
+  const stop = new Set(['action', 'card', 'component', 'food', 'list', 'plan', 'record', 'screen', 'widget']);
+  return [...new Set(values.flatMap((value) => value
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length >= 4 && !stop.has(token))))];
 }
 
 function shouldMoveComponentFirst(lowerPrompt: string): boolean {

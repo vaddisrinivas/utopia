@@ -1,7 +1,7 @@
 {
   "schemaVersion": "wonder.app-package.v3",
   "id": "audio-loop-108",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "collections": {
     "session": {
       "id": "session",
@@ -87,16 +87,13 @@
     "history": {
       "id": "history",
       "query": "recent-sessions",
-      "mode": "table",
+      "mode": "list",
       "fields": [
         "title",
         "file_name",
-        "target_plays",
         "completed_plays",
-        "delay_seconds",
-        "status",
-        "started_at",
-        "finished_at"
+        "target_plays",
+        "status"
       ]
     },
     "home": {
@@ -119,9 +116,6 @@
       "fields": [
         "title",
         "file_name",
-        "status",
-        "target_plays",
-        "completed_plays",
         "updated_at"
       ]
     },
@@ -132,10 +126,7 @@
       "fields": [
         "title",
         "file_name",
-        "target_plays",
-        "completed_plays",
-        "status",
-        "updated_at"
+        "status"
       ]
     },
     "record": {
@@ -145,10 +136,7 @@
       "fields": [
         "title",
         "file_name",
-        "status",
-        "target_plays",
-        "completed_plays",
-        "updated_at"
+        "status"
       ]
     }
   },
@@ -158,7 +146,7 @@
     "surfaces": [
       {
         "id": "history",
-        "label": "History",
+        "label": "Sessions",
         "collections": [
           "session"
         ],
@@ -168,7 +156,7 @@
       },
       {
         "id": "home",
-        "label": "Loop",
+        "label": "Play",
         "collections": [
           "session"
         ],
@@ -188,7 +176,7 @@
       },
       {
         "id": "playlist",
-        "label": "Playlist",
+        "label": "Queue",
         "collections": [
           "session"
         ],
@@ -198,7 +186,7 @@
       },
       {
         "id": "record",
-        "label": "Record",
+        "label": "Capture",
         "collections": [
           "session"
         ],
@@ -208,24 +196,78 @@
       }
     ],
     "visualIdentity": {
-      "accent": "#2F7448",
-      "canvas": "#F7FAF4",
+      "accent": "#6C3B83",
+      "canvas": "#FBF7FD",
       "icon": "audio",
-      "tone": "moss"
+      "identity": "focused listening deck with direct transport, saved audio, and explicit capture",
+      "tone": "plum"
     },
     "ui": {
       "schemaVersion": "a2ui.v0_9",
       "defaultScreen": "home",
       "screens": {
         "history": {
-          "title": "History",
-          "subtitle": "Loop session records."
-        },
-        "home": {
-          "title": "Loop",
-          "subtitle": "Loop a local audio file with count or infinite mode, plus optional pauses.",
+          "title": "Sessions",
+          "subtitle": "Previous loops",
+          "shell": {
+            "activeTab": "history",
+            "appBarTitle": "Audio Loop",
+            "density": "spacious",
+            "layoutMode": "detailWorkspace",
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 980,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "home",
+                "label": "Play",
+                "screen": "home"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "playlist",
+                "label": "Queue",
+                "screen": "playlist"
+              },
+              {
+                "id": "history",
+                "label": "Sessions",
+                "screen": "history"
+              },
+              {
+                "id": "record",
+                "label": "Capture",
+                "screen": "record"
+              }
+            ],
+            "theme": {
+              "accent": "#6C3B83",
+              "accentContrast": "#FFFFFF",
+              "border": "#E3D3EA",
+              "canvas": "#FBF7FD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "ink": "#321640",
+              "muted": "#735C7D",
+              "statusError": "#FCE1DF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F1E5F5"
+            }
+          },
           "components": [
             {
+              "id": "history-player",
               "kind": "widget",
               "props": {
                 "countSkippedAsCompleted": true,
@@ -241,11 +283,11 @@
                   108,
                   300
                 ],
-                "nativeUnavailableCopy": "This package is JSON-owned. The shared Expo runtime plays local audio on iOS, Android, and web; the macOS shell uses its native package player.",
+                "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge.",
                 "presets": [
                   {
                     "delaySeconds": 0,
-                    "label": "108 straight",
+                    "label": "Long practice (108)",
                     "plays": 108,
                     "startDelaySeconds": 0
                   }
@@ -258,60 +300,154 @@
                   108
                 ]
               },
-              "subtitle": "Choose, start, pause, resume, or stop loop playback with count or infinite mode.",
-              "title": "Audio Loop",
-              "tone": "moss",
+              "subtitle": "Continue a prior loop.",
+              "title": "Session replay",
+              "tone": "plum",
               "widget": "audioLoopPlayer"
             },
             {
+              "id": "history-sessions",
               "kind": "widget",
               "props": {
                 "columns": [
                   {
-                    "key": "control",
-                    "label": "Control"
+                    "key": "title",
+                    "label": "Session"
                   },
                   {
-                    "key": "behavior",
-                    "label": "Behavior"
+                    "key": "file_name",
+                    "label": "Audio"
+                  },
+                  {
+                    "key": "completed_plays",
+                    "label": "Played"
+                  },
+                  {
+                    "key": "target_plays",
+                    "label": "Target"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Status"
                   }
                 ],
-                "items": [
+                "emptyText": "Completed loops appear here."
+              },
+              "query": {
+                "collections": [
+                  "session"
+                ],
+                "limit": 100
+              },
+              "title": "Recent sessions",
+              "widget": "dataTable"
+            }
+          ]
+        },
+        "home": {
+          "title": "Play",
+          "subtitle": "Finite or infinite mode",
+          "shell": {
+            "activeTab": "home",
+            "appBarTitle": "Audio Loop",
+            "density": "spacious",
+            "layoutMode": "focusedTool",
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 920,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "home",
+                "label": "Play",
+                "screen": "home"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "playlist",
+                "label": "Queue",
+                "screen": "playlist"
+              },
+              {
+                "id": "history",
+                "label": "Sessions",
+                "screen": "history"
+              },
+              {
+                "id": "record",
+                "label": "Capture",
+                "screen": "record"
+              }
+            ],
+            "theme": {
+              "accent": "#6C3B83",
+              "accentContrast": "#FFFFFF",
+              "border": "#E3D3EA",
+              "canvas": "#FBF7FD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "ink": "#321640",
+              "muted": "#735C7D",
+              "statusError": "#FCE1DF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F1E5F5"
+            }
+          },
+          "components": [
+            {
+              "id": "loop-player",
+              "kind": "widget",
+              "props": {
+                "countSkippedAsCompleted": true,
+                "defaultDelaySeconds": 0,
+                "defaultPlays": 1,
+                "defaultStartDelaySeconds": 0,
+                "delayOptions": [
+                  0,
+                  5,
+                  15,
+                  30,
+                  60,
+                  108,
+                  300
+                ],
+                "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge.",
+                "presets": [
                   {
-                    "behavior": "Pick a local audio file without uploading it.",
-                    "control": "Choose"
-                  },
-                  {
-                    "behavior": "Reset count and begin the loop.",
-                    "control": "Start"
-                  },
-                  {
-                    "behavior": "Pause track playback.",
-                    "control": "Pause"
-                  },
-                  {
-                    "behavior": "Continue the loop after a pause.",
-                    "control": "Resume"
-                  },
-                  {
-                    "behavior": "Finish current play and move to next.",
-                    "control": "Skip"
-                  },
-                  {
-                    "behavior": "Stop playback and keep the selected file ready.",
-                    "control": "Stop"
+                    "delaySeconds": 0,
+                    "label": "Long practice (108)",
+                    "plays": 108,
+                    "startDelaySeconds": 0
                   }
+                ],
+                "startDelayOptions": [
+                  0,
+                  10,
+                  30,
+                  60,
+                  108
                 ]
               },
-              "subtitle": "Core playback controls.",
-              "title": "Session Controls",
-              "tone": "blue",
-              "widget": "dataTable"
+              "subtitle": "Choose audio. Finite or infinite.",
+              "title": "Loop deck",
+              "tone": "plum",
+              "widget": "audioLoopPlayer"
             },
             {
+              "id": "recent-loop-sessions",
               "kind": "recordList",
               "props": {
-                "emptyText": "No saved loop sessions yet.",
+                "emptyText": "No saved sessions yet.",
                 "subtitleFields": [
                   "file_name",
                   "completed_plays",
@@ -325,22 +461,368 @@
                 ],
                 "limit": 8
               },
-              "subtitle": "Saved loop sessions appear here when the runtime persists them.",
-              "title": "Recent Sessions"
+              "subtitle": "Saved playback",
+              "title": "Recent sessions"
             }
           ]
         },
         "library": {
           "title": "Library",
-          "subtitle": "Saved loop sessions and audio entries."
+          "subtitle": "Saved audio",
+          "shell": {
+            "activeTab": "library",
+            "appBarTitle": "Audio Loop",
+            "density": "spacious",
+            "layoutMode": "collectionWorkspace",
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 980,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "home",
+                "label": "Play",
+                "screen": "home"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "playlist",
+                "label": "Queue",
+                "screen": "playlist"
+              },
+              {
+                "id": "history",
+                "label": "Sessions",
+                "screen": "history"
+              },
+              {
+                "id": "record",
+                "label": "Capture",
+                "screen": "record"
+              }
+            ],
+            "theme": {
+              "accent": "#6C3B83",
+              "accentContrast": "#FFFFFF",
+              "border": "#E3D3EA",
+              "canvas": "#FBF7FD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "ink": "#321640",
+              "muted": "#735C7D",
+              "statusError": "#FCE1DF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F1E5F5"
+            }
+          },
+          "components": [
+            {
+              "id": "library-player",
+              "kind": "widget",
+              "props": {
+                "countSkippedAsCompleted": true,
+                "defaultDelaySeconds": 0,
+                "defaultPlays": 1,
+                "defaultStartDelaySeconds": 0,
+                "delayOptions": [
+                  0,
+                  5,
+                  15,
+                  30,
+                  60,
+                  108,
+                  300
+                ],
+                "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge.",
+                "presets": [
+                  {
+                    "delaySeconds": 0,
+                    "label": "Long practice (108)",
+                    "plays": 108,
+                    "startDelaySeconds": 0
+                  }
+                ],
+                "startDelayOptions": [
+                  0,
+                  10,
+                  30,
+                  60,
+                  108
+                ]
+              },
+              "subtitle": "Choose a saved file.",
+              "title": "Audio library",
+              "tone": "plum",
+              "widget": "audioLoopPlayer"
+            },
+            {
+              "id": "library-sessions",
+              "kind": "recordList",
+              "props": {
+                "emptyText": "Imported and recorded files appear here.",
+                "subtitleFields": [
+                  "file_name",
+                  "updated_at"
+                ]
+              },
+              "query": {
+                "collections": [
+                  "session"
+                ],
+                "limit": 50
+              },
+              "title": "Recent files"
+            }
+          ]
         },
         "playlist": {
-          "title": "Playlist",
-          "subtitle": "Curated looping sessions and playback runs."
+          "title": "Queue",
+          "subtitle": "Play in order",
+          "shell": {
+            "activeTab": "playlist",
+            "appBarTitle": "Audio Loop",
+            "density": "spacious",
+            "layoutMode": "collectionWorkspace",
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 980,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "home",
+                "label": "Play",
+                "screen": "home"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "playlist",
+                "label": "Queue",
+                "screen": "playlist"
+              },
+              {
+                "id": "history",
+                "label": "Sessions",
+                "screen": "history"
+              },
+              {
+                "id": "record",
+                "label": "Capture",
+                "screen": "record"
+              }
+            ],
+            "theme": {
+              "accent": "#6C3B83",
+              "accentContrast": "#FFFFFF",
+              "border": "#E3D3EA",
+              "canvas": "#FBF7FD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "ink": "#321640",
+              "muted": "#735C7D",
+              "statusError": "#FCE1DF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F1E5F5"
+            }
+          },
+          "components": [
+            {
+              "id": "playlist-player",
+              "kind": "widget",
+              "props": {
+                "countSkippedAsCompleted": true,
+                "defaultDelaySeconds": 0,
+                "defaultPlays": 1,
+                "defaultStartDelaySeconds": 0,
+                "delayOptions": [
+                  0,
+                  5,
+                  15,
+                  30,
+                  60,
+                  108,
+                  300
+                ],
+                "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge.",
+                "presets": [
+                  {
+                    "delaySeconds": 0,
+                    "label": "Long practice (108)",
+                    "plays": 108,
+                    "startDelaySeconds": 0
+                  }
+                ],
+                "startDelayOptions": [
+                  0,
+                  10,
+                  30,
+                  60,
+                  108
+                ]
+              },
+              "subtitle": "Move through saved audio.",
+              "title": "Playback queue",
+              "tone": "plum",
+              "widget": "audioLoopPlayer"
+            },
+            {
+              "id": "playlist-sessions",
+              "kind": "recordList",
+              "props": {
+                "emptyText": "Add saved audio to begin a queue.",
+                "subtitleFields": [
+                  "file_name",
+                  "status"
+                ]
+              },
+              "query": {
+                "collections": [
+                  "session"
+                ],
+                "limit": 50
+              },
+              "title": "Queued sessions"
+            }
+          ]
         },
         "record": {
-          "title": "Record",
-          "subtitle": "Replay or re-record loop sessions from local audio files."
+          "title": "Capture",
+          "subtitle": "Record with confirmation",
+          "shell": {
+            "activeTab": "record",
+            "appBarTitle": "Audio Loop",
+            "density": "spacious",
+            "layoutMode": "focusedTool",
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 920,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "home",
+                "label": "Play",
+                "screen": "home"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "playlist",
+                "label": "Queue",
+                "screen": "playlist"
+              },
+              {
+                "id": "history",
+                "label": "Sessions",
+                "screen": "history"
+              },
+              {
+                "id": "record",
+                "label": "Capture",
+                "screen": "record"
+              }
+            ],
+            "theme": {
+              "accent": "#6C3B83",
+              "accentContrast": "#FFFFFF",
+              "border": "#E3D3EA",
+              "canvas": "#FBF7FD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "ink": "#321640",
+              "muted": "#735C7D",
+              "statusError": "#FCE1DF",
+              "statusInfo": "#E7EFFA",
+              "statusSuccess": "#E1F3E7",
+              "statusWarning": "#FFF0C7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F1E5F5"
+            }
+          },
+          "components": [
+            {
+              "id": "record-player",
+              "kind": "widget",
+              "props": {
+                "countSkippedAsCompleted": true,
+                "defaultDelaySeconds": 0,
+                "defaultPlays": 1,
+                "defaultStartDelaySeconds": 0,
+                "delayOptions": [
+                  0,
+                  5,
+                  15,
+                  30,
+                  60,
+                  108,
+                  300
+                ],
+                "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge.",
+                "presets": [
+                  {
+                    "delaySeconds": 0,
+                    "label": "Long practice (108)",
+                    "plays": 108,
+                    "startDelaySeconds": 0
+                  }
+                ],
+                "startDelayOptions": [
+                  0,
+                  10,
+                  30,
+                  60,
+                  108
+                ]
+              },
+              "subtitle": "Recording always starts with confirmation.",
+              "title": "New recording",
+              "tone": "plum",
+              "widget": "audioLoopPlayer"
+            },
+            {
+              "id": "recorded-sessions",
+              "kind": "recordList",
+              "props": {
+                "emptyText": "Recordings appear here after they are saved.",
+                "subtitleFields": [
+                  "file_name",
+                  "status",
+                  "updated_at"
+                ]
+              },
+              "query": {
+                "collections": [
+                  "session"
+                ],
+                "limit": 30
+              },
+              "title": "Saved recordings"
+            }
+          ]
         }
       }
     },
@@ -349,9 +831,22 @@
   "rules": [],
   "capabilities": [],
   "acceptanceTests": [
+    "media-utility",
+    "recording-boundary",
     "schema-native"
   ],
-  "dependencyPins": [],
+  "dependencyPins": [
+    {
+      "package": "expo-audio",
+      "version": "57.0.3",
+      "source": "npm"
+    },
+    {
+      "package": "expo-document-picker",
+      "version": "57.0.1",
+      "source": "npm"
+    }
+  ],
   "nativeCapabilities": {
     "schemaVersion": "wonder.app-package-native-capabilities.v1",
     "platform": "android",
@@ -396,7 +891,18 @@
     "schemaVersion": "wonder.package-contract-lock.v1",
     "algorithm": "sha256",
     "pinnedAt": "2026-07-29T00:00:00.000Z",
-    "dependencyPins": [],
+    "dependencyPins": [
+      {
+        "package": "expo-audio",
+        "version": "57.0.3",
+        "source": "npm"
+      },
+      {
+        "package": "expo-document-picker",
+        "version": "57.0.1",
+        "source": "npm"
+      }
+    ],
     "nativeCapabilities": {
       "schemaVersion": "wonder.app-package-native-capabilities.v1",
       "platform": "android",
@@ -437,6 +943,6 @@
         }
       ]
     },
-    "checksum": "sha256:333840bbee32729eb1fd9c610501e8fc7e6491c7e70f5b0b33fae2c6ead56ed6"
+    "checksum": "sha256:ef721041e3377c0a96b0ba6274bad8ffb975050678777626d7d5e0d9b5750ef5"
   }
 }

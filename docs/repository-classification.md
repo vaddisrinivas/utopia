@@ -14,9 +14,6 @@ Allowed categories: Core, shell, authoring, service, app, test, generated, tooli
 | apps | app | bundled reference apps and package examples |
 | assets | tooling | static assets used by shell/app and docs |
 | cloudflare | service | hosted registry worker and deployment surface |
-| components | shell | shell-facing component directory |
-| constants | shell | shell-facing constants directory |
-| core | Core | legacy Core candidate; must be mapped before consolidation |
 | docs | tooling | architecture, policy, and scorecard evidence |
 | fastlane | tooling | release helper scripts and automation glue |
 | ios | shell | iOS native shell project |
@@ -27,6 +24,7 @@ Allowed categories: Core, shell, authoring, service, app, test, generated, tooli
 | packages/runtime-kernel | Core | shared expression/runtime primitives |
 | packages/schemas | Core | schema registry and validator inputs |
 | packages/shared | Core | shared runtime/domain helpers |
+| research | tooling | research inputs, local evidence packets, and proof ledgers |
 | requests | tooling | proposal and requirement payloads |
 | schemas | Core | canonical schema inputs outside generated package output |
 | scripts | tooling | repository quality and release scripts |

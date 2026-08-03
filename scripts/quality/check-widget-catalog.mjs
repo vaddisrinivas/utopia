@@ -13,13 +13,7 @@ const widgetsPath = path.join(root, 'src/presentation/json-render-widgets.tsx');
 const foodPath = path.join(root, 'packages/domain-config/domains/food.v1.json');
 const evidencePath = path.join(root, 'app/build/evidence/widget-catalog.json');
 const EXPECTED_DOMAIN_WIDGET_NAMES = new Set([
-  'FoodHeroWidget',
-  'MealTimelineWidget',
-  'RecipeCardWidget',
-  'ReceiptReviewCardWidget',
-  'PantryShelfWidget',
   'AskFoodBarWidget',
-  'UseFirstCarouselWidget',
 ]);
 
 const primitiveContract = fs.readFileSync(primitiveContractPath, 'utf8');
@@ -31,7 +25,7 @@ const surface = fs.readFileSync(surfacePath, 'utf8');
 const widgetsSource = fs.readFileSync(widgetsPath, 'utf8');
 const food = JSON.parse(fs.readFileSync(foodPath, 'utf8'));
 
-const MAX_DOMAIN_WIDGETS = Number.parseInt(process.env.UTOPIA_MAX_DOMAIN_WIDGETS ?? '7', 10);
+const MAX_DOMAIN_WIDGETS = Number.parseInt(process.env.UTOPIA_MAX_DOMAIN_WIDGETS ?? '1', 10);
 const contractWidgets = extractContractWidgets(widgetContract);
 const schemaWidgets = new Set(schema.$defs.package_ui_component.properties.widget.enum);
 const surfaceWidgets = extractSurfaceWidgetMap(surface);

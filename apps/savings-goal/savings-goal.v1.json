@@ -1,0 +1,1856 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "savings-goal",
+  "version": "2.0.0",
+  "collections": {
+    "savings_entry": {
+      "id": "savings_entry",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "amount": {
+          "type": "number",
+          "required": true
+        },
+        "unit": {
+          "type": "text"
+        },
+        "recorded_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        },
+        "goal_id": {
+          "type": "text",
+          "indexed": true
+        },
+        "entry_type": {
+          "type": "text",
+          "indexed": true
+        },
+        "target_amount": {
+          "type": "number"
+        },
+        "current_saved": {
+          "type": "number"
+        },
+        "target_date": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "as_of": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "remaining_amount": {
+          "type": "number"
+        },
+        "progress_percent": {
+          "type": "number"
+        },
+        "days_remaining": {
+          "type": "number"
+        },
+        "daily_required": {
+          "type": "number"
+        },
+        "weekly_required": {
+          "type": "number"
+        },
+        "monthly_required": {
+          "type": "number"
+        },
+        "goal_status": {
+          "type": "text",
+          "indexed": true
+        },
+        "image_status": {
+          "type": "text"
+        },
+        "sync_status": {
+          "type": "text"
+        }
+      }
+    },
+    "savings_settings": {
+      "id": "savings_settings",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "currency": {
+          "type": "text"
+        },
+        "pay_period": {
+          "type": "text"
+        },
+        "reminder_day": {
+          "type": "text"
+        },
+        "sharing_status": {
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    }
+  },
+  "queries": {
+    "savings_entry-records": {
+      "from": "savings_entry",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    },
+    "active-goals": {
+      "from": "savings_entry",
+      "where": {
+        "op": "eq",
+        "field": "entry_type",
+        "value": "goal"
+      },
+      "orderBy": [
+        {
+          "field": "target_date",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    },
+    "deposits": {
+      "from": "savings_entry",
+      "where": {
+        "op": "eq",
+        "field": "entry_type",
+        "value": "deposit"
+      },
+      "orderBy": [
+        {
+          "field": "recorded_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 200
+    },
+    "savings-settings": {
+      "from": "savings_settings",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 10
+    }
+  },
+  "views": {
+    "entries": {
+      "id": "entries",
+      "query": "savings_entry-records",
+      "mode": "table",
+      "fields": [
+        "title",
+        "amount",
+        "unit",
+        "recorded_at"
+      ]
+    },
+    "goals": {
+      "id": "goals",
+      "query": "active-goals",
+      "mode": "list",
+      "fields": [
+        "title",
+        "target_amount",
+        "current_saved",
+        "progress_percent",
+        "target_date"
+      ]
+    },
+    "deposits": {
+      "id": "deposits",
+      "query": "deposits",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "amount",
+        "recorded_at",
+        "notes"
+      ]
+    },
+    "settings": {
+      "id": "settings",
+      "query": "savings-settings",
+      "mode": "table",
+      "fields": [
+        "currency",
+        "pay_period",
+        "reminder_day",
+        "sharing_status"
+      ]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "remaining_amount",
+      "collection": "savings_entry",
+      "dependsOn": [],
+      "expression": {
+        "-": [
+          {
+            "var": [
+              "record.target_amount",
+              0
+            ]
+          },
+          {
+            "var": [
+              "record.current_saved",
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "progress_percent",
+      "collection": "savings_entry",
+      "dependsOn": [],
+      "expression": {
+        "if": [
+          {
+            ">": [
+              {
+                "var": [
+                  "record.target_amount",
+                  0
+                ]
+              },
+              0
+            ]
+          },
+          {
+            "*": [
+              {
+                "/": [
+                  {
+                    "var": [
+                      "record.current_saved",
+                      0
+                    ]
+                  },
+                  {
+                    "var": "record.target_amount"
+                  }
+                ]
+              },
+              100
+            ]
+          },
+          0
+        ]
+      }
+    },
+    {
+      "id": "days_remaining",
+      "collection": "savings_entry",
+      "dependsOn": [],
+      "expression": {
+        "date_diff": {
+          "start": {
+            "var": "record.as_of"
+          },
+          "end": {
+            "var": "record.target_date"
+          },
+          "unit": "days",
+          "inputKind": "date",
+          "timezone": "UTC",
+          "onMissing": "zero",
+          "onInvalid": "zero",
+          "onEndBeforeStart": "zero"
+        }
+      }
+    },
+    {
+      "id": "daily_required",
+      "collection": "savings_entry",
+      "dependsOn": [
+        "remaining_amount",
+        "days_remaining"
+      ],
+      "expression": {
+        "if": [
+          {
+            ">": [
+              {
+                "var": "computed.days_remaining"
+              },
+              0
+            ]
+          },
+          {
+            "/": [
+              {
+                "var": "computed.remaining_amount"
+              },
+              {
+                "var": "computed.days_remaining"
+              }
+            ]
+          },
+          0
+        ]
+      }
+    },
+    {
+      "id": "weekly_required",
+      "collection": "savings_entry",
+      "dependsOn": [
+        "daily_required"
+      ],
+      "expression": {
+        "*": [
+          {
+            "var": "computed.daily_required"
+          },
+          7
+        ]
+      }
+    },
+    {
+      "id": "monthly_required",
+      "collection": "savings_entry",
+      "dependsOn": [
+        "daily_required"
+      ],
+      "expression": {
+        "*": [
+          {
+            "var": "computed.daily_required"
+          },
+          30
+        ]
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "savings-deposit-proposal",
+      "trigger": {
+        "kind": "operation"
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": {
+          "kind": "custom",
+          "tool": "record_savings_deposit"
+        }
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    },
+    {
+      "id": "savings-reminder-proposal",
+      "trigger": {
+        "kind": "schedule"
+      },
+      "effect": {
+        "kind": "propose_operation",
+        "operation": {
+          "kind": "custom",
+          "tool": "schedule_savings_reminder"
+        }
+      },
+      "mode": "suggest",
+      "maxRunsPerEvent": 1
+    }
+  ],
+  "capabilities": [
+    "records.read",
+    "records.write",
+    "notifications.schedule",
+    "file.export",
+    "offline.local"
+  ],
+  "acceptanceTests": [
+    "create-goal-and-target",
+    "deposit-and-progress",
+    "saving-plan",
+    "gold-wave2e-progress-oracle",
+    "gold-wave2e-deposit-history"
+  ],
+  "presentation": {
+    "label": "Savings Goal",
+    "homeSurface": "dashboard",
+    "surfaces": [
+      {
+        "id": "dashboard",
+        "label": "Goal",
+        "icon": "bookmark",
+        "collections": [
+          "savings_entry",
+          "savings_settings"
+        ],
+        "views": [
+          "entries",
+          "goals",
+          "deposits",
+          "settings"
+        ]
+      },
+      {
+        "id": "goals",
+        "label": "Goals",
+        "icon": "list",
+        "collections": [
+          "savings_entry",
+          "savings_settings"
+        ],
+        "views": [
+          "entries",
+          "goals",
+          "deposits",
+          "settings"
+        ]
+      },
+      {
+        "id": "deposit-detail",
+        "label": "Deposit",
+        "icon": "plus",
+        "collections": [
+          "savings_entry",
+          "savings_settings"
+        ],
+        "views": [
+          "entries",
+          "goals",
+          "deposits",
+          "settings"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "icon": "rotate-ccw",
+        "collections": [
+          "savings_entry",
+          "savings_settings"
+        ],
+        "views": [
+          "entries",
+          "goals",
+          "deposits",
+          "settings"
+        ]
+      },
+      {
+        "id": "analytics",
+        "label": "Plan",
+        "icon": "bar-chart",
+        "collections": [
+          "savings_entry",
+          "savings_settings"
+        ],
+        "views": [
+          "entries",
+          "goals",
+          "deposits",
+          "settings"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "collections": [
+          "savings_entry",
+          "savings_settings"
+        ],
+        "views": [
+          "entries",
+          "goals",
+          "deposits",
+          "settings"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "target",
+      "tone": "goal-green",
+      "accent": "#5D8E38",
+      "canvas": "#F6F8F5",
+      "identity": "Savings-goal workspace with deposits, target math, and progress controls."
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "dashboard",
+      "navigation": {
+        "items": [
+          {
+            "screen": "dashboard",
+            "label": "Goal",
+            "icon": "bookmark"
+          },
+          {
+            "screen": "goals",
+            "label": "Goals",
+            "icon": "list"
+          },
+          {
+            "screen": "deposit-detail",
+            "label": "Deposit",
+            "icon": "plus"
+          },
+          {
+            "screen": "history",
+            "label": "History",
+            "icon": "rotate-ccw"
+          },
+          {
+            "screen": "analytics",
+            "label": "Plan",
+            "icon": "bar-chart"
+          }
+        ]
+      },
+      "screens": {
+        "dashboard": {
+          "title": "Goal",
+          "subtitle": "Track target, saved amount, deadline, and next deposit in one view.",
+          "shell": {
+            "layoutMode": "dashboard",
+            "composition": {
+              "mode": "dashboard",
+              "dashboardColumns": 3
+            },
+            "appBarTitle": "Savings Goal",
+            "appBarSubtitle": "See the goal, remaining amount, and exact deposit action immediately.",
+            "appBarEyebrow": "Goal tracker",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "dashboard",
+            "tabs": [
+              {
+                "id": "dashboard",
+                "screen": "dashboard",
+                "label": "Goal",
+                "icon": "bookmark"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "list"
+              },
+              {
+                "id": "deposit-detail",
+                "screen": "deposit-detail",
+                "label": "Deposit",
+                "icon": "plus"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Plan",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "add-deposit",
+                "label": "Add deposit",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "add-deposit"
+              },
+              {
+                "id": "adjust-plan",
+                "label": "Adjust",
+                "icon": "settings",
+                "tone": "secondary",
+                "event": "adjust-plan"
+              }
+            ],
+              "theme": {
+                "canvas": "#F6F8F5",
+                "surface": "#FFFFFF",
+                "surfaceMuted": "#E8F1E1",
+              "ink": "#1C2617",
+              "muted": "#5F6B5A",
+              "accent": "#5D8E38",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDDBC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5F0F7",
+              "statusSuccess": "#E1F4DA",
+              "statusWarning": "#FFF0C8",
+              "statusError": "#FCE2DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 960,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "savings-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Goal summary",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "Goal progress in real time",
+                "subtitle": "Track target, saved amount, and remaining total.",
+                "badge": "Live",
+                "stats": [
+                  {
+                    "label": "Daily target",
+                    "value": "Computed"
+                  },
+                  {
+                    "label": "Weekly target",
+                    "value": "Computed"
+                  },
+                  {
+                    "label": "Monthly target",
+                    "value": "Computed"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "savings-goal-card",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Goal detail",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "Current target",
+                "subtitle": "Progress is based on deposits and target date.",
+                "body": "Keep a goal name, amount, deadline, and optional notes.",
+                "badge": "Ready",
+                "chips": [
+                  {
+                    "label": "Remaining",
+                    "value": "Computed"
+                  },
+                  {
+                    "label": "Deadline",
+                    "value": "Configured per goal"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "savings-deposit-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Add deposit",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "Record deposit",
+                "subtitle": "Deposits update progress and history immediately.",
+                "items": [
+                  {
+                    "title": "$50 this week",
+                    "detail": "Progress and cadence recalculate after each deposit.",
+                    "status": "ready"
+                  },
+                  {
+                    "title": "Undo available",
+                    "detail": "Undo edits and corrections to keep history consistent.",
+                    "status": "safe"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "savings-deposit-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Recent deposits",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "savings_entry",
+                "metadataFields": [
+                  {
+                    "field": "amount",
+                    "label": "Amount",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "recorded_at",
+                    "label": "Date",
+                    "type": "timestamp",
+                    "sortable": true
+                  },
+                  {
+                    "field": "progress_percent",
+                    "label": "Progress",
+                    "type": "number"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": true,
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "title"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                },
+                "emptyText": "No deposits yet."
+              }
+            },
+            {
+              "id": "savings-loading-state",
+              "kind": "text",
+              "title": "Loading goal",
+              "subtitle": "Goal progress is restoring.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-empty-state",
+              "kind": "text",
+              "title": "No goal yet",
+              "subtitle": "Create a goal with amount and deadline.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-error-state",
+              "kind": "text",
+              "title": "Input blocked",
+              "subtitle": "Review this screen and retry.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-offline-state",
+              "kind": "text",
+              "title": "Offline deposits",
+              "subtitle": "Deposits save locally until sync exists.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-recovery-state",
+              "kind": "text",
+              "title": "Recovered deposit",
+              "subtitle": "Interrupted deposit draft restored without duplication.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            }
+          ]
+        },
+        "goals": {
+          "title": "Goals",
+          "subtitle": "Create and edit goals, targets, images, dates, and notes.",
+          "shell": {
+            "layoutMode": "masterDetail",
+            "composition": {
+              "mode": "masterDetail",
+              "ratio": 0.42
+            },
+            "appBarTitle": "Savings Goal",
+            "appBarSubtitle": "See the goal, remaining amount, and exact deposit action immediately.",
+            "appBarEyebrow": "Goal tracker",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "goals",
+            "tabs": [
+              {
+                "id": "dashboard",
+                "screen": "dashboard",
+                "label": "Goal",
+                "icon": "bookmark"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "list"
+              },
+              {
+                "id": "deposit-detail",
+                "screen": "deposit-detail",
+                "label": "Deposit",
+                "icon": "plus"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Plan",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F6F8F5",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F1E1",
+              "ink": "#1C2617",
+              "muted": "#5F6B5A",
+              "accent": "#5D8E38",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDDBC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5F0F7",
+              "statusSuccess": "#E1F4DA",
+              "statusWarning": "#FFF0C8",
+              "statusError": "#FCE2DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "savings-editor",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Goal editor",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "fields": [
+                  {
+                    "id": "title",
+                    "label": "Goal",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "id": "target_amount",
+                    "label": "Target",
+                    "type": "number"
+                  },
+                  {
+                    "id": "current_saved",
+                    "label": "Saved",
+                    "type": "number"
+                  },
+                  {
+                    "id": "target_date",
+                    "label": "Target date",
+                    "type": "timestamp"
+                  },
+                  {
+                    "id": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "undo": true,
+                  "offline": "local",
+                  "validation": {
+                    "mode": "change",
+                "requiredFields": [
+                      "amount"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                },
+                "submitLabel": "Save goal"
+              }
+            },
+            {
+              "id": "savings-goal-shelf",
+              "kind": "widget",
+              "widget": "horizontalRecordCarousel",
+              "title": "Goal list",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "savings_entry",
+                "subtitleFields": [
+                  "progress_percent",
+                  "target_date",
+                  "goal_status"
+                ],
+                "emptyText": "No goals yet."
+              }
+            },
+            {
+              "id": "savings-goal-list-detail",
+              "kind": "recordList",
+              "title": "Goal list-detail",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "current_saved",
+                  "target_amount",
+                  "progress_percent"
+                ],
+                "emptyText": "Add a goal to begin.",
+                "loadingText": "Loading goals.",
+                "errorText": "Retry after permission is restored.",
+                "offlineText": "Changes save locally until sync returns.",
+                "recoveryText": "Recovered your draft goal."
+              }
+            },
+            {
+              "id": "savings-image-boundary",
+              "kind": "widget",
+              "widget": "permissionCard",
+              "title": "Goal image",
+              "props": {
+                "required": false,
+                "reason": "Images require user-approved file access."
+              }
+            },
+            {
+              "id": "savings-goals-empty-state",
+              "kind": "text",
+              "title": "No goals yet",
+              "subtitle": "Create a goal with target, date, and optional notes.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-goals-loading-state",
+              "kind": "text",
+              "title": "Loading goals",
+              "subtitle": "Restoring goals and deposits from local storage.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-goals-error-state",
+              "kind": "text",
+              "title": "Storage issue",
+              "subtitle": "Open again after permissions are restored.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-goals-offline-state",
+              "kind": "text",
+              "title": "Offline editing",
+              "subtitle": "Changes are saved locally and syncs when network is available.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-settings-offline-state",
+              "kind": "text",
+              "title": "Settings offline",
+              "subtitle": "Settings changes are preserved locally and synced when online.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            }
+          ]
+        },
+        "deposit-detail": {
+          "title": "Deposit",
+          "subtitle": "Inspect one deposit, attached note, and resulting progress.",
+          "shell": {
+            "layoutMode": "masterDetail",
+            "composition": {
+              "mode": "masterDetail",
+              "ratio": 0.38
+            },
+            "appBarTitle": "Savings Goal",
+            "appBarSubtitle": "See the goal, remaining amount, and exact deposit action immediately.",
+            "appBarEyebrow": "Goal tracker",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "deposit-detail",
+            "tabs": [
+              {
+                "id": "dashboard",
+                "screen": "dashboard",
+                "label": "Goal",
+                "icon": "bookmark"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "list"
+              },
+              {
+                "id": "deposit-detail",
+                "screen": "deposit-detail",
+                "label": "Deposit",
+                "icon": "plus"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Plan",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "topActions": [
+              {
+                "id": "add-goal",
+                "label": "Create goal",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "create-goal"
+              },
+              {
+                "id": "add-deposit",
+                "label": "Quick deposit",
+                "icon": "plus",
+                "tone": "secondary",
+                "event": "quick-deposit"
+              }
+            ],
+            "theme": {
+              "canvas": "#F6F8F5",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F1E1",
+              "ink": "#1C2617",
+              "muted": "#5F6B5A",
+              "accent": "#5D8E38",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDDBC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5F0F7",
+              "statusSuccess": "#E1F4DA",
+              "statusWarning": "#FFF0C8",
+              "statusError": "#FCE2DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "savings-deposit-detail-list",
+              "kind": "recordList",
+              "title": "Deposit detail",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "amount",
+                  "recorded_at",
+                  "notes",
+                  "progress_percent"
+                ],
+                "emptyText": "Pick a deposit."
+              }
+            },
+            {
+              "id": "savings-deposit-form",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Deposit form",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "fields": [
+                  {
+                    "id": "amount",
+                    "label": "Amount",
+                    "type": "number",
+                    "required": true
+                  },
+                  {
+                    "id": "recorded_at",
+                    "label": "Date",
+                    "type": "timestamp"
+                  },
+                  {
+                    "id": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": true,
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "amount"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                },
+                "submitLabel": "Save deposit"
+              }
+            },
+            {
+              "id": "savings-deposit-list-loading-state",
+              "kind": "text",
+              "title": "Loading deposits",
+              "subtitle": "Refreshing deposits for the selected goal.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-deposit-list-error-state",
+              "kind": "text",
+              "title": "Deposit load issue",
+              "subtitle": "Try again when the local cache is available.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-deposit-list-offline-state",
+              "kind": "text",
+              "title": "Offline deposit entry",
+              "subtitle": "Deposits queue locally and sync on reconnect.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-deposit-list-recovery-state",
+              "kind": "text",
+              "title": "Recovered draft",
+              "subtitle": "Restarted deposit data was restored.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "History",
+          "subtitle": "Audit deposits, removals, target changes, and recovery.",
+          "shell": {
+            "layoutMode": "dashboard",
+            "composition": {
+              "mode": "dashboard",
+              "dashboardColumns": 2
+            },
+            "appBarTitle": "Savings Goal",
+            "appBarSubtitle": "See the goal, remaining amount, and exact deposit action immediately.",
+            "appBarEyebrow": "Goal tracker",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "dashboard",
+                "screen": "dashboard",
+                "label": "Goal",
+                "icon": "bookmark"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "list"
+              },
+              {
+                "id": "deposit-detail",
+                "screen": "deposit-detail",
+                "label": "Deposit",
+                "icon": "plus"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Plan",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F6F8F5",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F1E1",
+              "ink": "#1C2617",
+              "muted": "#5F6B5A",
+              "accent": "#5D8E38",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDDBC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5F0F7",
+              "statusSuccess": "#E1F4DA",
+              "statusWarning": "#FFF0C8",
+              "statusError": "#FCE2DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "savings-history-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Deposit timeline",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "amount",
+                  "recorded_at",
+                  "notes"
+                ]
+              }
+            },
+            {
+              "id": "savings-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Change history",
+              "props": {
+                "collection": "savings_entry",
+                "limit": 100
+              }
+            },
+            {
+              "id": "savings-history-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Savings ledger",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "recorded_at",
+                    "label": "Date"
+                  },
+                  {
+                    "key": "amount",
+                    "label": "Amount"
+                  },
+                  {
+                    "key": "progress_percent",
+                    "label": "Progress"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "analytics": {
+          "title": "Plan",
+          "subtitle": "Daily, weekly, and monthly saving amounts from target and deadline.",
+          "shell": {
+            "layoutMode": "dashboard",
+            "composition": {
+              "mode": "dashboard",
+              "dashboardColumns": 2
+            },
+            "appBarTitle": "Savings Goal",
+            "appBarSubtitle": "See the goal, remaining amount, and exact deposit action immediately.",
+            "appBarEyebrow": "Goal tracker",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "analytics",
+            "tabs": [
+              {
+                "id": "dashboard",
+                "screen": "dashboard",
+                "label": "Goal",
+                "icon": "bookmark"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "list"
+              },
+              {
+                "id": "deposit-detail",
+                "screen": "deposit-detail",
+                "label": "Deposit",
+                "icon": "plus"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Plan",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F6F8F5",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F1E1",
+              "ink": "#1C2617",
+              "muted": "#5F6B5A",
+              "accent": "#5D8E38",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDDBC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5F0F7",
+              "statusSuccess": "#E1F4DA",
+              "statusWarning": "#FFF0C8",
+              "statusError": "#FCE2DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "savings-progress-metric",
+              "kind": "metric",
+              "title": "Progress percent",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "valueField": "progress_percent",
+                "emptyText": "No goal progress yet."
+              }
+            },
+            {
+              "id": "savings-plan-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Savings cadence",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "dataBinding": {
+                  "source": "query-records",
+                  "xField": "title",
+                  "yField": "daily_required"
+                },
+                "emptyText": "Create a dated goal to see cadence."
+              }
+            },
+            {
+              "id": "savings-plan-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Plan table",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "remaining_amount",
+                    "label": "Remaining"
+                  },
+                  {
+                    "key": "days_remaining",
+                    "label": "Days"
+                  },
+                  {
+                    "key": "daily_required",
+                    "label": "Daily"
+                  },
+                  {
+                    "key": "weekly_required",
+                    "label": "Weekly"
+                  },
+                  {
+                    "key": "monthly_required",
+                    "label": "Monthly"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "savings-plan-empty-state",
+              "kind": "text",
+              "title": "No plan yet",
+              "subtitle": "Create a goal to generate cadence and pacing.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-plan-loading-state",
+              "kind": "text",
+              "title": "Loading plan",
+              "subtitle": "Calculating deposits and pace.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-plan-error-state",
+              "kind": "text",
+              "title": "Plan issue",
+              "subtitle": "Reopen after data is available.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Currency, reminders, backup preferences, and behavior settings.",
+          "shell": {
+            "layoutMode": "masterDetail",
+            "composition": {
+              "mode": "masterDetail",
+              "ratio": 0.34
+            },
+            "appBarTitle": "Savings Goal",
+            "appBarSubtitle": "See the goal, remaining amount, and exact deposit action immediately.",
+            "appBarEyebrow": "Goal tracker",
+            "scrollable": true,
+            "density": "compact",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "dashboard",
+                "screen": "dashboard",
+                "label": "Goal",
+                "icon": "bookmark"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "list"
+              },
+              {
+                "id": "deposit-detail",
+                "screen": "deposit-detail",
+                "label": "Deposit",
+                "icon": "plus"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "analytics",
+                "screen": "analytics",
+                "label": "Plan",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F6F8F5",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E8F1E1",
+              "ink": "#1C2617",
+              "muted": "#5F6B5A",
+              "accent": "#5D8E38",
+              "accentContrast": "#FFFFFF",
+              "border": "#CDDBC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5F0F7",
+              "statusSuccess": "#E1F4DA",
+              "statusWarning": "#FFF0C8",
+              "statusError": "#FCE2DF"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "savings-preferences",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Savings preferences",
+              "query": {
+                "collections": [
+                  "savings_settings"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "fields": [
+                  {
+                    "id": "currency",
+                    "label": "Currency",
+                "type": "text"
+                  },
+                  {
+                    "id": "pay_period",
+                    "label": "Pay period",
+                    "type": "text"
+                  },
+                  {
+                    "id": "reminder_day",
+                    "label": "Reminder day",
+                    "type": "text"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "undo": true,
+                  "offline": "local",
+                  "validation": {
+                    "mode": "change",
+                  "requiredFields": [
+                      "currency"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": true
+                }
+              }
+            },
+            {
+              "id": "savings-history-empty-state",
+              "kind": "text",
+              "title": "No activity yet",
+              "subtitle": "Add goals and deposits before viewing history.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-history-loading-state",
+              "kind": "text",
+              "title": "Loading activity",
+              "subtitle": "Fetching timeline and operations.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-history-error-state",
+              "kind": "text",
+              "title": "History issue",
+              "subtitle": "Retry when data source is available.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-history-offline-state",
+              "kind": "text",
+              "title": "History offline",
+              "subtitle": "History updates when network returns.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-history-recovery-state",
+              "kind": "text",
+              "title": "History recovered",
+              "subtitle": "Recovered the last visible history state.",
+              "props": {
+                "role": "status",
+                "minTapTarget": 44
+              }
+            },
+            {
+              "id": "savings-reminders",
+              "kind": "widget",
+              "widget": "notificationScheduler",
+              "title": "Deposit reminders",
+              "props": {
+                "eventTitle": "Savings deposit",
+                "startOffsetMinutes": 0,
+                "nativeUnavailableCopy": "Enable notifications to schedule reminders."
+              }
+            },
+            {
+              "id": "savings-export",
+              "kind": "widget",
+              "widget": "fileExport",
+              "title": "Export backup",
+              "query": {
+                "collections": [
+                  "savings_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "format": [
+                  "json",
+                  "csv"
+                ],
+                "scope": "savings_entry"
+              }
+            },
+            {
+              "id": "savings-provider",
+              "kind": "widget",
+              "widget": "providerStatus",
+              "title": "Sharing status",
+              "props": {
+                "unavailableText": "Enable a data provider for multi-device sync."
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

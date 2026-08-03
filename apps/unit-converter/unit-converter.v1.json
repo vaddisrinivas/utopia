@@ -1,0 +1,1196 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "unit-converter",
+  "version": "2.0.0",
+  "collections": {
+    "conversion": {
+      "id": "conversion",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "category": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "from_unit": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "to_unit": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "input_value": {
+          "type": "number",
+          "required": true
+        },
+        "factor": {
+          "type": "number",
+          "required": true
+        },
+        "offset": {
+          "type": "number",
+          "required": true
+        },
+        "precision": {
+          "type": "number"
+        },
+        "favorite": {
+          "type": "boolean",
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "scenario": {
+      "id": "scenario",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "category": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "source_conversion": {
+          "type": "text",
+          "indexed": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "conversions": {
+      "from": "conversion",
+      "orderBy": [
+        {
+          "field": "favorite",
+          "direction": "desc"
+        },
+        {
+          "field": "category",
+          "direction": "asc"
+        },
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "recent_conversions": {
+      "from": "conversion",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        },
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 50
+    },
+    "scenarios": {
+      "from": "scenario",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        },
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    }
+  },
+  "views": {
+    "conversions": {
+      "id": "conversions",
+      "query": "conversions",
+      "mode": "table",
+      "fields": [
+        "title",
+        "category",
+        "input_value",
+        "from_unit",
+        "converted_value",
+        "to_unit"
+      ]
+    },
+    "recent_conversions": {
+      "id": "recent_conversions",
+      "query": "recent_conversions",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "category",
+        "converted_value",
+        "updated_at"
+      ]
+    },
+    "scenarios": {
+      "id": "scenarios",
+      "query": "scenarios",
+      "mode": "list",
+      "fields": [
+        "title",
+        "category",
+        "status"
+      ]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "converted_value",
+      "collection": "conversion",
+      "dependsOn": [],
+      "expression": {
+        "+": [
+          {
+            "*": [
+              {
+                "var": "record.input_value"
+              },
+              {
+                "var": "record.factor"
+              }
+            ]
+          },
+          {
+            "var": "record.offset"
+          }
+        ]
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "multiplicative-unit-conversion",
+    "affine-temperature-conversion",
+    "decimal-rounding-is-deterministic",
+    "saved-conversion-scenarios",
+    "unit-category-workspace"
+  ],
+  "presentation": {
+    "label": "Unit Converter",
+    "homeSurface": "convert",
+    "surfaces": [
+      {
+        "id": "convert",
+        "label": "Convert",
+        "collections": [
+          "conversion",
+          "scenario"
+        ]
+      },
+      {
+        "id": "groups",
+        "label": "Groups",
+        "collections": [
+          "conversion",
+          "scenario"
+        ]
+      },
+      {
+        "id": "compare",
+        "label": "Compare",
+        "collections": [
+          "conversion",
+          "scenario"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "collections": [
+          "conversion",
+          "scenario"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "collections": [
+          "conversion",
+          "scenario"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "calculator",
+      "tone": "blue",
+      "accent": "#0F6E7A",
+      "canvas": "#F3FAFA",
+      "identity": "precision tool with instant results, no ads, and saved repeat conversions"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "convert",
+      "navigation": {
+        "items": [
+          {
+            "screen": "convert",
+            "label": "Convert"
+          },
+          {
+            "screen": "groups",
+            "label": "Groups"
+          },
+          {
+            "screen": "compare",
+            "label": "Compare"
+          },
+          {
+            "screen": "history",
+            "label": "History"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings"
+          }
+        ]
+      },
+      "screens": {
+        "convert": {
+          "title": "Unit Converter",
+          "subtitle": "Edit a conversion and see deterministic results immediately.",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "convert",
+                "label": "Convert",
+                "screen": "convert"
+              },
+              {
+                "id": "groups",
+                "label": "Groups",
+                "screen": "groups"
+              },
+              {
+                "id": "compare",
+                "label": "Compare",
+                "screen": "compare"
+              },
+              {
+                "id": "history",
+                "label": "History",
+                "screen": "history"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "convert",
+            "status": {
+              "message": "Local deterministic calculator. Live currency rates are not enabled.",
+              "tone": "info"
+            },
+            "theme": {
+              "canvas": "#F3FAFA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E2F2F3",
+              "ink": "#0B2225",
+              "muted": "#536B70",
+              "accent": "#0F6E7A",
+              "accentContrast": "#FFFFFF",
+              "border": "#C5DEE2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DCEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 760,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "converter-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Unit Converter",
+              "props": {
+                "title": "Unit Converter",
+                "subtitle": "Fast repeat conversions with saved scenarios and deterministic decimal output.",
+                "badge": "Ready",
+                "stats": [
+          {
+            "label": "Result",
+            "value": "After save"
+          },
+                  {
+                    "label": "Groups",
+                    "value": "Basic/Living/Science/Misc"
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Offline local"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "conversion-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Conversion workspace",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "conversion",
+                "positionField": "position",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "metadataFields": [
+                  {
+                    "field": "category",
+                    "label": "Group",
+                    "type": "select",
+                    "options": [
+                      "Basic",
+                      "Living",
+                      "Science",
+                      "Misc",
+                      "Currency",
+                      "Bitcoin"
+                    ],
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "from_unit",
+                    "label": "From unit",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "to_unit",
+                    "label": "To unit",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "input_value",
+                    "label": "Input value",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "factor",
+                    "label": "Factor",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "offset",
+                    "label": "Offset",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "precision",
+                    "label": "Precision",
+                    "type": "number",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "favorite",
+                    "label": "Favorite",
+                    "type": "select",
+                    "options": [
+                      "true",
+                      "false"
+                    ],
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "updated_at",
+                    "label": "Updated at",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  "category",
+                  "from_unit",
+                  "to_unit",
+                  "input_value",
+                  "factor",
+                  "offset",
+                  "precision",
+                  "favorite",
+                  "updated_at",
+                  "notes"
+                ],
+                "filterFields": [
+                  "category",
+                  "from_unit",
+                  "to_unit",
+                  "input_value",
+                  "factor",
+                  "offset",
+                  "precision",
+                  "favorite",
+                  "updated_at",
+                  "notes"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit"
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                },
+                "subtitle": "Save real conversions with factor and offset. Required fields are enforced before insert.",
+                "placeholder": "e.g. Metres to centimetres",
+                "suggestions": [
+                  {
+                    "title": "Metres to centimetres",
+                    "values": {
+                      "category": "Basic",
+                      "from_unit": "m",
+                      "to_unit": "cm",
+                      "input_value": 1,
+                      "factor": 100,
+                      "offset": 0,
+                      "precision": 2
+                    }
+                  },
+                  {
+                    "title": "Celsius to Fahrenheit",
+                    "values": {
+                      "category": "Science",
+                      "from_unit": "C",
+                      "to_unit": "F",
+                      "input_value": 25,
+                      "factor": 1.8,
+                      "offset": 32,
+                      "precision": 2
+                    }
+                  },
+                  {
+                    "title": "Litres to cubic inches",
+                    "values": {
+                      "category": "Living",
+                      "from_unit": "L",
+                      "to_unit": "in3",
+                      "input_value": 1,
+                      "factor": 61.0237,
+                      "offset": 0,
+                      "precision": 2
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "conversion-results",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Exact results",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Conversion"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Group"
+                  },
+                  {
+                    "key": "input_value",
+                    "label": "Input"
+                  },
+                  {
+                    "key": "from_unit",
+                    "label": "From"
+                  },
+                  {
+                    "key": "converted_value",
+                    "label": "Result"
+                  },
+                  {
+                    "key": "to_unit",
+                    "label": "To"
+                  }
+                ],
+                "emptyText": "No rows yet."
+              }
+            }
+          ]
+        },
+        "groups": {
+          "title": "Unit groups",
+          "subtitle": "Browse common conversion families and pin the useful ones.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "convert",
+                "label": "Convert",
+                "screen": "convert"
+              },
+              {
+                "id": "groups",
+                "label": "Groups",
+                "screen": "groups"
+              },
+              {
+                "id": "compare",
+                "label": "Compare",
+                "screen": "compare"
+              },
+              {
+                "id": "history",
+                "label": "History",
+                "screen": "history"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "groups",
+            "theme": {
+              "canvas": "#F3FAFA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E2F2F3",
+              "ink": "#0B2225",
+              "muted": "#536B70",
+              "accent": "#0F6E7A",
+              "accentContrast": "#FFFFFF",
+              "border": "#C5DEE2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DCEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "unit-category-shelf",
+              "kind": "widget",
+              "widget": "groupedRecordShelf",
+              "title": "Conversion families",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "conversion",
+                "groupBy": "category",
+                "subtitleFields": [
+                  "from_unit",
+                  "to_unit",
+                  "converted_value"
+                ],
+                "emptyText": "No records yet."
+              }
+            },
+            {
+              "id": "unit-category-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Coverage by group",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "count",
+                "groupBy": "category"
+              },
+              "props": {
+                "chartType": "bar",
+                "emptyText": "No chart data yet."
+              }
+            },
+            {
+              "id": "unit-rate-boundary",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Rate boundary",
+              "props": {
+                "title": "Rate boundary",
+                "subtitle": "Currency and Bitcoin rows can be saved as manual rate snapshots; automatic market rates stay blocked until a rate provider exists.",
+                "badge": "Manual rates",
+                "items": [
+                  {
+                    "id": "unit-rate-boundary-1",
+                    "title": "Manual snapshot",
+                    "detail": "Use factor and date notes for rates you trust.",
+                    "status": "supported"
+                  },
+                  {
+                    "id": "unit-rate-boundary-2",
+                    "title": "Automatic rates",
+                    "detail": "Requires network provider and timestamped source.",
+                    "status": "blocked"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "compare": {
+          "title": "Compare",
+          "subtitle": "Keep multiple conversions side-by-side for field work.",
+          "shell": {
+            "layoutMode": "dashboardWorkspace",
+            "density": "compact",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "convert",
+                "label": "Convert",
+                "screen": "convert"
+              },
+              {
+                "id": "groups",
+                "label": "Groups",
+                "screen": "groups"
+              },
+              {
+                "id": "compare",
+                "label": "Compare",
+                "screen": "compare"
+              },
+              {
+                "id": "history",
+                "label": "History",
+                "screen": "history"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "compare",
+            "theme": {
+              "canvas": "#F3FAFA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E2F2F3",
+              "ink": "#0B2225",
+              "muted": "#536B70",
+              "accent": "#0F6E7A",
+              "accentContrast": "#FFFFFF",
+              "border": "#C5DEE2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DCEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "conversion-count",
+              "kind": "metric",
+              "title": "Saved conversions",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "count"
+              },
+              "props": {
+                "emptyText": "No metric yet."
+              }
+            },
+            {
+              "id": "compare-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Comparison board",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Name"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Group"
+                  },
+                  {
+                    "key": "input_value",
+                    "label": "Input"
+                  },
+                  {
+                    "key": "converted_value",
+                    "label": "Output"
+                  },
+                  {
+                    "key": "notes",
+                    "label": "Notes"
+                  }
+                ],
+                "emptyText": "No rows yet."
+              }
+            },
+            {
+              "id": "scenario-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Saved scenarios",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "scenario",
+                "positionField": "position",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "metadataFields": [
+                  {
+                    "field": "category",
+                    "label": "Group",
+                    "type": "select",
+                    "options": [
+                      "Field work",
+                      "Kitchen",
+                      "Travel",
+                      "Finance",
+                      "Science"
+                    ],
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "source_conversion",
+                    "label": "Source conversion",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "select",
+                    "options": [
+                      "active",
+                      "review",
+                      "archived"
+                    ],
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "updated_at",
+                    "label": "Updated at",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  "category",
+                  "source_conversion",
+                  "status",
+                  "updated_at",
+                  "notes"
+                ],
+                "filterFields": [
+                  "category",
+                  "source_conversion",
+                  "status",
+                  "updated_at",
+                  "notes"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit"
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                },
+                "subtitle": "Name repeated workflows so the converter opens with context.",
+                "placeholder": "e.g. Workshop litre conversion"
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "History",
+          "subtitle": "Return to previous conversions without retyping factors.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "convert",
+                "label": "Convert",
+                "screen": "convert"
+              },
+              {
+                "id": "groups",
+                "label": "Groups",
+                "screen": "groups"
+              },
+              {
+                "id": "compare",
+                "label": "Compare",
+                "screen": "compare"
+              },
+              {
+                "id": "history",
+                "label": "History",
+                "screen": "history"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "history",
+            "theme": {
+              "canvas": "#F3FAFA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E2F2F3",
+              "ink": "#0B2225",
+              "muted": "#536B70",
+              "accent": "#0F6E7A",
+              "accentContrast": "#FFFFFF",
+              "border": "#C5DEE2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DCEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "conversion-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Recent conversion history",
+              "query": {
+                "collections": [
+                  "conversion"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "category",
+                  "from_unit",
+                  "converted_value",
+                  "to_unit"
+                ],
+                "emptyText": "No timeline yet."
+              }
+            },
+            {
+              "id": "conversion-change-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Change history",
+              "props": {
+                "collection": "conversion",
+                "limit": 50,
+                "emptyText": "No changes yet."
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Rounding, favorites, and trust boundaries stay visible.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "convert",
+                "label": "Convert",
+                "screen": "convert"
+              },
+              {
+                "id": "groups",
+                "label": "Groups",
+                "screen": "groups"
+              },
+              {
+                "id": "compare",
+                "label": "Compare",
+                "screen": "compare"
+              },
+              {
+                "id": "history",
+                "label": "History",
+                "screen": "history"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "settings",
+            "theme": {
+              "canvas": "#F3FAFA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E2F2F3",
+              "ink": "#0B2225",
+              "muted": "#536B70",
+              "accent": "#0F6E7A",
+              "accentContrast": "#FFFFFF",
+              "border": "#C5DEE2",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DCEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "unit-validation-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Validation and rounding",
+              "props": {
+                "title": "Validation and rounding",
+                "subtitle": "Required fields prevent blank conversions. Decimal output stays consistent across saved scenarios.",
+                "badge": "Deterministic",
+                "items": [
+                  {
+                    "id": "unit-validation-card-1",
+                    "title": "Missing value",
+                    "detail": "The editor asks for required numeric input before save.",
+                    "status": "covered"
+                  },
+                  {
+                    "id": "unit-validation-card-2",
+                    "title": "Temperature offsets",
+                    "detail": "Affine formula uses input x factor + offset.",
+                    "status": "covered"
+                  },
+                  {
+                    "id": "unit-validation-card-3",
+                    "title": "Live rates",
+                    "detail": "Live rates appear after you connect a rate source.",
+                    "status": "gap"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "scenario-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Saved scenarios",
+              "query": {
+                "collections": [
+                  "scenario"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Scenario"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Group"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Status"
+                  },
+                  {
+                    "key": "notes",
+                    "label": "Notes"
+                  }
+                ],
+                "emptyText": "No rows yet."
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1086 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "travel-packing-list",
+  "version": "2.0.0",
+  "collections": {
+    "trip": {
+      "id": "trip",
+      "fields": {
+        "starts_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "destination": {
+          "type": "text",
+          "indexed": true
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "ends_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "nights": {
+          "type": "number"
+        },
+        "activities": {
+          "type": "json"
+        },
+        "weather_context": {
+          "type": "text",
+          "indexed": true
+        },
+        "trip_type": {
+          "type": "text",
+          "indexed": true
+        },
+        "packing_progress": {
+          "type": "number"
+        }
+      }
+    },
+    "packing_item": {
+      "id": "packing_item",
+      "fields": {
+        "trip_id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "checked": {
+          "type": "boolean",
+          "required": true,
+          "indexed": true
+        },
+        "category": {
+          "type": "text",
+          "indexed": true
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        },
+        "source": {
+          "type": "text",
+          "indexed": true
+        },
+        "reason": {
+          "type": "text"
+        },
+        "essential": {
+          "type": "boolean",
+          "indexed": true
+        },
+        "removed": {
+          "type": "boolean",
+          "indexed": true
+        }
+      }
+    },
+    "packing_template": {
+      "id": "packing_template",
+      "fields": {
+        "category": {
+          "type": "text",
+          "indexed": true
+        },
+        "trip_type": {
+          "type": "text",
+          "indexed": true
+        },
+        "weather_context": {
+          "type": "text",
+          "indexed": true
+        },
+        "default_quantity": {
+          "type": "number"
+        },
+        "reason": {
+          "type": "text"
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        }
+      }
+    },
+    "packing_event": {
+      "id": "packing_event",
+      "fields": {
+        "trip_id": {
+          "type": "text",
+          "indexed": true
+        },
+        "item_id": {
+          "type": "text",
+          "indexed": true
+        },
+        "event_type": {
+          "type": "text",
+          "indexed": true
+        },
+        "happened_at": {
+          "type": "timestamp",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "trips": {
+      "from": "trip",
+      "orderBy": [
+        {
+          "field": "starts_at",
+          "direction": "asc"
+        }
+      ],
+      "limit": 50
+    },
+    "active-trips": {
+      "from": "trip",
+      "where": {
+        "op": "neq",
+        "field": "status",
+        "value": "archived"
+      },
+      "orderBy": [
+        {
+          "field": "starts_at",
+          "direction": "asc"
+        }
+      ],
+      "limit": 20
+    },
+    "packing-items": {
+      "from": "packing_item",
+      "where": {
+        "op": "neq",
+        "field": "removed",
+        "value": true
+      },
+      "orderBy": [
+        {
+          "field": "position",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "templates": {
+      "from": "packing_template",
+      "orderBy": [
+        {
+          "field": "category",
+          "direction": "asc"
+        },
+        {
+          "field": "position",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "packing-events": {
+      "from": "packing_event",
+      "orderBy": [
+        {
+          "field": "happened_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    }
+  },
+  "views": {
+    "trips": {
+      "id": "trips",
+      "query": "trips",
+      "mode": "list",
+      "fields": [
+        "title",
+        "destination",
+        "starts_at",
+        "ends_at",
+        "status",
+        "weather_context",
+        "packing_progress"
+      ]
+    },
+    "active-trips": {
+      "id": "active-trips",
+      "query": "active-trips",
+      "mode": "list",
+      "fields": [
+        "title",
+        "destination",
+        "starts_at",
+        "status",
+        "packing_progress"
+      ]
+    },
+    "packing-items": {
+      "id": "packing-items",
+      "query": "packing-items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "trip_id",
+        "checked",
+        "category",
+        "quantity",
+        "source",
+        "reason"
+      ]
+    },
+    "templates": {
+      "id": "templates",
+      "query": "templates",
+      "mode": "list",
+      "fields": [
+        "title",
+        "category",
+        "trip_type",
+        "weather_context",
+        "default_quantity",
+        "reason"
+      ]
+    },
+    "packing-events": {
+      "id": "packing-events",
+      "query": "packing-events",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "trip_id",
+        "item_id",
+        "event_type",
+        "happened_at"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "generate-trip-packing-list",
+    "packing-destination-input",
+    "packing-date-input",
+    "packing-activity-input",
+    "packing-weather-context",
+    "customize-generated-packing-items",
+    "mark-packing-item-packed",
+    "trip-specific-checklist"
+  ],
+  "presentation": {
+    "label": "Travel Packing List",
+    "homeSurface": "plan",
+    "surfaces": [
+      {
+        "id": "plan",
+        "label": "Plan",
+        "icon": "calendar",
+        "collections": [
+          "trip",
+          "packing_template"
+        ],
+        "views": [
+          "active-trips",
+          "templates"
+        ]
+      },
+      {
+        "id": "pack",
+        "label": "Pack",
+        "icon": "briefcase",
+        "collections": [
+          "packing_item"
+        ],
+        "views": [
+          "packing-items"
+        ]
+      },
+      {
+        "id": "templates",
+        "label": "Templates",
+        "icon": "book-open",
+        "collections": [
+          "packing_template"
+        ],
+        "views": [
+          "templates"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "Trips",
+        "icon": "rotate-ccw",
+        "collections": [
+          "trip",
+          "packing_event"
+        ],
+        "views": [
+          "trips",
+          "packing-events"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "collections": [
+          "trip",
+          "packing_template"
+        ],
+        "views": [
+          "trips",
+          "templates"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "briefcase",
+      "tone": "blue",
+      "accent": "#256D85",
+      "canvas": "#F2F7FA"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "plan",
+      "navigation": {
+        "items": [
+          {
+            "screen": "plan",
+            "label": "Plan",
+            "icon": "calendar"
+          },
+          {
+            "screen": "pack",
+            "label": "Pack",
+            "icon": "briefcase"
+          },
+          {
+            "screen": "templates",
+            "label": "Templates",
+            "icon": "book-open"
+          },
+          {
+            "screen": "history",
+            "label": "Trips",
+            "icon": "rotate-ccw"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings",
+            "icon": "settings"
+          }
+        ]
+      },
+      "screens": {
+        "plan": {
+          "title": "Plan trip",
+          "subtitle": "Enter destination, dates, activities, and weather context, then generate a trip-specific pack list.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "scrollable": true,
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F2F7FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#DDEBF1",
+              "ink": "#132431",
+              "muted": "#5F6F7A",
+              "accent": "#256D85",
+              "accentContrast": "#FFFFFF",
+              "border": "#BDD4DE",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 14,
+              "widePadding": 28
+            }
+          },
+          "components": [
+            {
+              "id": "trip-builder",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Trip setup",
+              "props": {
+                "fields": [
+                  {
+                    "id": "destination",
+                    "label": "Destination",
+                    "type": "text"
+                  },
+                  {
+                    "id": "starts_at",
+                    "label": "Start date",
+                    "type": "text"
+                  },
+                  {
+                    "id": "ends_at",
+                    "label": "End date",
+                    "type": "text"
+                  },
+                  {
+                    "id": "activities",
+                    "label": "Activities",
+                    "type": "text"
+                  },
+                  {
+                    "id": "weather_context",
+                    "label": "Weather",
+                    "type": "text"
+                  }
+                ],
+                "submitLabel": "Generate list",
+                "emptyText": "Trip details are stored locally."
+              }
+            },
+            {
+              "id": "trip-active-summary",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Current trip",
+              "query": {
+                "collections": [
+                  "trip"
+                ],
+                "limit": 1
+              },
+              "props": {
+                "title": "Current trip",
+                "subtitle": "Destination, dates, weather, and progress stay visible.",
+                "body": "PackPoint-style suggestions use trip details and saved templates. Weather stays manual unless a travel service is connected.",
+                "badge": "planning",
+                "emoji": "BAG",
+                "chips": [
+                  {
+                    "label": "Destination",
+                    "value": "destination"
+                  },
+                  {
+                    "label": "Weather",
+                    "value": "weather_context"
+                  },
+                  {
+                    "label": "Progress",
+                    "value": "packing_progress"
+                  }
+                ],
+                "actions": []
+              }
+            },
+            {
+              "id": "template-match-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Generated recommendations",
+              "query": {
+                "collections": [
+                  "packing_template"
+                ],
+                "limit": 8
+              },
+              "props": {
+                "title": "Generated recommendations",
+                "subtitle": "Templates explain why each item appears before it lands in the checklist.",
+                "badge": "editable",
+                "emoji": "OK",
+                "items": [
+                  {
+                    "title": "Rain shell",
+                    "detail": "weather: rain",
+                    "status": "suggested"
+                  },
+                  {
+                    "title": "Business outfit",
+                    "detail": "activity: business",
+                    "status": "suggested"
+                  },
+                  {
+                    "title": "Chargers",
+                    "detail": "always pack",
+                    "status": "essential"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        },
+        "pack": {
+          "title": "Pack list",
+          "subtitle": "Check items by category, change quantity, remove irrelevant suggestions, and keep progress after restart.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "scrollable": true,
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F2F7FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#DDEBF1",
+              "ink": "#132431",
+              "muted": "#5F6F7A",
+              "accent": "#256D85",
+              "accentContrast": "#FFFFFF",
+              "border": "#BDD4DE",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 14,
+              "widePadding": 28
+            }
+          },
+          "components": [
+            {
+              "id": "packing-progress",
+              "kind": "metric",
+              "title": "Packed items",
+              "query": {
+                "collections": [
+                  "packing_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "emptyText": "No packing items yet."
+              }
+            },
+            {
+              "id": "packing-checklist-card",
+              "kind": "widget",
+              "widget": "checklistCard",
+              "title": "Packed state",
+              "query": {
+                "collections": [
+                  "packing_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "packing_item",
+                "checkedField": "checked",
+                "emptyText": "No packed items yet."
+              }
+            },
+            {
+              "id": "packing-checklist",
+              "kind": "widget",
+              "widget": "quickAddList",
+              "title": "Packing checklist",
+              "query": {
+                "collections": [
+                  "packing_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "packing_item",
+                "checkedField": "checked",
+                "positionField": "position",
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "placeholder": "Add item",
+                "emptyText": "Generate or add packing items.",
+                "noteField": "reason",
+                "suggestions": [
+                  {
+                    "title": "Rain shell",
+                    "values": {
+                      "trip_id": "current",
+                      "checked": false,
+                      "category": "Weather",
+                      "quantity": 1,
+                      "source": "weather",
+                      "reason": "Rain context",
+                      "essential": true,
+                      "position": 10
+                    }
+                  },
+                  {
+                    "title": "Laptop charger",
+                    "values": {
+                      "trip_id": "current",
+                      "checked": false,
+                      "category": "Work",
+                      "quantity": 1,
+                      "source": "business",
+                      "reason": "Business trip",
+                      "essential": true,
+                      "position": 20
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "packing-by-category",
+              "kind": "widget",
+              "widget": "groupedRecordShelf",
+              "title": "By category",
+              "query": {
+                "collections": [
+                  "packing_item"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "packing_item",
+                "groupBy": "category",
+                "subtitleFields": [
+                  "quantity",
+                  "reason",
+                  "checked"
+                ],
+                "emptyText": "No categorized packing items yet."
+              }
+            }
+          ]
+        },
+        "templates": {
+          "title": "Templates",
+          "subtitle": "Maintain reusable item rules so future trips start with useful, editable suggestions.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "scrollable": true,
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F2F7FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#DDEBF1",
+              "ink": "#132431",
+              "muted": "#5F6F7A",
+              "accent": "#256D85",
+              "accentContrast": "#FFFFFF",
+              "border": "#BDD4DE",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 14,
+              "widePadding": 28
+            }
+          },
+          "components": [
+            {
+              "id": "packing-template-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Template catalog",
+              "query": {
+                "collections": [
+                  "packing_template"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "packing_template",
+                "placeholder": "Add template item",
+                "emptyText": "Add a reusable packing item.",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "positionField": "position",
+                "metadataFields": [
+                  {
+                    "field": "category",
+                    "label": "Category",
+                    "type": "select",
+                    "options": [
+                      "Clothes",
+                      "Toiletries",
+                      "Weather",
+                      "Work",
+                      "Documents",
+                      "Tech"
+                    ],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "trip_type",
+                    "label": "Trip type",
+                    "type": "select",
+                    "options": [
+                      "any",
+                      "business",
+                      "leisure",
+                      "camping",
+                      "international"
+                    ],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "weather_context",
+                    "label": "Weather",
+                    "type": "select",
+                    "options": [
+                      "any",
+                      "rain",
+                      "cold",
+                      "hot"
+                    ],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "default_quantity",
+                    "label": "Qty",
+                    "type": "number",
+                    "options": [],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "reason",
+                    "label": "Reason",
+                    "type": "text",
+                    "options": [],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  }
+                ],
+                "suggestions": [],
+                "sorts": [
+                  "manual",
+                  "alphabetic"
+                ],
+                "filterFields": [
+                  "category",
+                  "trip_type",
+                  "weather_context",
+                  "default_quantity",
+                  "reason"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "change",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                }
+              }
+            },
+            {
+              "id": "template-category-shelf",
+              "kind": "widget",
+              "widget": "groupedRecordShelf",
+              "title": "Rules by category",
+              "query": {
+                "collections": [
+                  "packing_template"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "packing_template",
+                "groupBy": "category",
+                "subtitleFields": [
+                  "trip_type",
+                  "weather_context",
+                  "default_quantity"
+                ],
+                "emptyText": "No template rules yet."
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "Trips",
+          "subtitle": "Review upcoming, packed, archived, and recovered trips without losing their item state.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "scrollable": true,
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F2F7FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#DDEBF1",
+              "ink": "#132431",
+              "muted": "#5F6F7A",
+              "accent": "#256D85",
+              "accentContrast": "#FFFFFF",
+              "border": "#BDD4DE",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 14,
+              "widePadding": 28
+            }
+          },
+          "components": [
+            {
+              "id": "trip-carousel",
+              "kind": "widget",
+              "widget": "horizontalRecordCarousel",
+              "title": "Trips",
+              "query": {
+                "collections": [
+                  "trip"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "collection": "trip",
+                "titleField": "title",
+                "subtitleFields": [
+                  "destination",
+                  "starts_at",
+                  "status"
+                ],
+                "emptyText": "No trips yet."
+              }
+            },
+            {
+              "id": "packing-event-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Packing activity",
+              "query": {
+                "collections": [
+                  "packing_event"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "packing_event",
+                "timeField": "happened_at",
+                "subtitleFields": [
+                  "event_type",
+                  "trip_id"
+                ],
+                "emptyText": "No packing activity yet."
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Control generation assumptions, offline behavior, and what regeneration may change.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "scrollable": true,
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F2F7FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#DDEBF1",
+              "ink": "#132431",
+              "muted": "#5F6F7A",
+              "accent": "#256D85",
+              "accentContrast": "#FFFFFF",
+              "border": "#BDD4DE",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDEFE3",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1120,
+              "narrowPadding": 14,
+              "widePadding": 28
+            }
+          },
+          "components": [
+            {
+              "id": "packing-policy-card",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Packing policy",
+              "props": {
+                "title": "Packing policy",
+                "subtitle": "Editable generation, no silent overwrite",
+                "body": "Generated items are normal records after creation. Removing one keeps it removed until an explicit regenerate action.",
+                "badge": "safe",
+                "emoji": "SET",
+                "chips": [
+                  {
+                    "label": "Live weather",
+                    "value": "manual context only"
+                  },
+                  {
+                    "label": "Offline",
+                    "value": "local edits"
+                  },
+                  {
+                    "label": "Recovery",
+                    "value": "trip + item state"
+                  }
+                ],
+                "actions": []
+              }
+            },
+            {
+              "id": "trip-settings-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Trip defaults",
+              "query": {
+                "collections": [
+                  "trip"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "collection": "trip",
+                "placeholder": "Add trip profile",
+                "emptyText": "No trip defaults yet.",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "positionField": "position",
+                "metadataFields": [
+                  {
+                    "field": "destination",
+                    "label": "Destination",
+                    "type": "text",
+                    "options": [],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "trip_type",
+                    "label": "Type",
+                    "type": "select",
+                    "options": [
+                      "business",
+                      "leisure",
+                      "camping",
+                      "international"
+                    ],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "weather_context",
+                    "label": "Weather",
+                    "type": "select",
+                    "options": [
+                      "rain",
+                      "cold",
+                      "hot",
+                      "mild"
+                    ],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "nights",
+                    "label": "Nights",
+                    "type": "number",
+                    "options": [],
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  }
+                ],
+                "suggestions": [],
+                "sorts": [
+                  "manual",
+                  "alphabetic"
+                ],
+                "filterFields": [
+                  "destination",
+                  "trip_type",
+                  "weather_context",
+                  "nights"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "change",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

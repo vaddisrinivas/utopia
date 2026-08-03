@@ -1,8 +1,129 @@
 {
-  "label": "Playlist",
-  "subtitle": "Curated looping sessions and playback runs.",
-  "collections": ["session"],
+  "label": "Queue",
+  "subtitle": "Play in order",
+  "collections": [
+    "session"
+  ],
   "query": "recent-sessions",
   "mode": "list",
-  "fields": ["title", "file_name", "target_plays", "completed_plays", "status", "updated_at"]
+  "fields": [
+    "title",
+    "file_name",
+    "status"
+  ],
+  "shell": {
+    "layoutMode": "collectionWorkspace",
+    "appBarTitle": "Audio Loop",
+    "scrollable": true,
+    "density": "spacious",
+    "activeTab": "playlist",
+    "tabs": [
+      {
+        "id": "home",
+        "screen": "home",
+        "label": "Play"
+      },
+      {
+        "id": "library",
+        "screen": "library",
+        "label": "Library"
+      },
+      {
+        "id": "playlist",
+        "screen": "playlist",
+        "label": "Queue"
+      },
+      {
+        "id": "history",
+        "screen": "history",
+        "label": "Sessions"
+      },
+      {
+        "id": "record",
+        "screen": "record",
+        "label": "Capture"
+      }
+    ],
+    "theme": {
+      "canvas": "#FBF7FD",
+      "surface": "#FFFFFF",
+      "surfaceMuted": "#F1E5F5",
+      "ink": "#321640",
+      "muted": "#735C7D",
+      "accent": "#6C3B83",
+      "accentContrast": "#FFFFFF",
+      "border": "#E3D3EA",
+      "danger": "#B42318",
+      "dangerContrast": "#FFFFFF",
+      "statusInfo": "#E7EFFA",
+      "statusSuccess": "#E1F3E7",
+      "statusWarning": "#FFF0C7",
+      "statusError": "#FCE1DF"
+    },
+    "responsive": {
+      "breakpoint": 720,
+      "maxContentWidth": 980,
+      "narrowPadding": 16,
+      "widePadding": 32
+    }
+  },
+  "components": [
+    {
+      "id": "playlist-player",
+      "kind": "widget",
+      "widget": "audioLoopPlayer",
+      "title": "Playback queue",
+      "subtitle": "Move through saved audio.",
+      "tone": "plum",
+      "props": {
+        "defaultPlays": 1,
+        "defaultDelaySeconds": 0,
+        "defaultStartDelaySeconds": 0,
+        "delayOptions": [
+          0,
+          5,
+          15,
+          30,
+          60,
+          108,
+          300
+        ],
+        "startDelayOptions": [
+          0,
+          10,
+          30,
+          60,
+          108
+        ],
+        "countSkippedAsCompleted": true,
+        "presets": [
+          {
+            "label": "Long practice (108)",
+            "plays": 108,
+            "delaySeconds": 0,
+            "startDelaySeconds": 0
+          }
+        ],
+        "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge."
+      }
+    },
+    {
+      "id": "playlist-sessions",
+      "kind": "recordList",
+      "title": "Queued sessions",
+      "query": {
+        "collections": [
+          "session"
+        ],
+        "limit": 50
+      },
+      "props": {
+        "emptyText": "Add saved audio to begin a queue.",
+        "subtitleFields": [
+          "file_name",
+          "status"
+        ]
+      }
+    }
+  ]
 }

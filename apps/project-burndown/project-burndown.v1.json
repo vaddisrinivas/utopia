@@ -1,0 +1,1815 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "project-burndown",
+  "version": "2.0.0",
+  "collections": {
+    "primary": {
+      "id": "primary",
+      "fields": {
+        "sprint": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "day": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "planned_points": {
+          "type": "number",
+          "required": false,
+          "indexed": true
+        },
+        "completed_points": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "date": {
+          "type": "timestamp",
+          "required": false,
+          "indexed": false
+        },
+        "remaining_points": {
+          "type": "number"
+        },
+        "completion_ratio": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "queries": {
+    "sprint_day-records": {
+      "from": "primary",
+      "orderBy": [
+        {
+          "field": "sprint",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    }
+  },
+  "views": {
+    "overview": {
+      "id": "overview",
+      "query": "sprint_day-records",
+      "mode": "list",
+      "fields": [
+        "sprint",
+        "day",
+        "planned_points",
+        "completed_points",
+        "remaining_points",
+        "completion_ratio",
+        "date"
+      ]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "remaining_points",
+      "collection": "primary",
+      "dependsOn": [],
+      "expression": {
+        "-": [
+          {
+            "var": "record.planned_points"
+          },
+          {
+            "var": "record.completed_points"
+          }
+        ]
+      }
+    },
+    {
+      "id": "completion_ratio",
+      "collection": "primary",
+      "dependsOn": [],
+      "expression": {
+        "if": [
+          {
+            ">": [
+              {
+                "var": "record.planned_points"
+              },
+              0
+            ]
+          },
+          {
+            "/": [
+              {
+                "var": "record.completed_points"
+              },
+              {
+                "var": "record.planned_points"
+              }
+            ]
+          },
+          0
+        ]
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "project-burndown-schema-validates",
+    "project-burndown-defining-task",
+    "project-burndown-computed-fields-deterministic",
+    "project-burndown-generic-ui-only"
+  ],
+  "presentation": {
+    "label": "Project Burndown",
+    "homeSurface": "overview",
+    "surfaces": [
+      {
+        "id": "overview",
+        "label": "Stand-up cockpit",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "capture",
+        "label": "Daily update",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "detail",
+        "label": "Burndown analytics",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "Sprint ledger",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Sprint rules",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "trending-down",
+      "tone": "crimson",
+      "accent": "#A7374B",
+      "canvas": "#FFF6F3",
+      "identity": "A stand-up sprint cockpit where the next update, remaining points, and burndown risk share the first viewport.",
+      "rationale": "Project Burndown uses a domain-specific first viewport, information scent, and palette instead of a repeated dashboard skin."
+    },
+    "render": {
+      "responsiveTargets": [
+        "phone",
+        "desktop"
+      ],
+      "stateTargets": [
+        "empty",
+        "loading",
+        "populated",
+        "editing",
+        "error",
+        "offline",
+        "recovery"
+      ],
+      "firstViewport": "Update completed points for the current sprint day and confirm remaining work before stand-up."
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "overview",
+      "navigation": {
+        "items": [
+          {
+            "screen": "overview",
+            "label": "Stand-up cockpit"
+          },
+          {
+            "screen": "capture",
+            "label": "Daily update"
+          },
+          {
+            "screen": "detail",
+            "label": "Burndown analytics"
+          },
+          {
+            "screen": "history",
+            "label": "Sprint ledger"
+          },
+          {
+            "screen": "settings",
+            "label": "Sprint rules"
+          }
+        ]
+      },
+      "screens": {
+        "overview": {
+          "title": "Stand-up cockpit",
+          "subtitle": "Update today, see remaining points, and spot sprint risk immediately.",
+          "shell": {
+            "layoutMode": "workflowFirstWorkspace",
+            "appBarTitle": "Project Burndown",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "overview",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Stand-up cockpit"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Daily update"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Burndown analytics"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Sprint ledger"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Sprint rules"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FBE4DF",
+              "ink": "#241A1C",
+              "muted": "#65706A",
+              "accent": "#A7374B",
+              "accentContrast": "#FFFFFF",
+              "border": "#CED8D3",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7F0FA",
+              "statusSuccess": "#E4F4E9",
+              "statusWarning": "#FFF0C2",
+              "statusError": "#FBE2DF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "phoneColumns": 1,
+              "tabletColumns": 8,
+              "desktopColumns": 12,
+              "detailPane": false
+            },
+            "accessibility": {
+              "focusOrder": "document",
+              "minimumTargetSize": 44,
+              "announces": [
+                "loading",
+                "saved",
+                "error",
+                "offline",
+                "recovered"
+              ],
+              "chartSummaries": true,
+              "reducedMotion": true,
+              "dynamicType": true
+            }
+          },
+          "components": [
+            {
+              "id": "burndown-standup-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Update sprint day",
+              "subtitle": "Project Burndown update sprint day surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Update sprint day surface",
+                "collection": "primary",
+                "mode": "editable",
+                "metadataFields": [
+                  {
+                    "field": "sprint",
+                    "label": "Sprint",
+                    "required": true,
+                    "focusOrder": 1
+                  },
+                  {
+                    "field": "day",
+                    "label": "Day",
+                    "required": true,
+                    "focusOrder": 2
+                  },
+                  {
+                    "field": "planned_points",
+                    "label": "Planned Points",
+                    "required": false,
+                    "focusOrder": 3
+                  },
+                  {
+                    "field": "completed_points",
+                    "label": "Completed Points",
+                    "required": true,
+                    "focusOrder": 4
+                  }
+                ],
+                "primaryActionLabel": "Save",
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "blur"
+                  },
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 8000
+                  },
+                  "offline": "queue",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "sprint",
+                      "day",
+                      "completed_points"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": true
+                }
+              }
+            },
+            {
+              "id": "burndown-remaining-metric",
+              "kind": "metric",
+              "title": "Remaining points",
+              "subtitle": "Shows points left in the sprint.",
+              "tone": "neutral",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 100
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "remaining_points",
+                "labelField": "remaining_points"
+              },
+              "dataState": "ready",
+              "props": {
+                "valueField": "remaining_points",
+                "emptyValue": "0",
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Remaining points metric"
+              }
+            },
+            {
+              "id": "burndown-risk-detail",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Sprint risk detail",
+              "subtitle": "Project Burndown sprint risk detail surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Sprint risk detail surface",
+                "body": "Sprint risk detail shows remaining work, pace, and blockers together.",
+                "chips": [
+                  {
+                    "id": "planned_points",
+                    "label": "Planned Points",
+                    "value": "{planned_points}"
+                  },
+                  {
+                    "id": "completed_points",
+                    "label": "Completed Points",
+                    "value": "Completed points"
+                  },
+                  {
+                    "id": "completion_ratio",
+                    "label": "Completion Ratio",
+                    "value": "{completion_ratio}"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "burndown-current-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Current sprint rows",
+              "subtitle": "Project Burndown current sprint rows surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Current sprint rows surface",
+                "columns": [
+                  {
+                    "key": "sprint",
+                    "label": "Sprint",
+                    "sortable": true
+                  },
+                  {
+                    "key": "day",
+                    "label": "Day",
+                    "sortable": true
+                  },
+                  {
+                    "key": "planned_points",
+                    "label": "Planned Points",
+                    "sortable": true
+                  },
+                  {
+                    "key": "completed_points",
+                    "label": "Completed Points",
+                    "sortable": true
+                  },
+                  {
+                    "key": "remaining_points",
+                    "label": "Remaining Points",
+                    "sortable": true
+                  },
+                  {
+                    "key": "completion_ratio",
+                    "label": "Completion Ratio",
+                    "sortable": true
+                  }
+                ],
+                "density": "compact"
+              }
+            }
+          ]
+        },
+        "capture": {
+          "title": "Daily update",
+          "subtitle": "Create or edit a sprint day with validation, offline queueing, and saved-state feedback.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Project Burndown",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "capture",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Stand-up cockpit"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Daily update"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Burndown analytics"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Sprint ledger"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Sprint rules"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FBE4DF",
+              "ink": "#241A1C",
+              "muted": "#65706A",
+              "accent": "#A7374B",
+              "accentContrast": "#FFFFFF",
+              "border": "#CED8D3",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7F0FA",
+              "statusSuccess": "#E4F4E9",
+              "statusWarning": "#FFF0C2",
+              "statusError": "#FBE2DF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "phoneColumns": 1,
+              "tabletColumns": 8,
+              "desktopColumns": 12,
+              "detailPane": false
+            },
+            "accessibility": {
+              "focusOrder": "document",
+              "minimumTargetSize": 44,
+              "announces": [
+                "loading",
+                "saved",
+                "error",
+                "offline",
+                "recovered"
+              ],
+              "chartSummaries": true,
+              "reducedMotion": true,
+              "dynamicType": true
+            }
+          },
+          "components": [
+            {
+              "id": "burndown-day-detail",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Sprint day detail",
+              "subtitle": "Project Burndown sprint day detail surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Sprint day detail surface",
+                "body": "Sprint day detail shows the update, completed points, and notes.",
+                "chips": [
+                  {
+                    "id": "sprint",
+                    "label": "Sprint",
+                    "value": "Sprint"
+                  },
+                  {
+                    "id": "day",
+                    "label": "Day",
+                    "value": "Day"
+                  },
+                  {
+                    "id": "date",
+                    "label": "Date",
+                    "value": "{date}"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "burndown-day-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Sprint day editor",
+              "subtitle": "Project Burndown sprint day editor surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Sprint day editor surface",
+                "collection": "primary",
+                "mode": "editable",
+                "metadataFields": [
+                  {
+                    "field": "sprint",
+                    "label": "Sprint",
+                    "required": true,
+                    "focusOrder": 1
+                  },
+                  {
+                    "field": "day",
+                    "label": "Day",
+                    "required": true,
+                    "focusOrder": 2
+                  },
+                  {
+                    "field": "planned_points",
+                    "label": "Planned Points",
+                    "required": false,
+                    "focusOrder": 3
+                  },
+                  {
+                    "field": "completed_points",
+                    "label": "Completed Points",
+                    "required": true,
+                    "focusOrder": 4
+                  },
+                  {
+                    "field": "date",
+                    "label": "Date",
+                    "required": false,
+                    "focusOrder": 5
+                  }
+                ],
+                "primaryActionLabel": "Save",
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "blur"
+                  },
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 8000
+                  },
+                  "offline": "queue",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "sprint",
+                      "day",
+                      "completed_points"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": true
+                }
+              }
+            },
+            {
+              "id": "burndown-validation-panel",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Validation states",
+              "subtitle": "Project Burndown validation states surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Validation states surface",
+                "items": [
+                  {
+                    "id": "sprint",
+                    "title": "Sprint",
+                    "detail": "Sprint"
+                  },
+                  {
+                    "id": "day",
+                    "title": "Day",
+                    "detail": "Day"
+                  },
+                  {
+                    "id": "completed_points",
+                    "title": "Completed Points",
+                    "detail": "Completed points"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "burndown-offline-queue",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Offline update queue",
+              "subtitle": "Project Burndown offline update queue surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Offline update queue surface",
+                "limit": 50,
+                "emptyText": "History begins after the first saved change."
+              }
+            }
+          ]
+        },
+        "detail": {
+          "title": "Burndown analytics",
+          "subtitle": "Inspect the daily line, completion ratio, and planned-versus-completed trail.",
+          "shell": {
+            "layoutMode": "analyticsDetailWorkspace",
+            "appBarTitle": "Project Burndown",
+            "scrollable": true,
+            "density": "dense",
+            "activeTab": "detail",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Stand-up cockpit"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Daily update"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Burndown analytics"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Sprint ledger"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Sprint rules"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FBE4DF",
+              "ink": "#241A1C",
+              "muted": "#65706A",
+              "accent": "#A7374B",
+              "accentContrast": "#FFFFFF",
+              "border": "#CED8D3",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7F0FA",
+              "statusSuccess": "#E4F4E9",
+              "statusWarning": "#FFF0C2",
+              "statusError": "#FBE2DF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1240,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "phoneColumns": 1,
+              "tabletColumns": 8,
+              "desktopColumns": 12,
+              "detailPane": true
+            },
+            "accessibility": {
+              "focusOrder": "document",
+              "minimumTargetSize": 44,
+              "announces": [
+                "loading",
+                "saved",
+                "error",
+                "offline",
+                "recovered"
+              ],
+              "chartSummaries": true,
+              "reducedMotion": true,
+              "dynamicType": true
+            }
+          },
+          "components": [
+            {
+              "id": "burndown-line-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Burndown line",
+              "subtitle": "Project Burndown burndown line surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Burndown line surface",
+                "chartType": "line",
+                "xField": "day",
+                "yField": "remaining_points",
+                "summary": "Burndown line"
+              },
+              "dataBinding": {
+                "source": "query-records",
+                "xField": "day",
+                "yField": "remaining_points"
+              }
+            },
+            {
+              "id": "burndown-variance-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Daily point ledger",
+              "subtitle": "Project Burndown daily point ledger surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Daily point ledger surface",
+                "columns": [
+                  {
+                    "key": "sprint",
+                    "label": "Sprint",
+                    "sortable": true
+                  },
+                  {
+                    "key": "day",
+                    "label": "Day",
+                    "sortable": true
+                  },
+                  {
+                    "key": "planned_points",
+                    "label": "Planned Points",
+                    "sortable": true
+                  },
+                  {
+                    "key": "completed_points",
+                    "label": "Completed Points",
+                    "sortable": true
+                  },
+                  {
+                    "key": "remaining_points",
+                    "label": "Remaining Points",
+                    "sortable": true
+                  },
+                  {
+                    "key": "completion_ratio",
+                    "label": "Completion Ratio",
+                    "sortable": true
+                  },
+                  {
+                    "key": "date",
+                    "label": "Date",
+                    "sortable": true
+                  }
+                ],
+                "density": "compact"
+              }
+            },
+            {
+              "id": "burndown-sprint-detail",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Sprint detail panel",
+              "subtitle": "Project Burndown sprint detail panel surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Sprint detail panel surface",
+                "body": "Sprint detail panel shows plan, pace, and remaining work.",
+                "chips": [
+                  {
+                    "id": "sprint",
+                    "label": "Sprint",
+                    "value": "Sprint"
+                  },
+                  {
+                    "id": "day",
+                    "label": "Day",
+                    "value": "Day"
+                  },
+                  {
+                    "id": "remaining_points",
+                    "label": "Remaining Points",
+                    "value": "{remaining_points}"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "burndown-completion-ratio",
+              "kind": "metric",
+              "title": "Completion ratio",
+              "subtitle": "Shows completion against planned sprint work.",
+              "tone": "neutral",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 100
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "avg",
+                "valueField": "completion_ratio",
+                "labelField": "completion_ratio"
+              },
+              "dataState": "ready",
+              "props": {
+                "valueField": "completion_ratio",
+                "emptyValue": "0",
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Completion ratio metric"
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "Sprint ledger",
+          "subtitle": "Audit every sprint-day update and recover queued local changes after restart.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Project Burndown",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Stand-up cockpit"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Daily update"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Burndown analytics"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Sprint ledger"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Sprint rules"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FBE4DF",
+              "ink": "#241A1C",
+              "muted": "#65706A",
+              "accent": "#A7374B",
+              "accentContrast": "#FFFFFF",
+              "border": "#CED8D3",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7F0FA",
+              "statusSuccess": "#E4F4E9",
+              "statusWarning": "#FFF0C2",
+              "statusError": "#FBE2DF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "phoneColumns": 1,
+              "tabletColumns": 8,
+              "desktopColumns": 12,
+              "detailPane": true
+            },
+            "accessibility": {
+              "focusOrder": "document",
+              "minimumTargetSize": 44,
+              "announces": [
+                "loading",
+                "saved",
+                "error",
+                "offline",
+                "recovered"
+              ],
+              "chartSummaries": true,
+              "reducedMotion": true,
+              "dynamicType": true
+            }
+          },
+          "components": [
+            {
+              "id": "burndown-history-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Sprint timeline",
+              "subtitle": "Project Burndown sprint timeline surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Sprint timeline surface",
+                "dateField": "date",
+                "titleField": "title"
+              }
+            },
+            {
+              "id": "burndown-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Operation history",
+              "subtitle": "Project Burndown operation history surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Operation history surface",
+                "limit": 50,
+                "emptyText": "History begins after the first saved change."
+              }
+            },
+            {
+              "id": "burndown-recovery-detail",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Recovery state",
+              "subtitle": "Project Burndown recovery state surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Recovery state surface",
+                "body": "Recovery state shows saved sprint updates ready to review.",
+                "chips": [
+                  {
+                    "id": "sprint",
+                    "label": "Sprint",
+                    "value": "Sprint"
+                  },
+                  {
+                    "id": "day",
+                    "label": "Day",
+                    "value": "Day"
+                  },
+                  {
+                    "id": "completed_points",
+                    "label": "Completed Points",
+                    "value": "Completed points"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "burndown-restore-draft",
+              "kind": "action",
+              "title": "Restore recovered draft",
+              "subtitle": "Bound command for Project Burndown.",
+              "placement": "inline",
+              "action": {
+                "kind": "propose",
+                "label": "Restore recovered draft",
+                "command": "project_burndown.recovery.restore"
+              },
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "blur"
+                  },
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 8000
+                  },
+                  "offline": "queue",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Restore recovered draft",
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Sprint rules",
+          "subtitle": "Keep point units, notification cadence, and export behavior explicit.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Project Burndown",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Stand-up cockpit"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Daily update"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Burndown analytics"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Sprint ledger"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Sprint rules"
+              }
+            ],
+            "theme": {
+              "canvas": "#FFF6F3",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#FBE4DF",
+              "ink": "#241A1C",
+              "muted": "#65706A",
+              "accent": "#A7374B",
+              "accentContrast": "#FFFFFF",
+              "border": "#CED8D3",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E7F0FA",
+              "statusSuccess": "#E4F4E9",
+              "statusWarning": "#FFF0C2",
+              "statusError": "#FBE2DF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "phoneColumns": 1,
+              "tabletColumns": 8,
+              "desktopColumns": 12,
+              "detailPane": false
+            },
+            "accessibility": {
+              "focusOrder": "document",
+              "minimumTargetSize": 44,
+              "announces": [
+                "loading",
+                "saved",
+                "error",
+                "offline",
+                "recovered"
+              ],
+              "chartSummaries": true,
+              "reducedMotion": true,
+              "dynamicType": true
+            }
+          },
+          "components": [
+            {
+              "id": "burndown-sprint-settings",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Sprint defaults",
+              "subtitle": "Project Burndown sprint defaults surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Sprint defaults surface",
+                "sections": [
+                  {
+                    "id": "defaults",
+                    "title": "Defaults"
+                  },
+                  {
+                    "id": "privacy",
+                    "title": "Privacy and exports"
+                  }
+                ],
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                }
+              }
+            },
+            {
+              "id": "burndown-progress-notification",
+              "kind": "widget",
+              "widget": "notificationScheduler",
+              "title": "Progress update reminder",
+              "subtitle": "Project Burndown progress update reminder surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Progress update reminder surface",
+                "schedule": "manual-opt-in",
+                "permissionState": "requires-user-consent",
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                }
+              }
+            },
+            {
+              "id": "burndown-export-permission",
+              "kind": "widget",
+              "widget": "permissionCard",
+              "title": "Export boundary",
+              "subtitle": "Project Burndown export boundary surface.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                },
+                "accessibilityLabel": "Export boundary surface",
+                "status": "User controlled",
+                "required": false
+              }
+            },
+            {
+              "id": "burndown-save-settings",
+              "kind": "action",
+              "title": "Save sprint rules",
+              "subtitle": "Bound command for Project Burndown.",
+              "placement": "inline",
+              "action": {
+                "kind": "propose",
+                "label": "Save sprint rules",
+                "command": "project_burndown.settings.save"
+              },
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "blur"
+                  },
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 8000
+                  },
+                  "offline": "queue",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Save sprint rules",
+                "stateVariants": {
+                  "loading": {
+                    "label": "Loading saved records",
+                    "live": "polite"
+                  },
+                  "empty": {
+                    "label": "No records yet",
+                    "action": "create-first-record"
+                  },
+                  "error": {
+                    "label": "Fix highlighted fields",
+                    "live": "assertive"
+                  },
+                  "offline": {
+                    "label": "Changes are queued locally",
+                    "live": "polite"
+                  },
+                  "recovery": {
+                    "label": "Recovered local draft available",
+                    "live": "polite"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

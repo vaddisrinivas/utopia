@@ -1,0 +1,1555 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "work-log",
+  "version": "1.1.0",
+  "collections": {
+    "work_entry": {
+      "id": "work_entry",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "work_date": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "client": {
+          "type": "text",
+          "indexed": true
+        },
+        "project": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "task": {
+          "type": "text",
+          "indexed": true
+        },
+        "category": {
+          "type": "text",
+          "indexed": true
+        },
+        "duration_minutes": {
+          "type": "number",
+          "required": true
+        },
+        "outcome": {
+          "type": "text"
+        },
+        "blocker": {
+          "type": "text"
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "paid_status": {
+          "type": "text",
+          "indexed": true
+        },
+        "hourly_rate": {
+          "type": "number",
+          "required": true
+        },
+        "differential_multiplier": {
+          "type": "number"
+        },
+        "billable_amount": {
+          "type": "number"
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        }
+      }
+    },
+    "client": {
+      "id": "client",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "default_rate": {
+          "type": "number"
+        },
+        "billing_email": {
+          "type": "text"
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        }
+      }
+    },
+    "project": {
+      "id": "project",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "client": {
+          "type": "text",
+          "indexed": true
+        },
+        "default_rate": {
+          "type": "number"
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        }
+      }
+    },
+    "task": {
+      "id": "task",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "project": {
+          "type": "text",
+          "indexed": true
+        },
+        "billable": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "recent-work": {
+      "from": "work_entry",
+      "orderBy": [
+        {
+          "field": "work_date",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    },
+    "open-work": {
+      "from": "work_entry",
+      "where": {
+        "field": "status",
+        "op": "eq",
+        "value": "open"
+      },
+      "orderBy": [
+        {
+          "field": "work_date",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "unpaid-work": {
+      "from": "work_entry",
+      "where": {
+        "field": "paid_status",
+        "op": "eq",
+        "value": "unpaid"
+      },
+      "orderBy": [
+        {
+          "field": "work_date",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    },
+    "clients": {
+      "from": "client",
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "projects": {
+      "from": "project",
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "tasks": {
+      "from": "task",
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    }
+  },
+  "views": {
+    "recent": {
+      "id": "recent",
+      "query": "recent-work",
+      "mode": "table",
+      "fields": [
+        "title",
+        "work_date",
+        "client",
+        "project",
+        "task",
+        "duration_minutes",
+        "work_hours",
+        "hourly_rate",
+        "billable_amount",
+        "paid_status",
+        "status"
+      ]
+    },
+    "open": {
+      "id": "open",
+      "query": "open-work",
+      "mode": "list",
+      "fields": [
+        "title",
+        "client",
+        "project",
+        "task",
+        "duration_minutes",
+        "blocker",
+        "status"
+      ]
+    },
+    "unpaid": {
+      "id": "unpaid",
+      "query": "unpaid-work",
+      "mode": "table",
+      "fields": [
+        "title",
+        "client",
+        "project",
+        "billable_amount",
+        "paid_status"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "installation-scoped-work-entry-list",
+    "generic-structured-work-table",
+    "record-detail-navigation",
+    "client-project-task-tracking",
+    "one-tap-work-timer",
+    "manual-work-entry-editing",
+    "wage-calculation",
+    "paid-unpaid-work-status",
+    "work-notes"
+  ],
+  "presentation": {
+    "label": "Work Log",
+    "homeSurface": "today",
+    "surfaces": [
+      {
+        "id": "today",
+        "label": "Today",
+        "collections": [
+          "work_entry"
+        ],
+        "views": [
+          "open",
+          "unpaid"
+        ]
+      },
+      {
+        "id": "capture",
+        "label": "Capture",
+        "collections": [
+          "work_entry"
+        ],
+        "views": []
+      },
+      {
+        "id": "ledger",
+        "label": "Ledger",
+        "collections": [
+          "work_entry"
+        ],
+        "views": [
+          "recent"
+        ]
+      },
+      {
+        "id": "reports",
+        "label": "Reports",
+        "collections": [
+          "work_entry"
+        ],
+        "views": [
+          "recent"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "collections": [
+          "client",
+          "project",
+          "task"
+        ],
+        "views": []
+      }
+    ],
+    "visualIdentity": {
+      "icon": "briefcase-business",
+      "tone": "moss-ledger",
+      "accent": "#27664D",
+      "canvas": "#F4F8F6",
+      "identity": "Billable work journal built for fast capture, client context, and invoice-ready review.",
+      "density": "compact-mobile, dense-desktop"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "today",
+      "navigation": {
+        "items": [
+          {
+            "screen": "today",
+            "label": "Today"
+          },
+          {
+            "screen": "capture",
+            "label": "Capture"
+          },
+          {
+            "screen": "ledger",
+            "label": "Ledger"
+          },
+          {
+            "screen": "reports",
+            "label": "Reports"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings"
+          }
+        ]
+      },
+      "screens": {
+        "today": {
+          "title": "Today",
+          "subtitle": "Start work, finish work, and know what is still unpaid.",
+          "shell": {
+            "layoutMode": "dashboardWorkspace",
+            "appBarTitle": "Work Log",
+            "appBarSubtitle": "Active billable work",
+            "appBarEyebrow": "Today",
+            "scrollable": true,
+            "activeTab": "today",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "play"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Capture",
+                "icon": "plus"
+              },
+              {
+                "id": "ledger",
+                "screen": "ledger",
+                "label": "Ledger",
+                "icon": "list"
+              },
+              {
+                "id": "reports",
+                "screen": "reports",
+                "label": "Reports",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "new-record",
+                "label": "Add",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "focus-capture"
+              },
+              {
+                "id": "search",
+                "label": "Find",
+                "icon": "search",
+                "tone": "quiet",
+                "event": "focus-search"
+              }
+            ],
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F4F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E5F0EA",
+              "ink": "#15231D",
+              "muted": "#62726A",
+              "accent": "#27664D",
+              "accentContrast": "#FFFFFF",
+              "border": "#CEDCD5",
+              "danger": "#A53E2D",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DBEAF6",
+              "statusSuccess": "#DBEFE3",
+              "statusWarning": "#FFF1C9",
+              "statusError": "#F9DFD8"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1220,
+              "narrowPadding": 16,
+              "widePadding": 30
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "tabs-content-bottom-actions",
+              "announces": [
+                "saved",
+                "error",
+                "offline",
+                "recovery"
+              ]
+            },
+            "status": {
+              "message": "Local-first. Unpaid entries stay visible until marked paid.",
+              "tone": "info",
+              "dismissible": true
+            }
+          },
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "durationTimer",
+              "id": "work-active-timer",
+              "title": "Start work",
+              "subtitle": "One tap creates a completed work entry when the timer finishes.",
+              "props": {
+                "runId": "active-work-block",
+                "label": "Work block",
+                "durationSeconds": 1800,
+                "completionRecord": {
+                  "collection": "work_entry",
+                  "title": "Timed work block",
+                  "properties": {
+                    "work_date": "2026-08-01T09:00:00Z",
+                    "client": "Unassigned",
+                    "project": "Inbox",
+                    "task": "Timed work",
+                    "category": "timed",
+                    "hourly_rate": 0,
+                    "differential_multiplier": 1,
+                    "paid_status": "Non-billable",
+                    "status": "closed",
+                    "outcome": "Timer completed",
+                    "blocker": "",
+                    "position": 0
+                  }
+                }
+              }
+            },
+            {
+              "kind": "metric",
+              "id": "work-hours-today",
+              "title": "Logged minutes",
+              "subtitle": "Sum of captured duration minutes in this installation.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "duration_minutes"
+              },
+              "props": {
+                "emptyText": "0"
+              }
+            },
+            {
+              "kind": "metric",
+              "id": "work-unpaid-count",
+              "title": "Unpaid entries",
+              "subtitle": "Entries waiting for pay review.",
+              "tone": "amber",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "count"
+              },
+              "props": {
+                "emptyText": "0"
+              }
+            },
+            {
+              "kind": "recordList",
+              "id": "work-open-list",
+              "title": "Open work",
+              "subtitle": "Client, project, task, and blocker are visible without opening a row.",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "searchable": true,
+                "detail": false,
+                "subtitleFields": [],
+                "subtitleTemplate": "{client} / {project} / {task} · {duration_minutes} min · {status}",
+                "iconField": "status",
+                "emptyText": "No active work. Start the timer or capture an entry."
+              }
+            }
+          ]
+        },
+        "capture": {
+          "title": "Capture",
+          "subtitle": "Add or correct a billable entry before context fades.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Work Log",
+            "appBarSubtitle": "Client/project/task entry",
+            "appBarEyebrow": "Capture",
+            "scrollable": true,
+            "activeTab": "capture",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "play"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Capture",
+                "icon": "plus"
+              },
+              {
+                "id": "ledger",
+                "screen": "ledger",
+                "label": "Ledger",
+                "icon": "list"
+              },
+              {
+                "id": "reports",
+                "screen": "reports",
+                "label": "Reports",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "new-record",
+                "label": "Add",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "focus-capture"
+              },
+              {
+                "id": "search",
+                "label": "Find",
+                "icon": "search",
+                "tone": "quiet",
+                "event": "focus-search"
+              }
+            ],
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F4F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E5F0EA",
+              "ink": "#15231D",
+              "muted": "#62726A",
+              "accent": "#27664D",
+              "accentContrast": "#FFFFFF",
+              "border": "#CEDCD5",
+              "danger": "#A53E2D",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DBEAF6",
+              "statusSuccess": "#DBEFE3",
+              "statusWarning": "#FFF1C9",
+              "statusError": "#F9DFD8"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1040,
+              "narrowPadding": 16,
+              "widePadding": 30
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "tabs-content-bottom-actions",
+              "announces": [
+                "saved",
+                "error",
+                "offline",
+                "recovery"
+              ]
+            }
+          },
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "structuredList",
+              "id": "work-entry-editor",
+              "title": "Work entry",
+              "subtitle": "Create, edit, filter, sort, and archive entries with required client/project/rate fields.",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "work_entry",
+                "placeholder": "What did you work on?",
+                "emptyText": "No records yet. Add the first one.",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "positionField": "position",
+                "metadataFields": [
+                  {
+                    "field": "client",
+                    "label": "Client",
+                    "type": "text",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "project",
+                    "label": "Project",
+                    "type": "text",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "task",
+                    "label": "Task",
+                    "type": "text",
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "work_date",
+                    "label": "Date",
+                    "type": "text",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "duration_minutes",
+                    "label": "Minutes",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": false
+                  },
+                  {
+                    "field": "hourly_rate",
+                    "label": "Rate",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": false
+                  },
+                  {
+                    "field": "differential_multiplier",
+                    "label": "Differential",
+                    "type": "number",
+                    "required": false,
+                    "sortable": true,
+                    "filterable": false
+                  },
+                  {
+                    "field": "paid_status",
+                    "label": "Pay status",
+                    "type": "select",
+                    "options": [
+                      "unpaid",
+                      "paid",
+                      "not-billable"
+                    ],
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Work status",
+                    "type": "select",
+                    "options": [
+                      "open",
+                      "closed",
+                      "blocked"
+                    ],
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "outcome",
+                    "label": "Outcome",
+                    "type": "text",
+                    "required": false,
+                    "sortable": false,
+                    "filterable": true
+                  },
+                  {
+                    "field": "blocker",
+                    "label": "Blocker",
+                    "type": "text",
+                    "required": false,
+                    "sortable": false,
+                    "filterable": true
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "Client delivery",
+                    "values": {
+                      "client": "Acme",
+                      "project": "Launch",
+                      "task": "Delivery",
+                      "work_date": "2026-08-01T09:00:00Z",
+                      "duration_minutes": 90,
+                      "hourly_rate": 40,
+                      "differential_multiplier": 1,
+                      "paid_status": "unpaid",
+                      "status": "closed",
+                      "outcome": "Sent build notes",
+                      "blocker": ""
+                    }
+                  },
+                  {
+                    "title": "Support follow-up",
+                    "values": {
+                      "client": "Northwind",
+                      "project": "Support",
+                      "task": "Bug triage",
+                      "work_date": "2026-08-01T13:00:00Z",
+                      "duration_minutes": 30,
+                      "hourly_rate": 65,
+                      "differential_multiplier": 1.25,
+                      "paid_status": "unpaid",
+                      "status": "open",
+                      "outcome": "Waiting on logs",
+                      "blocker": "Client data"
+                    }
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  {
+                    "kind": "field",
+                    "field": "client",
+                    "direction": "desc",
+                    "label": "Newest"
+                  },
+                  "alphabetic"
+                ],
+                "filterFields": [
+                  "client",
+                  "project",
+                  "paid_status",
+                  "status"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "operationHistory",
+              "id": "work-capture-history",
+              "title": "Entry change history",
+              "subtitle": "Saved edits, deletes, and recovery-visible changes.",
+              "props": {
+                "collection": "work_entry",
+                "limit": 50,
+                "emptyText": "Changes appear after the first edit."
+              }
+            }
+          ]
+        },
+        "ledger": {
+          "title": "Ledger",
+          "subtitle": "Search prior entries and inspect payment state.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Work Log",
+            "appBarSubtitle": "Searchable work history",
+            "appBarEyebrow": "Ledger",
+            "scrollable": true,
+            "activeTab": "ledger",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "play"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Capture",
+                "icon": "plus"
+              },
+              {
+                "id": "ledger",
+                "screen": "ledger",
+                "label": "Ledger",
+                "icon": "list"
+              },
+              {
+                "id": "reports",
+                "screen": "reports",
+                "label": "Reports",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "new-record",
+                "label": "Add",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "focus-capture"
+              },
+              {
+                "id": "search",
+                "label": "Find",
+                "icon": "search",
+                "tone": "quiet",
+                "event": "focus-search"
+              }
+            ],
+            "density": "compact",
+            "theme": {
+              "canvas": "#F4F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E5F0EA",
+              "ink": "#15231D",
+              "muted": "#62726A",
+              "accent": "#27664D",
+              "accentContrast": "#FFFFFF",
+              "border": "#CEDCD5",
+              "danger": "#A53E2D",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DBEAF6",
+              "statusSuccess": "#DBEFE3",
+              "statusWarning": "#FFF1C9",
+              "statusError": "#F9DFD8"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1040,
+              "narrowPadding": 16,
+              "widePadding": 30
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "tabs-content-bottom-actions",
+              "announces": [
+                "saved",
+                "error",
+                "offline",
+                "recovery"
+              ]
+            }
+          },
+          "components": [
+            {
+              "kind": "recordList",
+              "id": "work-ledger-search",
+              "title": "Search ledger",
+              "subtitle": "Keyboard-friendly list with client and project in row text.",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "searchable": true,
+                "detail": true,
+                "subtitleFields": [],
+                "subtitleTemplate": "{work_date} · {client} / {project} · {billable_amount} · {paid_status}",
+                "iconField": "status",
+                "emptyText": "No ledger entries yet."
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "dataTable",
+              "id": "work-ledger-table",
+              "title": "Invoice review snapshot",
+              "subtitle": "Example columns for exported invoice review.",
+              "tone": "neutral",
+              "props": {
+                "columns": [
+                  {
+                    "key": "client",
+                    "label": "Client"
+                  },
+                  {
+                    "key": "project",
+                    "label": "Project"
+                  },
+                  {
+                    "key": "minutes",
+                    "label": "Minutes"
+                  },
+                  {
+                    "key": "amount",
+                    "label": "Amount"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Pay"
+                  }
+                ],
+                "items": [
+                  {
+                    "client": "Acme",
+                    "project": "Launch",
+                    "minutes": "90",
+                    "amount": "$60.00",
+                    "status": "unpaid"
+                  },
+                  {
+                    "client": "Northwind",
+                    "project": "Support",
+                    "minutes": "30",
+                    "amount": "$40.63",
+                    "status": "open"
+                  }
+                ],
+                "emptyText": "No rows yet."
+              }
+            }
+          ]
+        },
+        "reports": {
+          "title": "Reports",
+          "subtitle": "See where the week went and what can be billed.",
+          "shell": {
+            "layoutMode": "dashboardWorkspace",
+            "appBarTitle": "Work Log",
+            "appBarSubtitle": "Project totals and payment review",
+            "appBarEyebrow": "Reports",
+            "scrollable": true,
+            "activeTab": "reports",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "play"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Capture",
+                "icon": "plus"
+              },
+              {
+                "id": "ledger",
+                "screen": "ledger",
+                "label": "Ledger",
+                "icon": "list"
+              },
+              {
+                "id": "reports",
+                "screen": "reports",
+                "label": "Reports",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "new-record",
+                "label": "Add",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "focus-capture"
+              },
+              {
+                "id": "search",
+                "label": "Find",
+                "icon": "search",
+                "tone": "quiet",
+                "event": "focus-search"
+              }
+            ],
+            "density": "comfortable",
+            "theme": {
+              "canvas": "#F4F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E5F0EA",
+              "ink": "#15231D",
+              "muted": "#62726A",
+              "accent": "#27664D",
+              "accentContrast": "#FFFFFF",
+              "border": "#CEDCD5",
+              "danger": "#A53E2D",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DBEAF6",
+              "statusSuccess": "#DBEFE3",
+              "statusWarning": "#FFF1C9",
+              "statusError": "#F9DFD8"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1220,
+              "narrowPadding": 16,
+              "widePadding": 30
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "tabs-content-bottom-actions",
+              "announces": [
+                "saved",
+                "error",
+                "offline",
+                "recovery"
+              ]
+            }
+          },
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "chartBlock",
+              "id": "work-project-chart",
+              "title": "Minutes by project",
+              "subtitle": "Live grouped total from work entries.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "groupBy": "project",
+                "valueField": "duration_minutes",
+                "labelField": "project"
+              },
+              "props": {
+                "emptyText": "Trends appear after the first record."
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "chartBlock",
+              "id": "work-client-chart",
+              "title": "Amount by client",
+              "subtitle": "Billable amount by client appears after entries include rates and time.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "work_entry"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "groupBy": "client",
+                "valueField": "billable_amount",
+                "labelField": "client"
+              },
+              "props": {
+                "emptyText": "Trends appear after the first record."
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "id": "work-payment-review",
+              "title": "Pay review",
+              "subtitle": "Surface unpaid or blocked work before invoice export.",
+              "tone": "neutral",
+              "props": {
+                "items": [
+                  {
+                    "title": "Unpaid rows",
+                    "detail": "Filter by paid_status = unpaid",
+                    "status": "review"
+                  },
+                  {
+                    "title": "Blocked rows",
+                    "detail": "Rows with blocker text need follow-up",
+                    "status": "watch"
+                  },
+                  {
+                    "title": "Closed rows",
+                    "detail": "Ready for invoice copy when export exists",
+                    "status": "ready"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Maintain reusable clients, projects, and task labels.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Work Log",
+            "appBarSubtitle": "Context catalog",
+            "appBarEyebrow": "Settings",
+            "scrollable": true,
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "today",
+                "screen": "today",
+                "label": "Today",
+                "icon": "play"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Capture",
+                "icon": "plus"
+              },
+              {
+                "id": "ledger",
+                "screen": "ledger",
+                "label": "Ledger",
+                "icon": "list"
+              },
+              {
+                "id": "reports",
+                "screen": "reports",
+                "label": "Reports",
+                "icon": "bar-chart"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "new-record",
+                "label": "Add",
+                "icon": "plus",
+                "tone": "primary",
+                "event": "focus-capture"
+              },
+              {
+                "id": "search",
+                "label": "Find",
+                "icon": "search",
+                "tone": "quiet",
+                "event": "focus-search"
+              }
+            ],
+            "density": "compact",
+            "theme": {
+              "canvas": "#F4F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E5F0EA",
+              "ink": "#15231D",
+              "muted": "#62726A",
+              "accent": "#27664D",
+              "accentContrast": "#FFFFFF",
+              "border": "#CEDCD5",
+              "danger": "#A53E2D",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DBEAF6",
+              "statusSuccess": "#DBEFE3",
+              "statusWarning": "#FFF1C9",
+              "statusError": "#F9DFD8"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1040,
+              "narrowPadding": 16,
+              "widePadding": 30
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "tabs-content-bottom-actions",
+              "announces": [
+                "saved",
+                "error",
+                "offline",
+                "recovery"
+              ]
+            }
+          },
+          "components": [
+            {
+              "kind": "widget",
+              "widget": "structuredList",
+              "id": "work-context-manager",
+              "title": "Clients",
+              "subtitle": "Keep client names and default rates reusable.",
+              "query": {
+                "collections": [
+                  "client"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "client",
+                "placeholder": "Client name",
+                "emptyText": "No records yet. Add the first one.",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "positionField": "position",
+                "metadataFields": [
+                  {
+                    "field": "default_rate",
+                    "label": "Default rate",
+                    "type": "number",
+                    "required": false,
+                    "sortable": true,
+                    "filterable": false
+                  },
+                  {
+                    "field": "billing_email",
+                    "label": "Billing email",
+                    "type": "text",
+                    "required": false,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "select",
+                    "options": [
+                      "active",
+                      "paused"
+                    ],
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "Acme",
+                    "values": {
+                      "default_rate": 40,
+                      "billing_email": "billing@example.com",
+                      "status": "active"
+                    }
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  {
+                    "kind": "field",
+                    "field": "default_rate",
+                    "direction": "desc",
+                    "label": "Newest"
+                  },
+                  "alphabetic"
+                ],
+                "filterFields": [
+                  "status"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "structuredList",
+              "id": "work-project-manager",
+              "title": "Projects",
+              "subtitle": "Reusable project defaults prevent duplicate labels.",
+              "query": {
+                "collections": [
+                  "project"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "project",
+                "placeholder": "Project name",
+                "emptyText": "No records yet. Add the first one.",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "positionField": "position",
+                "metadataFields": [
+                  {
+                    "field": "client",
+                    "label": "Client",
+                    "type": "text",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "default_rate",
+                    "label": "Default rate",
+                    "type": "number",
+                    "required": false,
+                    "sortable": true,
+                    "filterable": false
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "select",
+                    "options": [
+                      "active",
+                      "archived"
+                    ],
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "Launch",
+                    "values": {
+                      "client": "Acme",
+                      "default_rate": 40,
+                      "status": "active"
+                    }
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  {
+                    "kind": "field",
+                    "field": "client",
+                    "direction": "desc",
+                    "label": "Newest"
+                  },
+                  "alphabetic"
+                ],
+                "filterFields": [
+                  "client",
+                  "status"
+                ]
+              }
+            },
+            {
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "id": "work-export-gap",
+              "title": "Export and backup status",
+              "subtitle": "Local record capture works. Spreadsheet export and Google Drive restore need connected services.",
+              "tone": "amber",
+              "props": {
+                "body": "Drive backup and restore stay off until you connect a backup service.",
+                "chips": [
+                  {
+                    "label": "Status",
+                    "value": "blocked"
+                  },
+                  {
+                    "label": "Need",
+                    "value": "spreadsheet export"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "computedFields": [
+    {
+      "id": "work_hours",
+      "collection": "work_entry",
+      "dependsOn": [],
+      "expression": {
+        "/": [
+          {
+            "var": "record.duration_minutes"
+          },
+          60
+        ]
+      }
+    },
+    {
+      "id": "billable_amount",
+      "collection": "work_entry",
+      "dependsOn": [
+        "work_hours"
+      ],
+      "expression": {
+        "*": [
+          {
+            "var": "computed.work_hours"
+          },
+          {
+            "var": [
+              "record.hourly_rate",
+              0
+            ]
+          },
+          {
+            "var": [
+              "record.differential_multiplier",
+              1
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

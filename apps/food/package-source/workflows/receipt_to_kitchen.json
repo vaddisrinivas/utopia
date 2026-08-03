@@ -1,0 +1,5 @@
+{
+  "id": "receipt_to_kitchen",
+  "legacyWorkflowId": "receipt_to_kitchen",
+  "preservedFrom": "apps/food/food.v1.json"
+}

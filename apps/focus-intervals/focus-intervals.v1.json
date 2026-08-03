@@ -1,7 +1,7 @@
 {
   "schemaVersion": "wonder.app-package.v2",
   "id": "focus-intervals",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "collections": {
     "focus_session": {
       "id": "focus_session",
@@ -11,25 +11,15 @@
         "collection": { "type": "text", "required": true, "indexed": true },
         "updated_at": { "type": "timestamp", "required": true, "indexed": true },
         "properties": { "type": "json", "required": true },
-        "status": { "type": "text", "indexed": true },
+        "status": { "type": "text", "required": true, "indexed": true },
+        "session_type": { "type": "text", "indexed": true },
+        "current_step": { "type": "text", "indexed": true },
         "started_at": { "type": "timestamp", "indexed": true },
         "finished_at": { "type": "timestamp", "indexed": true },
-        "current_step": { "type": "number", "indexed": true }
-      }
-    },
-    "focus_interval": {
-      "id": "focus_interval",
-      "fields": {
-        "id": { "type": "text", "required": true, "indexed": true },
-        "title": { "type": "text", "required": true, "indexed": true },
-        "collection": { "type": "text", "required": true, "indexed": true },
-        "updated_at": { "type": "timestamp", "required": true, "indexed": true },
-        "properties": { "type": "json", "required": true },
-        "session_id": { "type": "text", "indexed": true },
-        "sequence": { "type": "number", "indexed": true },
-        "kind": { "type": "text", "indexed": true },
-        "duration_seconds": { "type": "number" },
-        "status": { "type": "text", "indexed": true }
+        "elapsed_seconds": { "type": "number" },
+        "recovery_confidence": { "type": "text", "indexed": true },
+        "note_count": { "type": "number" },
+        "background_policy": { "type": "text" }
       }
     },
     "focus_note": {
@@ -41,133 +31,624 @@
         "updated_at": { "type": "timestamp", "required": true, "indexed": true },
         "properties": { "type": "json", "required": true },
         "session_id": { "type": "text", "indexed": true },
-        "body": { "type": "text" },
+        "kind": { "type": "text", "indexed": true },
+        "body": { "type": "text", "required": true },
+        "captured_at": { "type": "timestamp", "indexed": true },
         "status": { "type": "text", "indexed": true }
       }
     }
   },
   "queries": {
-    "active-sessions": {
+    "recent-sessions": {
       "from": "focus_session",
-      "where": { "field": "status", "op": "eq", "value": "active" },
-      "orderBy": [{ "field": "started_at", "direction": "desc" }],
-      "limit": 20
+      "orderBy": [
+        { "field": "updated_at", "direction": "desc" }
+      ],
+      "limit": 100
     },
-    "intervals": {
-      "from": "focus_interval",
-      "orderBy": [{ "field": "sequence", "direction": "asc" }],
+    "completed-sessions": {
+      "from": "focus_session",
+      "where": { "field": "status", "op": "eq", "value": "completed" },
+      "orderBy": [
+        { "field": "finished_at", "direction": "desc" }
+      ],
       "limit": 100
     },
     "notes": {
       "from": "focus_note",
-      "orderBy": [{ "field": "updated_at", "direction": "desc" }],
+      "orderBy": [
+        { "field": "updated_at", "direction": "desc" }
+      ],
       "limit": 100
     }
   },
   "views": {
-    "active": {
-      "id": "active",
-      "query": "active-sessions",
+    "recent-sessions": {
+      "id": "recent-sessions",
+      "query": "recent-sessions",
       "mode": "list",
-      "fields": ["title", "status", "started_at", "current_step"]
+      "fields": [
+        "title",
+        "status",
+        "session_type",
+        "current_step",
+        "started_at",
+        "finished_at",
+        "elapsed_seconds",
+        "recovery_confidence"
+      ]
     },
-    "intervals": {
-      "id": "intervals",
-      "query": "intervals",
+    "completed-sessions": {
+      "id": "completed-sessions",
+      "query": "completed-sessions",
       "mode": "timeline",
-      "fields": ["title", "sequence", "kind", "duration_seconds", "status"]
+      "fields": [
+        "title",
+        "status",
+        "finished_at",
+        "elapsed_seconds",
+        "recovery_confidence"
+      ]
     },
     "notes": {
       "id": "notes",
       "query": "notes",
       "mode": "table",
-      "fields": ["title", "session_id", "body", "status"]
+      "fields": [
+        "title",
+        "kind",
+        "session_id",
+        "status",
+        "captured_at",
+        "body"
+      ]
     }
   },
   "rules": [],
   "capabilities": [],
   "acceptanceTests": [
-    "generic-step-flow-contract",
-    "generic-duration-timer-contract",
-    "persisted-flow-kernel-reuse"
+    "persisted-focus-step-flow",
+    "background-foreground-observe",
+    "restart-recovery-confirmed-elapsed",
+    "uncertain-elapsed-review-required",
+    "completed-session-record",
+    "session-note-draft-recovery",
+    "truthful-notification-boundary"
   ],
   "presentation": {
-    "label": "Focus Intervals",
+    "label": "Interval Coach",
     "homeSurface": "home",
     "surfaces": [
       {
         "id": "home",
-        "label": "Focus",
-        "collections": ["focus_session", "focus_interval"],
-        "views": ["active", "intervals"]
+        "label": "Coach",
+        "collections": ["focus_session"],
+        "views": ["recent-sessions"]
       },
       {
         "id": "notes",
         "label": "Notes",
         "collections": ["focus_note"],
         "views": ["notes"]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "collections": ["focus_session"],
+        "views": ["completed-sessions"]
+      },
+      {
+        "id": "settings",
+        "label": "Boundaries",
+        "collections": ["focus_session", "focus_note"],
+        "views": ["recent-sessions", "notes"]
       }
     ],
     "visualIdentity": {
-      "icon": "sparkles",
-      "tone": "blue",
-      "accent": "#216B8E",
-      "canvas": "#F6FAFC"
+      "icon": "timer",
+      "tone": "slate",
+      "accent": "#2563EB",
+      "canvas": "#F8FAFC"
     },
     "ui": {
       "schemaVersion": "a2ui.v0_9",
       "defaultScreen": "home",
       "screens": {
         "home": {
-          "title": "Focus Intervals",
-          "subtitle": "A bundled timed-flow app built on the shared step-flow and timer widgets.",
+          "title": "Interval Coach",
+          "subtitle": "Run a repeatable focus cycle, keep interruption notes, and recover honestly after restart.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Coach",
+            "appBarSubtitle": "Foreground coaching, local recovery, no fake background magic.",
+            "appBarEyebrow": "Focus desk",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "home",
+            "tabs": [
+              { "id": "home", "screen": "home", "label": "Coach", "icon": "play" },
+              { "id": "notes", "screen": "notes", "label": "Notes", "icon": "book-open" },
+              { "id": "history", "screen": "history", "label": "History", "icon": "rotate-ccw" },
+              { "id": "settings", "screen": "settings", "label": "Boundaries", "icon": "settings" }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F8FAFC",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#EAF2FF",
+              "ink": "#0F172A",
+              "muted": "#475569",
+              "accent": "#2563EB",
+              "accentContrast": "#FFFFFF",
+              "border": "#CBD5E1",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E0F2FE",
+              "statusSuccess": "#DCFCE7",
+              "statusWarning": "#FEF3C7",
+              "statusError": "#FEE2E2"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
           "components": [
             {
-              "kind": "recordList",
-              "title": "Active Sessions",
-              "query": { "collections": ["focus_session"], "match": "active", "limit": 5 },
-              "props": {
-                "emptyText": "Start a focus session to see it here.",
-                "subtitleFields": ["status", "started_at", "current_step"]
-              }
-            },
-            {
+              "id": "interval-coach-hero",
               "kind": "widget",
-              "widget": "stepFlow",
-              "title": "Focus Cycle",
-              "subtitle": "Shared persisted flow kernel, no app-specific widget.",
+              "widget": "recordHeroSummary",
+              "title": "Default coaching cycle",
               "props": {
-                "steps": [
-                  { "id": "deep-work", "title": "Deep Work", "durationSeconds": 1500 },
-                  { "id": "short-break", "title": "Short Break", "durationSeconds": 300 },
-                  { "id": "deep-work-2", "title": "Deep Work", "durationSeconds": 1500 },
-                  { "id": "long-break", "title": "Long Break", "durationSeconds": 900 }
+                "title": "Deep focus, short reset, deep focus, long reset",
+                "subtitle": "One guided cycle, one optional re-entry timer, and notes that stay local to the package.",
+                "badge": "foreground coach",
+                "stats": [
+                  { "label": "cycle", "value": "25 5 25 15" },
+                  { "label": "total", "value": "70m" },
+                  { "label": "notes", "value": "local only" }
+                ],
+                "actions": [
+                  { "label": "Open notes", "route": "?screen=notes" },
+                  { "label": "Review history", "route": "?screen=history" }
                 ]
               }
             },
             {
+              "id": "interval-coach-flow",
+              "kind": "widget",
+              "widget": "stepFlow",
+              "title": "Coached session",
+              "props": {
+                "runId": "interval-coach-session",
+                "steps": [
+                  { "id": "deep-work-1", "title": "Deep Work", "durationSeconds": 1500 },
+                  { "id": "reset-1", "title": "Short Reset", "durationSeconds": 300 },
+                  { "id": "deep-work-2", "title": "Deep Work Again", "durationSeconds": 1500 },
+                  { "id": "reset-2", "title": "Long Reset", "durationSeconds": 900 }
+                ],
+                "completionRecord": {
+                  "collection": "focus_session",
+                  "title": "Four-block focus cycle",
+                  "properties": {
+                    "status": "completed",
+                    "session_type": "coached-cycle",
+                    "current_step": "completed",
+                    "elapsed_seconds": 4200,
+                    "recovery_confidence": "confirmed",
+                    "background_policy": "foreground-only"
+                  }
+                },
+                "recovery": {
+                  "onRestart": "restore-active-session",
+                  "onUncertainElapsed": "require-confirmation"
+                }
+              }
+            },
+            {
+              "id": "interval-coach-reentry-timer",
               "kind": "widget",
               "widget": "durationTimer",
-              "title": "Current Sprint",
-              "subtitle": "A single generic timer for the active block.",
+              "title": "Re-entry sprint",
               "props": {
-                "durationSeconds": 1500,
-                "label": "Focus Sprint"
+                "runId": "interval-coach-reentry",
+                "label": "Back on task",
+                "durationSeconds": 600,
+                "recovery": {
+                  "onRestart": "restore-active-session",
+                  "onUncertainElapsed": "require-confirmation"
+                }
+              }
+            },
+            {
+              "id": "interval-coach-lifecycle",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Session lifecycle",
+              "props": {
+                "title": "Session lifecycle",
+                "subtitle": "The package is explicit about what is running, what is restored, and what is only written after completion.",
+                "badge": "visible states",
+                "items": [
+                  {
+                    "title": "Running",
+                    "detail": "The coach runs in the foreground through the generic step flow.",
+                    "status": "active"
+                  },
+                  {
+                    "title": "Review required",
+                    "detail": "If elapsed time is uncertain after restart, the flow requires confirmation.",
+                    "status": "review"
+                  },
+                  {
+                    "title": "Completed receipt",
+                    "detail": "One completed cycle writes one session history record.",
+                    "status": "saved"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interval-coach-boundary-card",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Notifications and background",
+              "props": {
+                "title": "Notifications and background",
+                "subtitle": "Nothing schedules or runs silently.",
+                "body": "This quick win keeps timing, notes, and recovery inside the package. Push reminders and long-running background execution are not assumed here and need separate native proof.",
+                "chips": [
+                  { "label": "notifications", "value": "not scheduled" },
+                  { "label": "background", "value": "not assumed" },
+                  { "label": "proof", "value": "local only" }
+                ],
+                "actions": []
+              }
+            },
+            {
+              "id": "interval-coach-history-list",
+              "kind": "recordList",
+              "title": "Recent sessions",
+              "query": {
+                "collections": ["focus_session"],
+                "limit": 50
+              },
+              "props": {
+                "emptyText": "Completed coaching cycles appear here after the flow finishes.",
+                "subtitleFields": [
+                  "status",
+                  "session_type",
+                  "elapsed_seconds",
+                  "recovery_confidence"
+                ]
               }
             }
           ]
         },
         "notes": {
-          "title": "Focus Notes",
-          "subtitle": "Short notes and interruptions stay in package data, not custom runtime ops.",
+          "title": "Session Notes",
+          "subtitle": "Capture distractions, re-entry plans, and end-of-cycle reflections with local draft recovery.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Coach",
+            "appBarSubtitle": "Foreground coaching, local recovery, no fake background magic.",
+            "appBarEyebrow": "Focus desk",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "notes",
+            "tabs": [
+              { "id": "home", "screen": "home", "label": "Coach", "icon": "play" },
+              { "id": "notes", "screen": "notes", "label": "Notes", "icon": "book-open" },
+              { "id": "history", "screen": "history", "label": "History", "icon": "rotate-ccw" },
+              { "id": "settings", "screen": "settings", "label": "Boundaries", "icon": "settings" }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F8FAFC",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#EAF2FF",
+              "ink": "#0F172A",
+              "muted": "#475569",
+              "accent": "#2563EB",
+              "accentContrast": "#FFFFFF",
+              "border": "#CBD5E1",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E0F2FE",
+              "statusSuccess": "#DCFCE7",
+              "statusWarning": "#FEF3C7",
+              "statusError": "#FEE2E2"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
           "components": [
             {
-              "kind": "recordList",
-              "title": "Notes",
-              "query": { "collections": ["focus_note"], "limit": 20 },
+              "id": "interval-coach-note-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Interruption and reflection notes",
+              "query": {
+                "collections": ["focus_note"],
+                "limit": 100
+              },
               "props": {
-                "emptyText": "Add a note after a sprint.",
-                "subtitleFields": ["session_id", "status"]
+                "collection": "focus_note",
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "metadataFields": [
+                  { "field": "title", "label": "Title", "type": "text", "required": true },
+                  { "field": "kind", "label": "Kind", "type": "text", "required": true, "filterable": true },
+                  { "field": "body", "label": "Body", "type": "text", "required": true },
+                  { "field": "session_id", "label": "Session ID", "type": "text", "filterable": true },
+                  { "field": "status", "label": "Status", "type": "text", "filterable": true },
+                  { "field": "captured_at", "label": "Captured at", "type": "timestamp", "sortable": true }
+                ],
+                "sorts": ["manual", "recent", "alphabetic"],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": ["title", "kind", "body"]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true,
+                    "labels": {
+                      "pending": "Saving note",
+                      "saved": "Note saved",
+                      "error": "Fix note",
+                      "queued": "Queued note",
+                      "undone": "Note undone",
+                      "cancelled": "Note cancelled"
+                    }
+                  },
+                  "failure": "inline-error"
+                },
+                "emptyText": "Add the first interruption or debrief note."
+              }
+            },
+            {
+              "id": "interval-coach-note-workflow",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Note workflow",
+              "props": {
+                "title": "Note workflow",
+                "subtitle": "Notes stay useful even when a session is interrupted or restarted.",
+                "badge": "draft recovery",
+                "items": [
+                  {
+                    "title": "Capture now",
+                    "detail": "Write a distraction, blocker, or follow-up while staying inside the coach.",
+                    "status": "ready"
+                  },
+                  {
+                    "title": "Recover later",
+                    "detail": "Unsaved drafts restore locally after restart within the recovery window.",
+                    "status": "recovery"
+                  },
+                  {
+                    "title": "Link honestly",
+                    "detail": "Session IDs stay manual; the package does not invent cross-session joins.",
+                    "status": "visible"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "Session History",
+          "subtitle": "Completed cycles, recovery confidence, and saved session activity.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Coach",
+            "appBarSubtitle": "Foreground coaching, local recovery, no fake background magic.",
+            "appBarEyebrow": "Focus desk",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              { "id": "home", "screen": "home", "label": "Coach", "icon": "play" },
+              { "id": "notes", "screen": "notes", "label": "Notes", "icon": "book-open" },
+              { "id": "history", "screen": "history", "label": "History", "icon": "rotate-ccw" },
+              { "id": "settings", "screen": "settings", "label": "Boundaries", "icon": "settings" }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F8FAFC",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#EAF2FF",
+              "ink": "#0F172A",
+              "muted": "#475569",
+              "accent": "#2563EB",
+              "accentContrast": "#FFFFFF",
+              "border": "#CBD5E1",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E0F2FE",
+              "statusSuccess": "#DCFCE7",
+              "statusWarning": "#FEF3C7",
+              "statusError": "#FEE2E2"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-coach-session-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Completed cycles",
+              "query": {
+                "collections": ["focus_session"],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "status",
+                  "session_type",
+                  "elapsed_seconds",
+                  "recovery_confidence"
+                ]
+              }
+            },
+            {
+              "id": "interval-coach-saved-activity",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Saved activity",
+              "props": {
+                "collection": "focus_session",
+                "limit": 50,
+                "emptyText": "Completed sessions and recovery-visible saves appear here."
+              }
+            },
+            {
+              "id": "interval-coach-recovery-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Recovery states",
+              "props": {
+                "title": "Recovery states",
+                "subtitle": "A restarted flow is visible as either confirmed or review-required, never silently rewritten.",
+                "badge": "restart policy",
+                "items": [
+                  {
+                    "title": "Confirmed restart",
+                    "detail": "Elapsed time was trustworthy enough to resume the active session.",
+                    "status": "confirmed"
+                  },
+                  {
+                    "title": "Review required",
+                    "detail": "Elapsed time was uncertain and needs user confirmation.",
+                    "status": "review"
+                  },
+                  {
+                    "title": "Completed",
+                    "detail": "Only finished cycles become permanent session history rows.",
+                    "status": "saved"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Boundaries",
+          "subtitle": "What this package does locally, what it does not promise, and what still needs native proof.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Coach",
+            "appBarSubtitle": "Foreground coaching, local recovery, no fake background magic.",
+            "appBarEyebrow": "Focus desk",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              { "id": "home", "screen": "home", "label": "Coach", "icon": "play" },
+              { "id": "notes", "screen": "notes", "label": "Notes", "icon": "book-open" },
+              { "id": "history", "screen": "history", "label": "History", "icon": "rotate-ccw" },
+              { "id": "settings", "screen": "settings", "label": "Boundaries", "icon": "settings" }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F8FAFC",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#EAF2FF",
+              "ink": "#0F172A",
+              "muted": "#475569",
+              "accent": "#2563EB",
+              "accentContrast": "#FFFFFF",
+              "border": "#CBD5E1",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E0F2FE",
+              "statusSuccess": "#DCFCE7",
+              "statusWarning": "#FEF3C7",
+              "statusError": "#FEE2E2"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1120,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-coach-provider-status",
+              "kind": "widget",
+              "widget": "providerStatus",
+              "title": "Runtime posture",
+              "props": {
+                "unavailableText": "Timing, notes, and restart recovery work locally. Push reminders and background execution need separate native proof and are not claimed by this package."
+              }
+            },
+            {
+              "id": "interval-coach-boundaries-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Boundaries",
+              "props": {
+                "title": "Boundaries",
+                "subtitle": "This package is honest about scope.",
+                "badge": "truthful",
+                "items": [
+                  {
+                    "title": "Notifications",
+                    "detail": "No reminders are scheduled here.",
+                    "status": "not included"
+                  },
+                  {
+                    "title": "Background execution",
+                    "detail": "The package does not claim long-running background timing.",
+                    "status": "not assumed"
+                  },
+                  {
+                    "title": "Local recovery",
+                    "detail": "Restart recovery is explicit and visible inside the flow state.",
+                    "status": "supported"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interval-coach-owned-data",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Package-owned data",
+              "props": {
+                "title": "Package-owned data",
+                "subtitle": "Everything useful stays inside the package.",
+                "body": "Completed session receipts live in focus_session. Interruption and reflection drafts live in focus_note. Nothing in this quick win depends on custom app code or external provider state.",
+                "chips": [
+                  { "label": "session history", "value": "focus_session" },
+                  { "label": "notes", "value": "focus_note" },
+                  { "label": "custom runtime", "value": "none" }
+                ],
+                "actions": []
               }
             }
           ]

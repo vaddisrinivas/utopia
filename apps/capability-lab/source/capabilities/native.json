@@ -2,11 +2,12 @@
   "schemaVersion": "wonder.app-package-native-capabilities.v1",
   "platform": "expo",
   "packages": [
+    "expo-audio",
     "expo-camera",
     "expo-calendar",
     "expo-contacts",
     "expo-document-picker",
-    "expo-image-picker",
+    "expo-file-system",
     "expo-local-authentication",
     "expo-location",
     "expo-notifications",
@@ -14,9 +15,16 @@
     "expo-sharing",
     "expo-speech",
     "expo-task-manager",
-    "expo-video"
+    "react-native-health-connect"
   ],
   "permissions": [
+    {
+      "id": "record-microphone",
+      "platform": "expo",
+      "permission": "expo-audio",
+      "reason": "Exercise the microphone recorder probe only after explicit user action.",
+      "required": false
+    },
     {
       "id": "scan-camera",
       "platform": "expo",
@@ -81,24 +89,59 @@
       "required": false
     },
     {
-      "id": "pick-video",
-      "platform": "expo",
-      "permission": "expo-image-picker:media-library",
-      "reason": "Pick local videos for playback.",
-      "required": false
-    },
-    {
-      "id": "record-video",
-      "platform": "expo",
-      "permission": "expo-image-picker:camera",
-      "reason": "Record local videos for playback.",
-      "required": false
-    },
-    {
       "id": "share-files",
       "platform": "expo",
       "permission": "expo-sharing",
       "reason": "Exercise file-export share/download capability in the test app.",
+      "required": false
+    },
+    {
+      "id": "write-export-files",
+      "platform": "expo",
+      "permission": "expo-file-system",
+      "reason": "Create the local export artifact before the share/download path opens.",
+      "required": false
+    },
+    {
+      "id": "health-read-nutrition",
+      "platform": "android",
+      "permission": "android.permission.health.READ_NUTRITION",
+      "reason": "Request Android Health Connect nutrition access during the health probe.",
+      "required": false
+    },
+    {
+      "id": "health-read-hydration",
+      "platform": "android",
+      "permission": "android.permission.health.READ_HYDRATION",
+      "reason": "Request Android Health Connect hydration access during the health probe.",
+      "required": false
+    },
+    {
+      "id": "health-read-steps",
+      "platform": "android",
+      "permission": "android.permission.health.READ_STEPS",
+      "reason": "Request Android Health Connect steps access during the health probe.",
+      "required": false
+    },
+    {
+      "id": "health-read-active-calories",
+      "platform": "android",
+      "permission": "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+      "reason": "Request Android Health Connect active calorie access during the health probe.",
+      "required": false
+    },
+    {
+      "id": "health-read-weight",
+      "platform": "android",
+      "permission": "android.permission.health.READ_WEIGHT",
+      "reason": "Request Android Health Connect weight access during the health probe.",
+      "required": false
+    },
+    {
+      "id": "health-write-hydration",
+      "platform": "android",
+      "permission": "android.permission.health.WRITE_HYDRATION",
+      "reason": "Request Android Health Connect hydration write access for guarded round-trip probes.",
       "required": false
     }
   ],
@@ -113,6 +156,27 @@
         "scheme": "utopia",
         "target": "capability.lab"
       }
+    },
+    {
+      "id": "future-background-task",
+      "platform": "expo",
+      "kind": "background_task",
+      "reason": "Track background execution without claiming an OS background receipt.",
+      "required": false
+    },
+    {
+      "id": "future-file-open",
+      "platform": "expo",
+      "kind": "file_open",
+      "reason": "Track planned inbound file-open support without injecting an OS event.",
+      "required": false
+    },
+    {
+      "id": "future-shortcut",
+      "platform": "expo",
+      "kind": "shortcut",
+      "reason": "Track planned native shortcut support without claiming shortcut publication.",
+      "required": false
     }
   ]
 }

@@ -153,7 +153,7 @@ describe('package install link and registry contracts', () => {
     expect(new URL(BUNDLED_UTOPIA_REGISTRY_URL).hostname).toBe('bundled.utopia.invalid');
     expect(manifest.packages.every((item) => new URL(item.url).hostname === 'bundled.utopia.invalid')).toBe(true);
     expect(manifest).toEqual(bundled);
-    expect(manifest.packages).toHaveLength(7);
+    expect(manifest.packages).toHaveLength(54);
     expect(manifest.packages[0]).toMatchObject({
       id: 'scientific-calculator',
       name: 'Scientific Calculator',

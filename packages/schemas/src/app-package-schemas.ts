@@ -1,4 +1,5 @@
 import { APP_PACKAGE_WIDGET_KINDS } from '@/packages/shared/contracts/ui-widgets';
+import { expressionSchemaDefinition } from '@/packages/shared/contracts/expression';
 
 export const APP_PACKAGE_SCHEMA_DRAFT = 'http://json-schema.org/draft-07/schema#' as const;
 export const APP_PACKAGE_SCHEMA_ID_V2 = 'https://wonder.local/schemas/app-package/v2' as const;
@@ -84,7 +85,7 @@ export const appPackageSchemaV2 = {
             uniqueItems: true,
             items: { type: 'string', pattern: '^[A-Za-z_][A-Za-z0-9_]*$' },
           },
-          expression: {},
+          expression: { $ref: '#/$defs/expression' },
         },
       },
     },
@@ -150,6 +151,7 @@ export const appPackageSchemaV2 = {
       additionalProperties: false,
       properties: {
         schemaVersion: { const: 'a2ui.v0_9' },
+        localization: { $ref: '#/$defs/presentationLocalization' },
         openUrlAllowlist: { type: 'array', items: { type: 'string', minLength: 1 } },
         navigation: { $ref: '#/$defs/presentationNavigation' },
         components: {
@@ -161,6 +163,26 @@ export const appPackageSchemaV2 = {
           additionalProperties: { $ref: '#/$defs/presentationScreen' },
         },
         defaultScreen: { type: 'string', minLength: 1 },
+      },
+    },
+    presentationLocalization: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['defaultLocale', 'messages'],
+      properties: {
+        defaultLocale: { type: 'string', pattern: '^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$' },
+        fallbackLocale: { type: 'string', pattern: '^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$' },
+        appLocale: { type: 'string', pattern: '^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$' },
+        messages: {
+          type: 'object',
+          additionalProperties: false,
+          patternProperties: {
+            '^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$': {
+              type: 'object',
+              additionalProperties: { type: 'string', minLength: 1 },
+            },
+          },
+        },
       },
     },
     presentationNavigation: {
@@ -177,9 +199,9 @@ export const appPackageSchemaV2 = {
             additionalProperties: false,
             required: ['screen', 'label'],
             properties: {
-              screen: { enum: ['home', 'overview', 'chat', 'sources', 'settings'] },
+              screen: { type: 'string', minLength: 1 },
               label: { type: 'string', minLength: 1 },
-              icon: { enum: ['home', 'food', 'sparkles', 'sync', 'settings'] },
+              icon: { type: 'string', minLength: 1 },
             },
           },
         },
@@ -222,6 +244,32 @@ export const appPackageSchemaV2 = {
         limit: { type: 'integer', minimum: 1, maximum: 200 },
       },
     },
+    presentationUiDataBinding: {
+      oneOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['source', 'xField', 'yField'],
+          properties: {
+            source: { const: 'query-records' },
+            xField: { type: 'string', minLength: 1 },
+            yField: { type: 'string', minLength: 1 },
+          },
+        },
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['source', 'aggregate'],
+          properties: {
+            source: { const: 'query-aggregate' },
+            aggregate: { enum: ['count', 'sum', 'avg', 'min', 'max'] },
+            valueField: { type: 'string', minLength: 1 },
+            groupBy: { type: 'string', minLength: 1 },
+            labelField: { type: 'string', minLength: 1 },
+          },
+        },
+      ],
+    },
     presentationUiComponent: {
       type: 'object',
       additionalProperties: false,
@@ -237,6 +285,9 @@ export const appPackageSchemaV2 = {
         tone: { enum: ['neutral', 'moss', 'amber', 'plum', 'blue'] },
         placement: { enum: ['inline', 'top', 'fab'] },
         query: { $ref: '#/$defs/presentationUiQuery' },
+        dataBinding: { $ref: '#/$defs/presentationUiDataBinding' },
+        dataState: { enum: ['loading', 'ready', 'error'] },
+        dataError: { type: 'string', minLength: 1 },
         action: { $ref: '#/$defs/presentationUiAction' },
       },
       allOf: [
@@ -252,6 +303,7 @@ export const appPackageSchemaV2 = {
       properties: {
         title: { type: 'string', minLength: 1 },
         subtitle: { type: 'string', minLength: 1 },
+        shell: { type: 'object', additionalProperties: { $ref: '#/$defs/jsonValue' } },
         components: { type: 'array', items: { $ref: '#/$defs/presentationUiComponent' } },
       },
     },
@@ -368,6 +420,7 @@ export const appPackageSchemaV2 = {
         { type: 'object', required: ['op', 'field'], additionalProperties: false, properties: { op: { const: 'exists' }, field: { type: 'string', minLength: 1 }, value: { type: 'boolean' } } },
       ],
     },
+    expression: expressionSchemaDefinition,
   },
 } as const;
 

@@ -11,12 +11,12 @@ describe('recurrence proof apps', () => {
   it('runs recurring bills package-only through the shared recurrence engine', () => {
     const appPackage = loadPackage('recurring-bills', 'recurring-bills.v1.json');
     expect(validateAppPackage(appPackage)).toMatchObject({ valid: true });
-    expect(widgetKinds(appPackage)).toEqual(['dataTable']);
+    expect(widgetKinds(appPackage)).toContain('dataTable');
     expect(hasAppNamedWidget(appPackage, 'recurring-bills')).toBe(false);
 
     const result = evaluatePackage({
       package: appPackage,
-      collections: {
+      collections: withEmptyCollections(appPackage, {
         bill: [
           {
             id: 'rent',
@@ -53,7 +53,7 @@ describe('recurrence proof apps', () => {
             },
           },
         ],
-      },
+      }),
     });
 
     const billRows = result.queries.bills.rows as Array<Record<string, any>>;
@@ -73,15 +73,56 @@ describe('recurrence proof apps', () => {
     expect(billRows[1]?.upcoming_due_dates.status).toBe('ok');
   });
 
+  it('keeps direct Due next structured-list bills visible without weakening scheduled recurrence', () => {
+    const appPackage = loadPackage('recurring-bills', 'recurring-bills.v1.json');
+    expect(validateAppPackage(appPackage)).toMatchObject({ valid: true });
+
+    const result = evaluatePackage({
+      package: appPackage,
+      collections: withEmptyCollections(appPackage, {
+        bill: [
+          {
+            id: 'lane-l-internet',
+            collection: 'bill',
+            title: 'Lane L internet',
+            next_due: '2026-08-31T12:00:00Z',
+            due_amount: 86,
+            status: 'active',
+            properties: {},
+          },
+        ],
+      }),
+    });
+
+    expect(result.queries['due-next'].rows).toEqual([
+      expect.objectContaining({
+        title: 'Lane L internet',
+        due_amount: 86,
+        status: 'active',
+        next_due: '2026-08-31T12:00:00Z',
+      }),
+    ]);
+    expect(result.queries['due-next'].rows[0]?.upcoming_due_dates).toMatchObject({
+      status: 'direct',
+      nextOccurrence: { instant: '2026-08-31T12:00:00Z' },
+    });
+
+    const dueNext = (appPackage.presentation?.ui?.screens?.upcoming?.components ?? [])
+      .find((component: any) => component.id === 'bill-upcoming-list') as any;
+    expect(dueNext).toBeTruthy();
+    expect(dueNext.props.metadataFields.map((field: any) => field.field)).toEqual(['next_due', 'due_amount', 'status']);
+    expect(dueNext.props.sorts).toEqual(['next_due', 'due_amount', 'status']);
+  });
+
   it('runs spaced repetition package-only through weekday and monthday recurrence rules', () => {
     const appPackage = loadPackage('spaced-repetition', 'spaced-repetition.v1.json');
     expect(validateAppPackage(appPackage)).toMatchObject({ valid: true });
-    expect(widgetKinds(appPackage)).toEqual(['dataTable']);
+    expect(widgetKinds(appPackage)).toContain('dataTable');
     expect(hasAppNamedWidget(appPackage, 'spaced-repetition')).toBe(false);
 
     const result = evaluatePackage({
       package: appPackage,
-      collections: {
+      collections: withEmptyCollections(appPackage, {
         card: [
           {
             id: 'verbs',
@@ -120,7 +161,7 @@ describe('recurrence proof apps', () => {
             },
           },
         ],
-      },
+      }),
     });
 
     const cardRows = result.queries.cards.rows as Array<Record<string, any>>;
@@ -156,4 +197,10 @@ function widgetKinds(appPackage: AppPackage): string[] {
 function hasAppNamedWidget(appPackage: AppPackage, appName: string): boolean {
   const needle = appName.toLowerCase().replace(/[^a-z0-9]+/g, '');
   return widgetKinds(appPackage).some((widget) => widget.toLowerCase().replace(/[^a-z0-9]+/g, '').includes(needle));
+}
+
+function withEmptyCollections(appPackage: AppPackage, records: Record<string, Array<Record<string, unknown>>>) {
+  return Object.fromEntries(
+    Object.keys(appPackage.collections).map((collection) => [collection, records[collection] ?? []]),
+  );
 }

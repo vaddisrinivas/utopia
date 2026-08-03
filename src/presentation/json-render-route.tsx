@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { useUtopiaDatabase } from '@/src/db/provider';
 import { getProviderSyncSummary, type ProviderSyncSummary } from '@/src/db/provider-status';
 import { listRecordsForDomainAndInstallation } from '@/src/db/records';
+import { subscribeToRecordChanges } from '@/src/db/record-change-events';
 import type { DomainRecordViewModel } from '@/src/domain/renderer';
+import type { PresentationDataState } from '@/packages/shared/contracts/package';
 import { useAppRuntime } from '@/src/domain/runtime-context';
 import { recordsToComputedViews } from '@/src/presentation/computed-records';
 import { JsonRenderSurface } from '@/src/presentation/json-render-surface';
@@ -22,6 +24,8 @@ type JsonRenderRouteProps = {
   initialPrompt?: string;
   autoSubmitPrompt?: boolean;
   showBack?: boolean;
+  localeOverride?: string;
+  screenRouteBase?: string;
 };
 
 function matchesRouteRecord(record: DomainRecordViewModel, match?: string) {
@@ -52,10 +56,14 @@ export function JsonRenderRoute({
   initialPrompt,
   autoSubmitPrompt,
   showBack,
+  localeOverride,
+  screenRouteBase,
 }: JsonRenderRouteProps) {
   const db = useUtopiaDatabase();
   const { activeManifest, activePackage, catalog, installationId } = useAppRuntime();
   const [records, setRecords] = useState<DomainRecordViewModel[]>([]);
+  const [recordsState, setRecordsState] = useState<PresentationDataState>('loading');
+  const [recordsError, setRecordsError] = useState<string | undefined>();
   const [providerSync, setProviderSync] = useState<ProviderSyncSummary | null>(null);
 
   useEffect(() => {
@@ -63,11 +71,15 @@ export function JsonRenderRoute({
     const domainId = catalog?.activeDomainId ?? activeManifest?.id ?? null;
     if (!db || !domainId || !installationId) {
       setRecords([]);
+      setRecordsState('error');
+      setRecordsError('App data is unavailable.');
       return () => {
         cancelled = true;
       };
     }
-    void listRecordsForDomainAndInstallation(db, installationId, domainId).then((items) => {
+    setRecordsState('loading');
+    setRecordsError(undefined);
+    const reload = () => listRecordsForDomainAndInstallation(db, installationId, domainId).then((items) => {
       if (!cancelled) {
         const next = recordsToComputedViews(items, activePackage);
         setRecords(next.filter((item) => {
@@ -75,14 +87,22 @@ export function JsonRenderRoute({
           if (collectionIds?.length && !collectionIds.includes(item.collection)) return false;
           return matchesRouteRecord(item, recordMatch);
         }));
+        setRecordsState('ready');
       }
     }).catch(() => {
       if (!cancelled) {
         setRecords([]);
+        setRecordsState('error');
+        setRecordsError('Unable to load app data.');
       }
+    });
+    void reload();
+    const unsubscribe = subscribeToRecordChanges((event) => {
+      if (event.installationId === installationId && event.domain === domainId) void reload();
     });
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [activeManifest?.id, activePackage, catalog?.activeDomainId, collectionIds?.join(','), db, installationId, recordId, recordMatch]);
 
@@ -115,6 +135,10 @@ export function JsonRenderRoute({
       initialPrompt={initialPrompt}
       autoSubmitPrompt={autoSubmitPrompt}
       showBack={showBack}
+      localeOverride={localeOverride}
+      recordsState={recordsState}
+      recordsError={recordsError}
+      screenRouteBase={screenRouteBase}
     />
   );
 }

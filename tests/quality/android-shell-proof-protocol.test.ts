@@ -203,7 +203,7 @@ describe('android shell-proof protocol', () => {
       requiredSourceSurface: 'android',
     } as unknown as Parameters<typeof validateShellProofReceipt>[1]);
 
-    expect(validation.pass).toBe(true);
+    expect(validation.pass, validation.blockers.join('\n')).toBe(true);
     expect(validation.blockers).toHaveLength(0);
     expect(validation.operation_ids).toEqual(['op-1', 'op-2']);
     expect(validation.scenario_id).toBe(REQUIRED_SCENARIO_ID);

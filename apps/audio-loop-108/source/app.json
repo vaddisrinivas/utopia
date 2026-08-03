@@ -1,13 +1,14 @@
 {
   "schemaVersion": "wonder.package-source.v1",
   "id": "audio-loop-108",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "label": "Audio Loop",
   "homeSurface": "home",
   "visualIdentity": {
     "icon": "audio",
-    "tone": "moss",
-    "accent": "#2F7448",
-    "canvas": "#F7FAF4"
+    "tone": "plum",
+    "accent": "#6C3B83",
+    "canvas": "#FBF7FD",
+    "identity": "focused listening deck with direct transport, saved audio, and explicit capture"
   }
 }

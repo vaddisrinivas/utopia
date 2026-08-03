@@ -1,0 +1,565 @@
+{
+  "homeSurface": "home",
+  "id": "food",
+  "label": "Food",
+  "providerTemplateFields": {
+    "relations_json": [
+      "Relations",
+      "relations",
+      "Related records",
+      "related_records"
+    ],
+    "required": [
+      "id",
+      "title",
+      "collection",
+      "status",
+      "meta",
+      "body"
+    ],
+    "rich_detail_json": [
+      "Food detail",
+      "food_detail",
+      "Food Detail",
+      "Detail JSON",
+      "detail_json"
+    ]
+  },
+  "render": {
+    "answer_label": "Food",
+    "card_bullets": [
+      "nutrition",
+      "available_ingredients",
+      "first_instruction"
+    ],
+    "default_columns": [
+      "Record",
+      "Available",
+      "Missing / shopping"
+    ],
+    "default_fields": [
+      "title",
+      "available_ingredients",
+      "missing_ingredients"
+    ],
+    "default_intro": "I found {count} local Food record{plural} tied to this question.",
+    "default_title": "Local Food answer",
+    "empty_intro": "No matching local Food records were loaded. Connect Notion/Sheets or add records, then ask again.",
+    "intents": {
+      "inventory": {
+        "boost_collections": [
+          "inventory",
+          "inventory_lot"
+        ],
+        "columns": [
+          "Item",
+          "Status",
+          "Details"
+        ],
+        "fields": [
+          "title",
+          "status",
+          "meta"
+        ],
+        "intro": "I found {count} current inventory record{plural}.",
+        "terms": [
+          "inventory",
+          "pantry",
+          "fridge",
+          "freezer",
+          "what do i have",
+          "what do we have",
+          "what we have",
+          "on hand",
+          "available"
+        ],
+        "title": "Current food inventory"
+      },
+      "planning": {
+        "boost_collections": [
+          "recipe",
+          "meal_plan",
+          "meal_log",
+          "nutrition_profile",
+          "nutrition_observation"
+        ],
+        "columns": [
+          "Record",
+          "Available",
+          "Missing / shopping"
+        ],
+        "fields": [
+          "title",
+          "available_ingredients",
+          "missing_ingredients"
+        ],
+        "intro": "I found {count} local Food record{plural} with ingredients, availability, and next cooking steps.",
+        "terms": [
+          "recipe",
+          "cook",
+          "dinner",
+          "meal",
+          "ingredient",
+          "nutrition"
+        ],
+        "title": "Local food planning answer"
+      },
+      "shopping": {
+        "boost_collections": [
+          "shopping_item",
+          "shopping_list",
+          "shopping_demand",
+          "purchase"
+        ],
+        "columns": [
+          "Record",
+          "Available",
+          "Missing / shopping"
+        ],
+        "fields": [
+          "title",
+          "available_ingredients",
+          "missing_ingredients"
+        ],
+        "intro": "I found {count} local Food record{plural} that explain what to buy and why.",
+        "terms": [
+          "shop",
+          "buy",
+          "grocery",
+          "missing",
+          "cart"
+        ],
+        "title": "Local shopping answer"
+      }
+    },
+    "legacyCompatibility": {
+      "foodSpecificWidgetDebt": {
+        "reason": "Food uses shared record/content primitives only; the assistant widget is not referenced by Food.",
+        "referenceCount": 0,
+        "references": [],
+        "rendererCatalogDebt": {
+          "includedOutsideFood": "askFoodBar",
+          "registeredDomainWidgets": 1
+        },
+        "status": "PASS",
+        "widgetKindCount": 0,
+        "widgetKinds": []
+      },
+      "legacyManifest": "apps/food/food.v1.json",
+      "legacySchemaVersion": "utopia.domain.v1",
+      "preservedDataHomes": [
+        "notion",
+        "google_sheets",
+        "sqlite",
+        "postgres"
+      ],
+      "preservedRelations": [
+        {
+          "from": "household",
+          "name": "Household member",
+          "to": "member",
+          "sourceKey": "has_member"
+        },
+        {
+          "from": "member",
+          "name": "Member preference",
+          "to": "preference",
+          "sourceKey": "has_preference"
+        },
+        {
+          "from": "member",
+          "name": "Nutrition goal",
+          "to": "nutrition_goal",
+          "sourceKey": "has_goal"
+        },
+        {
+          "from": "food_item",
+          "name": "Preference shaped food",
+          "to": "preference",
+          "sourceKey": "shaped_by"
+        },
+        {
+          "from": "product",
+          "name": "Product contains food",
+          "to": "food_item",
+          "sourceKey": "packages"
+        },
+        {
+          "from": "product",
+          "name": "Nutrition label",
+          "to": "nutrition_profile",
+          "sourceKey": "has_label_nutrition"
+        },
+        {
+          "from": "inventory",
+          "name": "Tracks food",
+          "to": "food_item",
+          "sourceKey": "tracks"
+        },
+        {
+          "from": "inventory",
+          "name": "Represents ingredient",
+          "to": "ingredient",
+          "sourceKey": "represents"
+        },
+        {
+          "from": "inventory_lot",
+          "name": "Stored food",
+          "to": "food_item",
+          "sourceKey": "stores"
+        },
+        {
+          "from": "inventory_lot",
+          "name": "Product source",
+          "to": "product",
+          "sourceKey": "from_product"
+        },
+        {
+          "from": "inventory_lot",
+          "name": "Purchase source",
+          "to": "purchase_line",
+          "sourceKey": "acquired_from"
+        },
+        {
+          "from": "inventory_movement",
+          "name": "Moves lot",
+          "to": "inventory_lot",
+          "sourceKey": "moves"
+        },
+        {
+          "from": "inventory_movement",
+          "name": "Meal use",
+          "to": "meal_log",
+          "sourceKey": "caused_by_meal"
+        },
+        {
+          "from": "ingredient",
+          "name": "Matched food",
+          "to": "food_item",
+          "sourceKey": "matches_food"
+        },
+        {
+          "from": "recipe",
+          "name": "Uses ingredient",
+          "to": "ingredient",
+          "sourceKey": "uses"
+        },
+        {
+          "from": "recipe",
+          "name": "Recipe revision",
+          "to": "recipe_revision",
+          "sourceKey": "has_revision"
+        },
+        {
+          "from": "recipe_revision",
+          "name": "Revision step",
+          "to": "recipe_step",
+          "sourceKey": "contains_step"
+        },
+        {
+          "from": "recipe",
+          "name": "Recipe step",
+          "to": "recipe_step",
+          "sourceKey": "has_step"
+        },
+        {
+          "from": "recipe",
+          "name": "Recipe tool",
+          "to": "recipe_tool",
+          "sourceKey": "uses_tool"
+        },
+        {
+          "from": "recipe",
+          "name": "Nutrition profile",
+          "to": "nutrition_profile",
+          "sourceKey": "has_nutrition"
+        },
+        {
+          "from": "meal_template",
+          "name": "Templates recipe",
+          "to": "recipe",
+          "sourceKey": "templates"
+        },
+        {
+          "from": "meal_plan",
+          "name": "Plans recipe",
+          "to": "recipe",
+          "sourceKey": "plans"
+        },
+        {
+          "from": "meal_plan",
+          "name": "Meal template",
+          "to": "meal_template",
+          "sourceKey": "uses_template"
+        },
+        {
+          "from": "meal_log",
+          "name": "Completed meal plan",
+          "to": "meal_plan",
+          "sourceKey": "completes"
+        },
+        {
+          "from": "meal_consumption",
+          "name": "Meal portion",
+          "to": "meal_log",
+          "sourceKey": "portion_of"
+        },
+        {
+          "from": "meal_consumption",
+          "name": "Eaten by member",
+          "to": "member",
+          "sourceKey": "eaten_by"
+        },
+        {
+          "from": "shopping_list",
+          "name": "Supports meal plan",
+          "to": "meal_plan",
+          "sourceKey": "supports_plan"
+        },
+        {
+          "from": "shopping_item",
+          "name": "Shopping list item",
+          "to": "shopping_list",
+          "sourceKey": "belongs_to"
+        },
+        {
+          "from": "shopping_item",
+          "name": "Restocks inventory",
+          "to": "inventory",
+          "sourceKey": "restocks"
+        },
+        {
+          "from": "shopping_item",
+          "name": "Food to buy",
+          "to": "food_item",
+          "sourceKey": "buys_food"
+        },
+        {
+          "from": "shopping_demand",
+          "name": "Explains demand",
+          "to": "shopping_item",
+          "sourceKey": "explains"
+        },
+        {
+          "from": "shopping_demand",
+          "name": "Ingredient source",
+          "to": "ingredient",
+          "sourceKey": "from_ingredient"
+        },
+        {
+          "from": "shopping_demand",
+          "name": "Meal plan source",
+          "to": "meal_plan",
+          "sourceKey": "from_plan"
+        },
+        {
+          "from": "purchase_line",
+          "name": "Fulfills shopping item",
+          "to": "shopping_item",
+          "sourceKey": "fulfills"
+        },
+        {
+          "from": "purchase_line",
+          "name": "Adds inventory",
+          "to": "inventory",
+          "sourceKey": "adds"
+        },
+        {
+          "from": "purchase_line",
+          "name": "Created inventory lot",
+          "to": "inventory_lot",
+          "sourceKey": "creates_lot"
+        },
+        {
+          "from": "purchase_line",
+          "name": "Bought product",
+          "to": "product",
+          "sourceKey": "bought_product"
+        },
+        {
+          "from": "purchase_line",
+          "name": "Purchase line",
+          "to": "purchase",
+          "sourceKey": "part_of"
+        },
+        {
+          "from": "nutrition_observation",
+          "name": "Describes meal",
+          "to": "meal_log",
+          "sourceKey": "describes"
+        },
+        {
+          "from": "nutrition_observation",
+          "name": "Uses nutrition profile",
+          "to": "nutrition_profile",
+          "sourceKey": "uses_profile"
+        },
+        {
+          "from": "attachment",
+          "name": "Attached record",
+          "to": "*",
+          "sourceKey": "attached_to"
+        },
+        {
+          "from": "audit_event",
+          "name": "Change record",
+          "to": "*",
+          "sourceKey": "records_change"
+        },
+        {
+          "from": "source_record",
+          "name": "Supports record",
+          "to": "*",
+          "sourceKey": "supports"
+        }
+      ],
+      "preservedSkillIds": [
+        "food"
+      ],
+      "preservedSurfaces": [
+        {
+          "collections": [],
+          "icon": "🏡",
+          "id": "food.overview",
+          "label": "Overview",
+          "views": [
+            "next_meal",
+            "use_soon",
+            "shopping_summary",
+            "food_graph"
+          ]
+        },
+        {
+          "collections": [
+            "meal_plan",
+            "meal_log",
+            "meal_consumption",
+            "recipe",
+            "recipe_revision",
+            "recipe_step"
+          ],
+          "icon": "🍽️",
+          "id": "food.meals",
+          "label": "Meals",
+          "views": [
+            "planner",
+            "week_view",
+            "meal_history",
+            "nutrition_summary",
+            "recipe_revisions"
+          ]
+        },
+        {
+          "collections": [
+            "food_item",
+            "product",
+            "inventory",
+            "inventory_lot",
+            "inventory_movement",
+            "ingredient",
+            "purchase_line"
+          ],
+          "icon": "🥬",
+          "id": "food.kitchen",
+          "label": "Kitchen",
+          "views": [
+            "pantry",
+            "lots",
+            "movements",
+            "products",
+            "pantry_stats",
+            "inventory_trends"
+          ]
+        },
+        {
+          "collections": [
+            "shopping_list",
+            "shopping_item",
+            "shopping_demand",
+            "purchase",
+            "purchase_line",
+            "store"
+          ],
+          "icon": "🛒",
+          "id": "food.shopping",
+          "label": "Shopping",
+          "views": [
+            "list",
+            "demand",
+            "stores",
+            "budget",
+            "status_board",
+            "receipt_review"
+          ]
+        }
+      ],
+      "preservedWorkflowIds": [
+        "weekly_food_reset",
+        "receipt_to_kitchen",
+        "meal_plan_to_shopping",
+        "phase4_replay_workflow",
+        "phase4_compensation_probe"
+      ],
+      "sourceStrategy": "canonical-v3-parallel-source"
+    },
+    "source_exclude_fields": [
+      "tone",
+      "food_detail"
+    ],
+    "source_quote_fields": [
+      "body",
+      "meta",
+      "ingredients",
+      "first_instruction"
+    ]
+  },
+  "richDetailSchema": "schemas/food-detail.v1.schema.json",
+  "schemaVersion": "wonder.package-source.v1",
+  "version": "1.0.0",
+  "visualIdentity": {
+    "accent": "#2F7448",
+    "accessibility": {
+      "keyboardFirstDesktop": true,
+      "minimumTargetSize": 44,
+      "nonColorStatus": true
+    },
+    "canvas": "#F5F7EF",
+    "firstViewportWorkflow": "Today opens on the next food decision, not a generic dashboard.",
+    "foodSpecificWidgetDebt": {
+      "reason": "Food uses shared record/content primitives only; the assistant widget is not referenced by Food.",
+      "referenceCount": 0,
+      "references": [],
+      "rendererCatalogDebt": {
+        "includedOutsideFood": "askFoodBar",
+        "registeredDomainWidgets": 1
+      },
+      "status": "PASS",
+      "widgetKindCount": 0,
+      "widgetKinds": []
+    },
+    "identity": "A calm household food control room: use first, plan next, shop only gaps, capture receipts fast.",
+    "retainedDomain": {
+      "collections": 29,
+      "dataHomes": [
+        "notion",
+        "google_sheets",
+        "sqlite",
+        "postgres"
+      ],
+      "workflows": [
+        "weekly_food_reset",
+        "receipt_to_kitchen",
+        "meal_plan_to_shopping",
+        "phase4_replay_workflow",
+        "phase4_compensation_probe"
+      ]
+    },
+    "surface": "#FFFFFF",
+    "tone": "moss",
+    "typography": {
+      "density": "comfortable",
+      "numberRole": "tabular-dashboard-value",
+      "titleRole": "compact-product-title"
+    }
+  }
+}

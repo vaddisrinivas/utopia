@@ -110,12 +110,12 @@
             "themePreview",
             "themeDensitySelector",
             "aiProviderSettings",
-            "foodHero",
-            "useFirstCarousel",
-            "mealTimeline",
-            "recipeCard",
-            "receiptReviewCard",
-            "pantryShelf",
+            "recordHeroSummary",
+            "horizontalRecordCarousel",
+            "recordTimeline",
+            "recordContentCard",
+            "recordReviewCard",
+            "groupedRecordShelf",
             "askFoodBar"
           ]
         },

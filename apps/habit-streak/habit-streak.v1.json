@@ -1,0 +1,1070 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "habit-streak",
+  "version": "1.0.0",
+  "collections": {
+    "primary": {
+      "id": "primary",
+      "fields": {
+        "habit": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "date": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "completed": {
+          "type": "number",
+          "required": false,
+          "indexed": true
+        },
+        "target": {
+          "type": "number",
+          "required": false,
+          "indexed": false
+        }
+      }
+    }
+  },
+  "queries": {
+    "habit_day-records": {
+      "from": "primary",
+      "orderBy": [
+        {
+          "field": "habit",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    }
+  },
+  "views": {
+    "overview": {
+      "id": "overview",
+      "query": "habit_day-records",
+      "mode": "list",
+      "fields": [
+        "habit",
+        "date",
+        "completed",
+        "target",
+        "streak_value"
+      ]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "streak_value",
+      "collection": "primary",
+      "dependsOn": [],
+      "expression": {
+        "if": [
+          {
+            ">": [
+              {
+                "var": "record.target"
+              },
+              0
+            ]
+          },
+          {
+            "/": [
+              {
+                "var": "record.completed"
+              },
+              {
+                "var": "record.target"
+              }
+            ]
+          },
+          0
+        ]
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "habit-streak-schema-validates",
+    "habit-streak-defining-task",
+    "habit-streak-computed-fields-deterministic",
+    "habit-streak-generic-ui-only"
+  ],
+  "presentation": {
+    "label": "Habit Streak",
+    "homeSurface": "overview",
+    "surfaces": [
+      {
+        "id": "overview",
+        "label": "Today",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "capture",
+        "label": "Log",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "detail",
+        "label": "Habit",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "Calendar",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "collections": [
+          "primary"
+        ],
+        "views": [
+          "overview"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "flame",
+      "tone": "evergreen",
+      "accent": "#23715B",
+      "canvas": "#F4FBF7",
+      "identity": "A daily practice cockpit where the current habit, streak ratio, and backdate path are visible before anything else.",
+      "rationale": "Habit Streak uses a calm green practice identity, a first-viewport check-in, and calendar/history surfaces instead of the rejected generic card stack."
+    },
+    "render": {
+      "responsiveTargets": [
+        "phone",
+        "desktop"
+      ],
+      "stateTargets": [
+        "empty",
+        "loading",
+        "populated",
+        "editing",
+        "error",
+        "offline",
+        "recovery"
+      ],
+      "firstViewport": "Check off today, see streak progress, and recover missed days in one place."
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "overview",
+      "navigation": {
+        "items": [
+          {
+            "screen": "overview",
+            "label": "Today",
+            "icon": "home"
+          },
+          {
+            "screen": "capture",
+            "label": "Log",
+            "icon": "list"
+          },
+          {
+            "screen": "detail",
+            "label": "Habit",
+            "icon": "list"
+          },
+          {
+            "screen": "history",
+            "label": "Calendar",
+            "icon": "list"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings",
+            "icon": "settings"
+          }
+        ]
+      },
+      "screens": {
+        "overview": {
+          "title": "Today",
+          "subtitle": "Log today and see streak progress immediately.",
+          "shell": {
+            "layoutMode": "workflowFirstWorkspace",
+            "appBarTitle": "Habit Streak",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "overview",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Today"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Log"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Habit"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Calendar"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4FBF7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#23715B14",
+              "ink": "#17231B",
+              "muted": "#5D6762",
+              "accent": "#23715B",
+              "accentContrast": "#FFFFFF",
+              "border": "#D8E3DD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E6F0F8",
+              "statusSuccess": "#DDF4E4",
+              "statusWarning": "#FFF0C9",
+              "statusError": "#FCE4E1"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "desktopColumns": "minmax(340px, 460px) 1fr"
+            },
+            "accessibility": {
+              "focusOrder": "source",
+              "minTargetSize": 44,
+              "dynamicText": true,
+              "colorIndependentStatus": true
+            }
+          },
+          "components": [
+            {
+              "id": "streak-today-check-in",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Today check-in",
+              "props": {
+                "query": "habit_day-records",
+                "collection": "primary",
+                "fields": [
+                  "habit",
+                  "date",
+                  "completed",
+                  "target"
+                ],
+                "metadataFields": [
+                  {
+                    "field": "habit",
+                    "label": "Habit",
+                    "type": "text",
+                    "required": true,
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "date",
+                    "label": "Date",
+                    "type": "text",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "completed",
+                    "label": "Completed",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "target",
+                    "label": "Target",
+                    "type": "number",
+                    "sortable": true
+                  }
+                ],
+                "sorts": [
+                  "alphabetic",
+                  "habit",
+                  "date"
+                ],
+                "filterFields": [
+                  "habit"
+                ],
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "blur"
+                  },
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 8000
+                  },
+                  "offline": "queue",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "habit",
+                      "date"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Check off today, see streak progress, and recover missed days in one place.",
+                "stateCoverage": [
+                  "populated",
+                  "editing"
+                ]
+              }
+            },
+            {
+              "id": "streak-progress-metric",
+              "kind": "metric",
+              "title": "Streak progress",
+              "props": {
+                "accessibilityLabel": "Streak progress",
+                "stateRole": "status",
+                "valueField": "streak_value",
+                "emptyValue": "0"
+              },
+              "subtitle": "Shows progress toward the habit target.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 100
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "streak_value",
+                "labelField": "streak_value"
+              },
+              "dataState": "ready"
+            },
+            {
+              "id": "streak-empty-state",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Empty state",
+              "props": {
+                "state": "empty",
+                "title": "Ready for the first record",
+                "body": "Log today and see streak progress immediately.",
+                "actionLabel": "Add habit"
+              }
+            },
+            {
+              "id": "streak-current-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Habit rows",
+              "props": {
+                "query": "habit_day-records",
+                "fields": [
+                  "habit",
+                  "date",
+                  "completed",
+                  "target",
+                  "streak_value"
+                ],
+                "emptyState": true,
+                "loadingState": true,
+                "errorState": true
+              }
+            }
+          ]
+        },
+        "capture": {
+          "title": "Log",
+          "subtitle": "Create or edit a habit-day entry with validation and draft recovery.",
+          "shell": {
+            "layoutMode": "taskWorkspace",
+            "appBarTitle": "Habit Streak",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "capture",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Today"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Log"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Habit"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Calendar"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4FBF7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#23715B14",
+              "ink": "#17231B",
+              "muted": "#5D6762",
+              "accent": "#23715B",
+              "accentContrast": "#FFFFFF",
+              "border": "#D8E3DD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E6F0F8",
+              "statusSuccess": "#DDF4E4",
+              "statusWarning": "#FFF0C9",
+              "statusError": "#FCE4E1"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "desktopColumns": "minmax(340px, 460px) 1fr"
+            },
+            "accessibility": {
+              "focusOrder": "source",
+              "minTargetSize": 44,
+              "dynamicText": true,
+              "colorIndependentStatus": true
+            }
+          },
+          "components": [
+            {
+              "id": "streak-day-editor",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Habit editor",
+              "props": {
+                "collection": "primary",
+                "fields": [
+                  "habit",
+                  "date",
+                  "completed",
+                  "target"
+                ],
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "blur"
+                  },
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 8000
+                  },
+                  "offline": "queue",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "habit",
+                      "date"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Habit editor"
+              }
+            },
+            {
+              "id": "streak-validation-panel",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Check-in validation",
+              "props": {
+                "state": "error",
+                "validations": [
+                  {
+                    "field": "habit",
+                    "severity": "error",
+                    "message": "habit is required before saving."
+                  },
+                  {
+                    "field": "date",
+                    "severity": "error",
+                    "message": "date is required before saving."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "streak-offline-queue",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Offline check-ins",
+              "props": {
+                "state": "offline",
+                "queue": "local-drafts",
+                "retryCommand": "habit_streak.offline.retry"
+              }
+            },
+            {
+              "id": "streak-save-draft",
+              "kind": "action",
+              "title": "Save draft",
+              "action": {
+                "kind": "propose",
+                "label": "Save draft",
+                "command": "habit_streak.draft.save"
+              },
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Save draft"
+              }
+            }
+          ]
+        },
+        "detail": {
+          "title": "Habit",
+          "subtitle": "Review target, completion ratio, and habit-specific analytics.",
+          "shell": {
+            "layoutMode": "taskWorkspace",
+            "appBarTitle": "Habit Streak",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "detail",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Today"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Log"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Habit"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Calendar"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4FBF7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#23715B14",
+              "ink": "#17231B",
+              "muted": "#5D6762",
+              "accent": "#23715B",
+              "accentContrast": "#FFFFFF",
+              "border": "#D8E3DD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E6F0F8",
+              "statusSuccess": "#DDF4E4",
+              "statusWarning": "#FFF0C9",
+              "statusError": "#FCE4E1"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "desktopColumns": "minmax(340px, 460px) 1fr"
+            },
+            "accessibility": {
+              "focusOrder": "source",
+              "minTargetSize": 44,
+              "dynamicText": true,
+              "colorIndependentStatus": true
+            }
+          },
+          "components": [
+            {
+              "id": "streak-detail-card",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Habit detail",
+              "props": {
+                "query": "habit_day-records",
+                "fields": [
+                  "habit",
+                  "date",
+                  "completed",
+                  "target",
+                  "streak_value"
+                ],
+                "stateCoverage": [
+                  "detail"
+                ]
+              }
+            },
+            {
+              "id": "streak-analytics-card",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Streak analytics",
+              "props": {
+                "query": "habit_day-records",
+                "measures": [
+                  "streak_value"
+                ],
+                "dimensions": [
+                  "habit"
+                ],
+                "accessibilityLabel": "Streak analytics",
+                "emptyText": "Save records to show this analysis."
+              }
+            },
+            {
+              "id": "streak-spend-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Consistency by day",
+              "props": {
+                "query": "habit_day-records",
+                "x": "habit",
+                "y": "streak_value",
+                "chart": "bar",
+                "accessibleSummary": "Consistency by day"
+              }
+            },
+            {
+              "id": "streak-detail-metric",
+              "kind": "metric",
+              "title": "Streak progress",
+              "props": {
+                "accessibilityLabel": "Streak progress",
+                "stateRole": "status",
+                "valueField": "streak_value",
+                "emptyValue": "0"
+              },
+              "subtitle": "Shows progress toward the habit target.",
+              "query": {
+                "collections": [
+                  "primary"
+                ],
+                "limit": 100
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "streak_value",
+                "labelField": "streak_value"
+              },
+              "dataState": "ready"
+            }
+          ]
+        },
+        "history": {
+          "title": "Calendar",
+          "subtitle": "Audit daily check-ins, missed days, and recovery events.",
+          "shell": {
+            "layoutMode": "taskWorkspace",
+            "appBarTitle": "Habit Streak",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Today"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Log"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Habit"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Calendar"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4FBF7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#23715B14",
+              "ink": "#17231B",
+              "muted": "#5D6762",
+              "accent": "#23715B",
+              "accentContrast": "#FFFFFF",
+              "border": "#D8E3DD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E6F0F8",
+              "statusSuccess": "#DDF4E4",
+              "statusWarning": "#FFF0C9",
+              "statusError": "#FCE4E1"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "desktopColumns": "minmax(340px, 460px) 1fr"
+            },
+            "accessibility": {
+              "focusOrder": "source",
+              "minTargetSize": 44,
+              "dynamicText": true,
+              "colorIndependentStatus": true
+            }
+          },
+          "components": [
+            {
+              "id": "streak-calendar-history",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Calendar history",
+              "props": {
+                "query": "habit_day-records",
+                "dateField": "date",
+                "calendar": true,
+                "backdate": true
+              }
+            },
+            {
+              "id": "streak-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Check-in operation history",
+              "props": {
+                "query": "habit_day-records"
+              }
+            },
+            {
+              "id": "streak-recovery-detail",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Recovery state",
+              "props": {
+                "state": "recovery",
+                "body": "Recovered local check-ins are reviewed before merge."
+              }
+            },
+            {
+              "id": "streak-restore-draft",
+              "kind": "action",
+              "title": "Restore recovered check-in",
+              "action": {
+                "kind": "propose",
+                "label": "Restore recovered check-in",
+                "command": "habit_streak.recovery.restore"
+              },
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Restore recovered check-in"
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Set reminders, theme, sharing, and export behavior.",
+          "shell": {
+            "layoutMode": "taskWorkspace",
+            "appBarTitle": "Habit Streak",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "overview",
+                "screen": "overview",
+                "label": "Today"
+              },
+              {
+                "id": "capture",
+                "screen": "capture",
+                "label": "Log"
+              },
+              {
+                "id": "detail",
+                "screen": "detail",
+                "label": "Habit"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "Calendar"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4FBF7",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#23715B14",
+              "ink": "#17231B",
+              "muted": "#5D6762",
+              "accent": "#23715B",
+              "accentContrast": "#FFFFFF",
+              "border": "#D8E3DD",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E6F0F8",
+              "statusSuccess": "#DDF4E4",
+              "statusWarning": "#FFF0C9",
+              "statusError": "#FCE4E1"
+            },
+            "responsive": {
+              "breakpoint": 720,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32,
+              "desktopColumns": "minmax(340px, 460px) 1fr"
+            },
+            "accessibility": {
+              "focusOrder": "source",
+              "minTargetSize": 44,
+              "dynamicText": true,
+              "colorIndependentStatus": true
+            }
+          },
+          "components": [
+            {
+              "id": "streak-reminder-settings",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Reminder and theme settings",
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                },
+                "fields": [
+                  "reminder_lead",
+                  "timezone",
+                  "theme",
+                  "export"
+                ],
+                "accessibilityLabel": "Reminder and theme settings"
+              }
+            },
+            {
+              "id": "streak-notification-scheduler",
+              "kind": "widget",
+              "widget": "notificationScheduler",
+              "title": "Daily reminder",
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibleStatus": true
+              }
+            },
+            {
+              "id": "streak-export-permission",
+              "kind": "widget",
+              "widget": "permissionCard",
+              "title": "Export boundary",
+              "props": {
+                "capability": "local-file-export",
+                "status": "Needs confirmation"
+              }
+            },
+            {
+              "id": "streak-save-settings",
+              "kind": "action",
+              "title": "Save settings",
+              "action": {
+                "kind": "propose",
+                "label": "Save settings",
+                "command": "habit_streak.settings.save"
+              },
+              "props": {
+                "commandPolicy": {
+                  "autosave": {
+                    "mode": "manual"
+                  },
+                  "optimistic": false,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 5000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": []
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 2592000000
+                  },
+                  "accessibleStatus": true
+                },
+                "accessibilityLabel": "Save settings"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ import type { DomainManifest } from '@/src/domain/catalog';
 import type { CanonicalProvenance, CanonicalRecord, RecordProvider } from '@/src/domain/runtime';
 import type { ApplyOperationOptions, Operation, OperationResult } from '@/src/ops/operation';
 import { enqueueOutboxEvent } from '@/src/db/outbox';
+import { emitRecordChange } from '@/src/db/record-change-events';
 import { planOperation } from '@/src/ops/plan';
 
 type SqlRecordRow = {
@@ -348,6 +349,13 @@ export async function applyOperation(
     }
     await insertOperation(db, appInstallationId, scopedOp, current, next, 'applied');
     await persistCommittedOperationOutboxEvent(db, appInstallationId, scopedOp, current, next, plan.diff.changed_fields);
+  });
+  emitRecordChange({
+    installationId: appInstallationId,
+    domain: next.domain,
+    collection: next.collection,
+    recordId: next.id,
+    operationId: scopedOp.op_id,
   });
 
   return { status: 'applied', op_id: scopedOp.op_id, record: next, inverse: plan.inverse, diff: plan.diff };

@@ -1,292 +1,292 @@
 {
-  "domain": {
-    "emoji": "🍲",
-    "accent": "moss"
-  },
-  "surfaces": {
-    "food.overview": {
-      "emoji": "🏡",
-      "accent": "moss"
-    },
-    "food.meals": {
-      "emoji": "🍽️",
-      "accent": "amber"
-    },
-    "food.kitchen": {
-      "emoji": "🥬",
-      "accent": "moss"
-    },
-    "food.shopping": {
-      "emoji": "🛒",
-      "accent": "blue"
-    }
-  },
-  "collections": {
-    "household": {
-      "emoji": "🏠",
-      "accent": "moss"
-    },
-    "member": {
-      "emoji": "🙂",
-      "accent": "plum"
-    },
-    "food_item": {
-      "emoji": "🍎",
-      "accent": "moss"
-    },
-    "product": {
-      "emoji": "🏷️",
-      "accent": "blue"
-    },
-    "inventory": {
-      "emoji": "🧺",
-      "accent": "moss"
-    },
-    "inventory_lot": {
-      "emoji": "📦",
-      "accent": "amber"
-    },
-    "inventory_movement": {
-      "emoji": "↻",
-      "accent": "blue"
-    },
-    "ingredient": {
-      "emoji": "🧄",
-      "accent": "moss"
-    },
-    "recipe": {
-      "emoji": "📖",
-      "accent": "amber"
-    },
-    "recipe_revision": {
-      "emoji": "✍️",
-      "accent": "plum"
-    },
-    "recipe_step": {
-      "emoji": "🔥",
-      "accent": "amber"
-    },
-    "recipe_tool": {
-      "emoji": "🍳",
-      "accent": "blue"
-    },
-    "meal_template": {
-      "emoji": "🧩",
-      "accent": "plum"
-    },
-    "meal_plan": {
-      "emoji": "📅",
-      "accent": "moss"
-    },
-    "meal_log": {
-      "emoji": "✅",
-      "accent": "moss"
-    },
-    "meal_consumption": {
-      "emoji": "🥣",
-      "accent": "amber"
-    },
-    "shopping_list": {
-      "emoji": "📝",
-      "accent": "blue"
-    },
-    "shopping_item": {
-      "emoji": "🛒",
-      "accent": "blue"
-    },
-    "shopping_demand": {
-      "emoji": "❗",
-      "accent": "amber"
-    },
-    "purchase": {
-      "emoji": "🧾",
-      "accent": "plum"
-    },
-    "purchase_line": {
-      "emoji": "💳",
-      "accent": "plum"
-    },
-    "store": {
-      "emoji": "🏪",
-      "accent": "blue"
-    },
-    "preference": {
-      "emoji": "♡",
-      "accent": "plum"
-    },
-    "nutrition_goal": {
-      "emoji": "🎯",
-      "accent": "moss"
-    },
-    "nutrition_profile": {
-      "emoji": "⚖️",
-      "accent": "moss"
-    },
-    "nutrition_observation": {
-      "emoji": "📈",
-      "accent": "blue"
-    },
-    "attachment": {
-      "emoji": "📎",
-      "accent": "neutral"
-    },
-    "audit_event": {
-      "emoji": "🧭",
-      "accent": "neutral"
-    },
-    "source_record": {
-      "emoji": "🔗",
-      "accent": "neutral"
-    }
-  },
-  "statuses": {
-    "planned": {
-      "emoji": "📅",
-      "accent": "plum"
-    },
-    "tonight": {
-      "emoji": "🌙",
-      "accent": "moss"
-    },
-    "to buy": {
-      "emoji": "🛒",
-      "accent": "blue"
-    },
-    "use soon": {
-      "emoji": "⏳",
-      "accent": "amber"
-    },
-    "available": {
-      "emoji": "✅",
-      "accent": "moss"
-    },
-    "review": {
-      "emoji": "👀",
-      "accent": "amber"
-    }
-  },
   "actions": {
-    "home": {
-      "emoji": "⌂",
-      "accent": "moss"
+    "add_domain": {
+      "accent": "plum",
+      "emoji": "＋"
     },
     "add_record": {
-      "emoji": "＋",
-      "accent": "moss"
-    },
-    "capture": {
-      "emoji": "＋",
-      "accent": "moss"
+      "accent": "moss",
+      "emoji": "＋"
     },
     "ask_with_collection": {
-      "emoji": "✦",
-      "accent": "plum"
+      "accent": "plum",
+      "emoji": "✦"
     },
-    "chat": {
-      "emoji": "✦",
-      "accent": "plum"
-    },
-    "search": {
-      "emoji": "⌕",
-      "accent": "blue"
-    },
-    "open_sources": {
-      "emoji": "🔗",
-      "accent": "neutral"
-    },
-    "settings": {
-      "emoji": "⚙",
-      "accent": "neutral"
-    },
-    "add_domain": {
-      "emoji": "＋",
-      "accent": "plum"
-    },
-    "review": {
-      "emoji": "👀",
-      "accent": "amber"
-    },
-    "refresh": {
-      "emoji": "↻",
-      "accent": "blue"
-    },
-    "capture_note": {
-      "emoji": "✎",
-      "accent": "neutral"
+    "capture": {
+      "accent": "moss",
+      "emoji": "＋"
     },
     "capture_food": {
-      "emoji": "🍲",
-      "accent": "moss"
-    },
-    "capture_photo": {
-      "emoji": "▧",
-      "accent": "blue"
-    },
-    "capture_receipt": {
-      "emoji": "🧾",
-      "accent": "plum"
-    },
-    "capture_voice": {
-      "emoji": "◖",
-      "accent": "amber"
+      "accent": "moss",
+      "emoji": "🍲"
     },
     "capture_link": {
-      "emoji": "⌁",
-      "accent": "blue"
-    }
-  },
-  "sources": {
-    "notion": {
-      "emoji": "◨",
-      "accent": "neutral"
+      "accent": "blue",
+      "emoji": "⌁"
     },
-    "google_sheets": {
-      "emoji": "▦",
-      "accent": "moss"
+    "capture_note": {
+      "accent": "neutral",
+      "emoji": "✎"
     },
-    "sqlite": {
-      "emoji": "▣",
-      "accent": "blue"
+    "capture_photo": {
+      "accent": "blue",
+      "emoji": "▧"
     },
-    "postgres": {
-      "emoji": "⬢",
-      "accent": "plum"
+    "capture_receipt": {
+      "accent": "plum",
+      "emoji": "🧾"
     },
-    "web": {
-      "emoji": "🌐",
-      "accent": "blue"
+    "capture_voice": {
+      "accent": "amber",
+      "emoji": "◖"
     },
-    "user": {
-      "emoji": "🙂",
-      "accent": "moss"
-    }
-  },
-  "skills": {
-    "food": {
-      "emoji": "🍲",
-      "accent": "moss"
+    "chat": {
+      "accent": "plum",
+      "emoji": "✦"
     },
-    "weekly_food_reset": {
-      "emoji": "↻",
-      "accent": "amber"
+    "home": {
+      "accent": "moss",
+      "emoji": "⌂"
     },
-    "source_verifier": {
-      "emoji": "🔎",
-      "accent": "blue"
+    "open_sources": {
+      "accent": "neutral",
+      "emoji": "🔗"
+    },
+    "refresh": {
+      "accent": "blue",
+      "emoji": "↻"
+    },
+    "review": {
+      "accent": "amber",
+      "emoji": "👀"
+    },
+    "search": {
+      "accent": "blue",
+      "emoji": "⌕"
+    },
+    "settings": {
+      "accent": "neutral",
+      "emoji": "⚙"
     }
   },
   "agents": {
     "food_brain": {
-      "emoji": "✦",
-      "accent": "plum"
+      "accent": "plum",
+      "emoji": "✦"
     },
     "source_steward": {
-      "emoji": "🔗",
-      "accent": "blue"
+      "accent": "blue",
+      "emoji": "🔗"
     },
     "weekly_reset": {
-      "emoji": "↻",
-      "accent": "amber"
+      "accent": "amber",
+      "emoji": "↻"
+    }
+  },
+  "collections": {
+    "attachment": {
+      "accent": "neutral",
+      "emoji": "📎"
+    },
+    "audit_event": {
+      "accent": "neutral",
+      "emoji": "🧭"
+    },
+    "food_item": {
+      "accent": "moss",
+      "emoji": "🍎"
+    },
+    "household": {
+      "accent": "moss",
+      "emoji": "🏠"
+    },
+    "ingredient": {
+      "accent": "moss",
+      "emoji": "🧄"
+    },
+    "inventory": {
+      "accent": "moss",
+      "emoji": "🧺"
+    },
+    "inventory_lot": {
+      "accent": "amber",
+      "emoji": "📦"
+    },
+    "inventory_movement": {
+      "accent": "blue",
+      "emoji": "↻"
+    },
+    "meal_consumption": {
+      "accent": "amber",
+      "emoji": "🥣"
+    },
+    "meal_log": {
+      "accent": "moss",
+      "emoji": "✅"
+    },
+    "meal_plan": {
+      "accent": "moss",
+      "emoji": "📅"
+    },
+    "meal_template": {
+      "accent": "plum",
+      "emoji": "🧩"
+    },
+    "member": {
+      "accent": "plum",
+      "emoji": "🙂"
+    },
+    "nutrition_goal": {
+      "accent": "moss",
+      "emoji": "🎯"
+    },
+    "nutrition_observation": {
+      "accent": "blue",
+      "emoji": "📈"
+    },
+    "nutrition_profile": {
+      "accent": "moss",
+      "emoji": "⚖️"
+    },
+    "preference": {
+      "accent": "plum",
+      "emoji": "♡"
+    },
+    "product": {
+      "accent": "blue",
+      "emoji": "🏷️"
+    },
+    "purchase": {
+      "accent": "plum",
+      "emoji": "🧾"
+    },
+    "purchase_line": {
+      "accent": "plum",
+      "emoji": "💳"
+    },
+    "recipe": {
+      "accent": "amber",
+      "emoji": "📖"
+    },
+    "recipe_revision": {
+      "accent": "plum",
+      "emoji": "✍️"
+    },
+    "recipe_step": {
+      "accent": "amber",
+      "emoji": "🔥"
+    },
+    "recipe_tool": {
+      "accent": "blue",
+      "emoji": "🍳"
+    },
+    "shopping_demand": {
+      "accent": "amber",
+      "emoji": "❗"
+    },
+    "shopping_item": {
+      "accent": "blue",
+      "emoji": "🛒"
+    },
+    "shopping_list": {
+      "accent": "blue",
+      "emoji": "📝"
+    },
+    "source_record": {
+      "accent": "neutral",
+      "emoji": "🔗"
+    },
+    "store": {
+      "accent": "blue",
+      "emoji": "🏪"
+    }
+  },
+  "domain": {
+    "accent": "moss",
+    "emoji": "🍲"
+  },
+  "skills": {
+    "food": {
+      "accent": "moss",
+      "emoji": "🍲"
+    },
+    "source_verifier": {
+      "accent": "blue",
+      "emoji": "🔎"
+    },
+    "weekly_food_reset": {
+      "accent": "amber",
+      "emoji": "↻"
+    }
+  },
+  "sources": {
+    "google_sheets": {
+      "accent": "moss",
+      "emoji": "▦"
+    },
+    "notion": {
+      "accent": "neutral",
+      "emoji": "◨"
+    },
+    "postgres": {
+      "accent": "plum",
+      "emoji": "⬢"
+    },
+    "sqlite": {
+      "accent": "blue",
+      "emoji": "▣"
+    },
+    "user": {
+      "accent": "moss",
+      "emoji": "🙂"
+    },
+    "web": {
+      "accent": "blue",
+      "emoji": "🌐"
+    }
+  },
+  "statuses": {
+    "available": {
+      "accent": "moss",
+      "emoji": "✅"
+    },
+    "planned": {
+      "accent": "plum",
+      "emoji": "📅"
+    },
+    "review": {
+      "accent": "amber",
+      "emoji": "👀"
+    },
+    "to buy": {
+      "accent": "blue",
+      "emoji": "🛒"
+    },
+    "tonight": {
+      "accent": "moss",
+      "emoji": "🌙"
+    },
+    "use soon": {
+      "accent": "amber",
+      "emoji": "⏳"
+    }
+  },
+  "surfaces": {
+    "food.kitchen": {
+      "accent": "moss",
+      "emoji": "🥬"
+    },
+    "food.meals": {
+      "accent": "amber",
+      "emoji": "🍽️"
+    },
+    "food.overview": {
+      "accent": "moss",
+      "emoji": "🏡"
+    },
+    "food.shopping": {
+      "accent": "blue",
+      "emoji": "🛒"
     }
   }
 }

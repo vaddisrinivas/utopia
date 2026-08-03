@@ -1,59 +1,134 @@
 {
-  "label": "Loop",
-  "subtitle": "Loop a local audio file with count or infinite mode, plus optional pauses.",
-  "collections": ["session"],
+  "label": "Play",
+  "subtitle": "Finite or infinite mode",
+  "collections": [
+    "session"
+  ],
   "query": "recent-sessions",
   "mode": "list",
-  "fields": ["title", "file_name", "completed_plays", "target_plays", "status", "updated_at"],
+  "fields": [
+    "title",
+    "file_name",
+    "completed_plays",
+    "target_plays",
+    "status",
+    "updated_at"
+  ],
+  "shell": {
+    "layoutMode": "focusedTool",
+    "appBarTitle": "Audio Loop",
+    "scrollable": true,
+    "density": "spacious",
+    "activeTab": "home",
+    "tabs": [
+      {
+        "id": "home",
+        "screen": "home",
+        "label": "Play"
+      },
+      {
+        "id": "library",
+        "screen": "library",
+        "label": "Library"
+      },
+      {
+        "id": "playlist",
+        "screen": "playlist",
+        "label": "Queue"
+      },
+      {
+        "id": "history",
+        "screen": "history",
+        "label": "Sessions"
+      },
+      {
+        "id": "record",
+        "screen": "record",
+        "label": "Capture"
+      }
+    ],
+    "theme": {
+      "canvas": "#FBF7FD",
+      "surface": "#FFFFFF",
+      "surfaceMuted": "#F1E5F5",
+      "ink": "#321640",
+      "muted": "#735C7D",
+      "accent": "#6C3B83",
+      "accentContrast": "#FFFFFF",
+      "border": "#E3D3EA",
+      "danger": "#B42318",
+      "dangerContrast": "#FFFFFF",
+      "statusInfo": "#E7EFFA",
+      "statusSuccess": "#E1F3E7",
+      "statusWarning": "#FFF0C7",
+      "statusError": "#FCE1DF"
+    },
+    "responsive": {
+      "breakpoint": 720,
+      "maxContentWidth": 920,
+      "narrowPadding": 16,
+      "widePadding": 32
+    }
+  },
   "components": [
     {
+      "id": "loop-player",
       "kind": "widget",
       "widget": "audioLoopPlayer",
-      "title": "Audio Loop",
-      "subtitle": "Choose, start, pause, resume, or stop loop playback with count or infinite mode.",
-      "tone": "moss",
+      "title": "Loop deck",
+      "subtitle": "Choose audio. Finite or infinite.",
+      "tone": "plum",
       "props": {
         "defaultPlays": 1,
         "defaultDelaySeconds": 0,
         "defaultStartDelaySeconds": 0,
-        "delayOptions": [0, 5, 15, 30, 60, 108, 300],
-        "startDelayOptions": [0, 10, 30, 60, 108],
+        "delayOptions": [
+          0,
+          5,
+          15,
+          30,
+          60,
+          108,
+          300
+        ],
+        "startDelayOptions": [
+          0,
+          10,
+          30,
+          60,
+          108
+        ],
         "countSkippedAsCompleted": true,
         "presets": [
-          { "label": "108 straight", "plays": 108, "delaySeconds": 0, "startDelaySeconds": 0 }
+          {
+            "label": "Long practice (108)",
+            "plays": 108,
+            "delaySeconds": 0,
+            "startDelaySeconds": 0
+          }
         ],
-        "nativeUnavailableCopy": "This package is JSON-owned. The shared Expo runtime plays local audio on iOS, Android, and web; the macOS shell uses its native package player."
+        "nativeUnavailableCopy": "Audio playback needs the installed platform audio bridge."
       }
     },
     {
-      "kind": "widget",
-      "widget": "dataTable",
-      "title": "Session Controls",
-      "subtitle": "Core playback controls.",
-      "tone": "blue",
-      "props": {
-        "columns": [
-          { "key": "control", "label": "Control" },
-          { "key": "behavior", "label": "Behavior" }
-        ],
-        "items": [
-          { "control": "Choose", "behavior": "Pick a local audio file without uploading it." },
-          { "control": "Start", "behavior": "Reset count and begin the loop." },
-          { "control": "Pause", "behavior": "Pause track playback." },
-          { "control": "Resume", "behavior": "Continue the loop after a pause." },
-          { "control": "Skip", "behavior": "Finish current play and move to next." },
-          { "control": "Stop", "behavior": "Stop playback and keep the selected file ready." }
-        ]
-      }
-    },
-    {
+      "id": "recent-loop-sessions",
       "kind": "recordList",
-      "title": "Recent Sessions",
-      "subtitle": "Saved loop sessions appear here when the runtime persists them.",
-      "query": { "collections": ["session"], "limit": 8 },
+      "title": "Recent sessions",
+      "subtitle": "Saved playback",
+      "query": {
+        "collections": [
+          "session"
+        ],
+        "limit": 8
+      },
       "props": {
-        "emptyText": "No saved loop sessions yet.",
-        "subtitleFields": ["file_name", "completed_plays", "target_plays", "status"]
+        "emptyText": "No saved sessions yet.",
+        "subtitleFields": [
+          "file_name",
+          "completed_plays",
+          "target_plays",
+          "status"
+        ]
       }
     }
   ]
