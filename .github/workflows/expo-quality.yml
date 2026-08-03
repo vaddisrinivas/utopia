@@ -56,7 +56,7 @@ jobs:
             --output "$syft_archive"
           printf '%s  %s\n' "$SYFT_LINUX_AMD64_SHA256" "$syft_archive" | sha256sum --check -
           tar --extract --gzip --file "$syft_archive" --directory "$GOBIN" syft
-          go install github.com/gitleaks/gitleaks/v8@${GITLEAKS_VERSION}
+          go install github.com/zricethezav/gitleaks/v8@${GITLEAKS_VERSION}
           go version
           osv-scanner --version
           syft version
