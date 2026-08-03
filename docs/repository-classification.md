@@ -46,3 +46,4 @@ Scope rule:
 
 - Every repository root directory must appear in this table.
 - Generated entries may be absent on clean trees.
+- The local `research` workspace may be absent from clean source checkouts.

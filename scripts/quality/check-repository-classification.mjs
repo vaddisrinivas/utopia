@@ -8,6 +8,7 @@ const platformScorecardPath = path.join(root, 'docs/platform-scorecard.md');
 const allowedCategories = new Set(['Core', 'shell', 'authoring', 'service', 'app', 'test', 'generated', 'tooling']);
 const allowedScorecardStatuses = new Set(['PROVEN', 'PARTIAL', 'BLOCKED', 'PARKED', 'UNPROVEN']);
 const ignoredRootDirectories = new Set(['.expo', 'node_modules']);
+const optionalRootDirectories = new Set(['research']);
 
 const classificationRows = parseClassificationMarkdown(readText(repositoryClassificationPath));
 const scorecardRows = parseScorecardMarkdown(readText(platformScorecardPath));
@@ -46,6 +47,10 @@ function validateClassificationRows(rows, problems) {
     if (category === 'generated') {
       hasGenerated = true;
       if (!directory.includes('/')) rootDirsSeen.add(directory);
+      continue;
+    }
+    if (!exists && !directory.includes('/') && optionalRootDirectories.has(directory)) {
+      rootDirsSeen.add(directory);
       continue;
     }
     if (!exists) {
