@@ -18,8 +18,110 @@
       "kind": "widget",
       "widget": "permissionCard",
       "props": {
-        "title": "Capability matrix",
-        "subtitle": "Required capabilities block install when unsupported. Optional capabilities must render blocked states.",
+        "title": "Capability diagnostics",
+        "subtitle": "Run the explicit controls below. Contract support and observed outcomes remain separate.",
+        "diagnostic": true,
+        "capabilityIds": [
+          "camera",
+          "microphone",
+          "files",
+          "notifications",
+          "background_task",
+          "location",
+          "contacts",
+          "calendar",
+          "biometrics",
+          "health",
+          "sensors",
+          "speech",
+          "share",
+          "deep_link",
+          "file_open",
+          "shortcut"
+        ],
+        "observations": [],
+        "executors": [
+          {
+            "capabilityId": "camera",
+            "controls": ["Camera scanner"],
+            "detail": "Choose camera access and scan a code. Results remain inside the scanner control."
+          },
+          {
+            "capabilityId": "microphone",
+            "controls": ["Microphone exerciser"],
+            "detail": "Requests recorder consent through the broker, then starts and stops one explicit microphone session if granted."
+          },
+          {
+            "capabilityId": "files",
+            "controls": ["File picker", "File export"],
+            "detail": "Choose a local file. File export writes a local text artifact only after explicit user action."
+          },
+          {
+            "capabilityId": "notifications",
+            "controls": ["Notification scheduler"],
+            "detail": "Request notification access, schedule a local reminder, then cancel it from the same control."
+          },
+          {
+            "capabilityId": "location",
+            "controls": ["Location map"],
+            "detail": "Request foreground location and inspect the returned coordinate before opening a map."
+          },
+          {
+            "capabilityId": "contacts",
+            "controls": ["Contact picker"],
+            "detail": "Request access and choose one contact. No bulk import is performed."
+          },
+          {
+            "capabilityId": "calendar",
+            "controls": ["Calendar event"],
+            "detail": "Request access and create one reviewed local event."
+          },
+          {
+            "capabilityId": "biometrics",
+            "controls": ["Biometric gate"],
+            "detail": "Check hardware and enrollment, then explicitly start local authentication."
+          },
+          {
+            "capabilityId": "health",
+            "controls": ["Health exerciser"],
+            "detail": "Requests Android Health Connect access through the existing Health bridge. Non-Android shells stay unavailable."
+          },
+          {
+            "capabilityId": "sensors",
+            "controls": ["Sensor readout"],
+            "detail": "Start a local accelerometer sample and stop it from the same control."
+          },
+          {
+            "capabilityId": "speech",
+            "controls": ["Speech tool"],
+            "detail": "Speak and stop a local phrase. Speech-to-text remains NOT_RUN."
+          },
+          {
+            "capabilityId": "share",
+            "controls": ["File export"],
+            "detail": "Share/download runs only from the file export control."
+          },
+          {
+            "capabilityId": "deep_link",
+            "controls": ["Deep-link exerciser"],
+            "detail": "Opens the declared self link through React Native Linking."
+          },
+          {
+            "capabilityId": "background_task",
+            "controls": ["Background task exerciser"],
+            "detail": "Loads TaskManager on demand, but background OS execution remains NOT_RUN until a scheduler receipt exists."
+          },
+          {
+            "capabilityId": "file_open",
+            "controls": ["File-open exerciser"],
+            "detail": "Checks the declared inbound file-open intent. OS file-open event injection remains NOT_RUN."
+          },
+          {
+            "capabilityId": "shortcut",
+            "controls": ["Shortcut exerciser"],
+            "detail": "Checks the declared shortcut intent. Native shortcut publication remains NOT_RUN."
+          }
+        ],
         "permissions": [
           {
             "id": "camera.scan",
@@ -69,6 +171,59 @@
             "deviceProofRequired": false,
             "status": "blocked",
             "reason": "Bulk contact import has no generic contract; single-contact selection is a separate supported capability."
+          }
+        ]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "capabilityExerciser",
+      "props": {
+        "title": "Frontier exercisers",
+        "subtitle": "Six explicit probes for edge native paths. These controls update only local runtime state after a tap.",
+        "probes": [
+          {
+            "capabilityId": "microphone",
+            "action": "microphone",
+            "title": "Microphone",
+            "cta": "Run microphone probe",
+            "detail": "Request recorder consent through the broker, then start and stop one explicit recorder session if granted."
+          },
+          {
+            "capabilityId": "background_task",
+            "action": "background_task",
+            "title": "Background task",
+            "cta": "Check background task",
+            "detail": "Load TaskManager after a tap and report that OS background execution is still NOT_RUN."
+          },
+          {
+            "capabilityId": "health",
+            "action": "health",
+            "title": "Health",
+            "cta": "Choose health access",
+            "detail": "Request Android Health Connect permissions through the existing Health bridge."
+          },
+          {
+            "capabilityId": "deep_link",
+            "action": "deep_link",
+            "title": "Deep link",
+            "cta": "Open self link",
+            "detail": "Open the declared self link through React Native Linking.",
+            "url": "utopia://capability-lab/matrix?source=capability-lab"
+          },
+          {
+            "capabilityId": "file_open",
+            "action": "file_open",
+            "title": "File open",
+            "cta": "Check file-open path",
+            "detail": "Verify the inbound file-open declaration without injecting an OS event."
+          },
+          {
+            "capabilityId": "shortcut",
+            "action": "shortcut",
+            "title": "Shortcut",
+            "cta": "Check shortcut path",
+            "detail": "Verify the shortcut declaration without claiming shortcut publication."
           }
         ]
       }
@@ -136,17 +291,6 @@
         "mimeType": "text/plain",
         "content": "Capability Lab export proof",
         "cta": "Export proof"
-      }
-    },
-    {
-      "kind": "widget",
-      "widget": "videoPlayer",
-      "props": {
-        "title": "Video player",
-        "subtitle": "Play a package video or pick/record a local one.",
-        "allowPick": true,
-        "allowCapture": true,
-        "contentFit": "contain"
       }
     },
     {

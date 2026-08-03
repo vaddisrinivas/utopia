@@ -1,6 +1,6 @@
 {
   "label": "Calculator",
-  "subtitle": "Scientific calculator package: expression entry, constants, functions, and saved calculation history.",
+  "subtitle": "Expression-first workbench with local evaluation, manual saved history, and explicit unsupported boundaries.",
   "collections": ["calculation"],
   "query": "history",
   "mode": "list",
@@ -9,8 +9,8 @@
     {
       "kind": "widget",
       "widget": "scientificCalculator",
-      "title": "Scientific Calculator",
-      "subtitle": "Local tap calculator with trig, logs, powers, constants, factorial, memory, degrees, and radians.",
+      "title": "Scientific Workbench",
+      "subtitle": "Direct keyboard and touch entry for local arithmetic, trig, logs, powers, factorial, memory, and visible errors.",
       "tone": "blue",
       "props": {
         "angleMode": "deg",
@@ -28,7 +28,7 @@
       "kind": "widget",
       "widget": "dataTable",
       "title": "Scientific Keys",
-      "subtitle": "Core keypad map",
+      "subtitle": "Supported keys and how to use them truthfully",
       "tone": "blue",
       "props": {
         "columns": [
@@ -38,10 +38,10 @@
         ],
         "items": [
           { "group": "Arithmetic", "keys": "+ - * / % ^", "notes": "Order of operations with parentheses" },
-          { "group": "Trig", "keys": "sin cos tan asin acos atan", "notes": "Declare degrees or radians" },
-          { "group": "Logs", "keys": "ln log10 exp", "notes": "Natural log, base-10 log, e^x" },
-          { "group": "Powers", "keys": "sqrt x^2 x^y factorial", "notes": "Roots, exponents, n!" },
-          { "group": "Constants", "keys": "pi e", "notes": "High precision constants" }
+          { "group": "Trig", "keys": "sin cos tan asin acos atan", "notes": "Set the degree or radian mode before evaluating" },
+          { "group": "Logs", "keys": "ln log log10 exp abs", "notes": "Natural log, base-10 log, exponentials, absolute value" },
+          { "group": "Powers", "keys": "sqrt ^ !", "notes": "Roots, exponents, factorial for integers 0-170" },
+          { "group": "Constants", "keys": "pi e M", "notes": "Pi, Euler's number, and in-session memory register" }
         ]
       }
     },
@@ -49,7 +49,7 @@
       "kind": "widget",
       "widget": "dataTable",
       "title": "Examples",
-      "subtitle": "Paste one into Ask",
+      "subtitle": "Valid examples for the local parser",
       "tone": "moss",
       "props": {
         "columns": [
@@ -59,19 +59,39 @@
         ],
         "items": [
           { "label": "Compound", "expression": "(1 + 0.065 / 12) ^ 60", "mode": "Exact numeric" },
-          { "label": "Trig", "expression": "sin(45 deg) + cos(pi / 4)", "mode": "Mixed units stated" },
+          { "label": "Trig deg", "expression": "sin(45)", "mode": "Set angle mode to deg" },
+          { "label": "Trig rad", "expression": "cos(pi / 4)", "mode": "Set angle mode to rad" },
           { "label": "Log", "expression": "ln(e ^ 3) + log10(1000)", "mode": "Symbolic constants" },
           { "label": "Root", "expression": "sqrt(2) ^ 2", "mode": "Precision check" }
         ]
       }
     },
     {
+      "kind": "widget",
+      "widget": "dataTable",
+      "title": "Explicit Boundaries",
+      "subtitle": "Capabilities the current engine does not claim",
+      "tone": "amber",
+      "props": {
+        "columns": [
+          { "key": "area", "label": "Area" },
+          { "key": "current", "label": "Current behavior" }
+        ],
+        "items": [
+          { "area": "Units", "current": "Unit text such as cm, kg, or deg is not parsed inside expressions" },
+          { "area": "Complex numbers", "current": "Imaginary values and complex operators are unsupported" },
+          { "area": "Graphing", "current": "No plotted output or equation graph surface" },
+          { "area": "Saved history", "current": "History records are entered manually; evaluation does not auto-save" }
+        ]
+      }
+    },
+    {
       "kind": "recordList",
       "title": "History",
-      "subtitle": "Saved calculations appear here.",
+      "subtitle": "Saved records you entered manually appear here.",
       "query": { "collections": ["calculation"], "limit": 8 },
       "props": {
-        "emptyText": "No saved calculations yet.",
+        "emptyText": "No saved calculations yet. Evaluate locally, then save one on the History screen.",
         "subtitleFields": ["expression", "result", "mode"]
       }
     }

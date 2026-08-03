@@ -15,10 +15,11 @@ describe('expression proof apps', () => {
     const result = evaluatePackage({
       package: appPackage,
       collections: {
+        group: [],
         person: [
-          { id: 'amy', collection: 'person', title: 'Amy' },
-          { id: 'ben', collection: 'person', title: 'Ben' },
-          { id: 'cara', collection: 'person', title: 'Cara' },
+          { id: 'amy', collection: 'person', title: 'Amy', key: 'amy' },
+          { id: 'ben', collection: 'person', title: 'Ben', key: 'ben' },
+          { id: 'cara', collection: 'person', title: 'Cara', key: 'cara' },
         ],
         split: [
           { id: 'one', collection: 'split', person_id: 'amy', paid_amount: '50.00', share_amount: '20.00' },
@@ -40,7 +41,8 @@ describe('expression proof apps', () => {
       { from: 'cara', to: 'amy', amount: '20.00' },
       { from: 'ben', to: 'amy', amount: '10.00' },
     ]);
-    expect(packageWidgets(appPackage)).toEqual(['dataTable']);
+    expect(packageWidgets(appPackage)).toEqual(['chartBlock', 'dataTable', 'operationHistory', 'recordHeroSummary', 'recordReviewCard', 'structuredList']);
+    expect(packageWidgets(appPackage).some((widget) => /expense|splitter/i.test(widget))).toBe(false);
   });
 
   it('allocates Split Rent exactly with deterministic remainder handling', () => {
@@ -67,6 +69,41 @@ describe('expression proof apps', () => {
       { key: 'cara', amount: '33.33', weight: '1.00' },
     ]);
     expect(packageWidgets(appPackage)).toEqual(['dataTable']);
+  });
+
+  it('proves Scientific Calculator power cases through a computed field', () => {
+    const appPackage = loadPackage('scientific-calculator', 'scientific-calculator.v1.json');
+    expect(validateAppPackage(appPackage)).toMatchObject({ valid: true });
+
+    const result = evaluatePackage({
+      package: appPackage,
+      collections: {
+        records: [],
+        power_case: [
+          { id: 'integer', collection: 'power_case', title: 'Integer', base: 1.1, exponent: 3, updated_at: '2026-08-01T00:00:00Z' },
+          { id: 'negative', collection: 'power_case', title: 'Negative', base: 2, exponent: -2, updated_at: '2026-08-01T00:00:01Z' },
+        ],
+      },
+    });
+
+    expect(result.queries['power-cases'].rows).toEqual([
+      expect.objectContaining({ title: 'Integer', power_result: '1.33' }),
+      expect.objectContaining({ title: 'Negative', power_result: '0.25' }),
+    ]);
+  });
+
+  it('rejects an unknown expression operator at the package schema boundary', () => {
+    const appPackage = loadPackage('scientific-calculator', 'scientific-calculator.v1.json');
+    const invalid = {
+      ...appPackage,
+      computedFields: [{
+        id: 'bad',
+        collection: 'power_case',
+        dependsOn: [],
+        expression: { eval: ['process.env'] },
+      }],
+    };
+    expect(validateAppPackage(invalid)).toMatchObject({ valid: false });
   });
 });
 

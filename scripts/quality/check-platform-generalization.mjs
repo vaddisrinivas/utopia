@@ -8,11 +8,6 @@ const baselinePath = path.join(root, 'scripts/quality/platform-generalization-ba
 const evidencePath = path.join(root, 'app/build/evidence/platform-generalization.json');
 
 const domainSpecificWidgets = new Set([
-  'foodHero',
-  'useFirstCarousel',
-  'mealTimeline',
-  'recipeCard',
-  'receiptReviewCard',
   'pantryShelf',
   'askFoodBar',
 ]);

@@ -55,7 +55,14 @@ export function FilePickerWidget({ element }: ComponentRenderProps<WidgetProps>)
     try {
       if (!requireFileCapability(
         runtime,
-        { kind: 'file-picker', action: 'choose', mimeTypes, multiple, copyToCacheDirectory },
+        {
+          kind: 'file-picker',
+          action: 'choose',
+          mimeTypes,
+          multiple,
+          copyToCacheDirectory,
+          declaredPurpose: 'choose local files for this package feature',
+        },
         setError,
       )) return;
       const result = await DocumentPicker.getDocumentAsync({
@@ -125,7 +132,13 @@ export function FileExportWidget({ element }: ComponentRenderProps<WidgetProps>)
     setStatus('');
     setError('');
     try {
-      if (!requireFileCapability(runtime, { kind: 'file-export', action: 'export', fileName, mimeType }, setError)) return;
+      if (!requireFileCapability(runtime, {
+        kind: 'file-export',
+        action: 'export',
+        fileName,
+        mimeType,
+        declaredPurpose: 'export a local file from this package feature',
+      }, setError)) return;
       if (Platform.OS === 'web' && typeof document !== 'undefined' && typeof URL !== 'undefined') {
         const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);

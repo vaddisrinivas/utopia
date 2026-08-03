@@ -29,7 +29,7 @@ const cleanEnv = { ...process.env };
 delete cleanEnv.UTOPIA_MAX_DOMAIN_WIDGETS;
 
 const defaultOutput = runCheckWidgetCatalog(cleanEnv);
-assert.equal(parseBudget(defaultOutput), 7, 'UTOPIA_MAX_DOMAIN_WIDGETS default should be 7');
+assert.equal(parseBudget(defaultOutput), 1, 'UTOPIA_MAX_DOMAIN_WIDGETS default should be 1');
 
 const raisedOutput = runCheckWidgetCatalog({ ...cleanEnv, UTOPIA_MAX_DOMAIN_WIDGETS: '12' });
 assert.equal(parseBudget(raisedOutput), 12, 'UTOPIA_MAX_DOMAIN_WIDGETS override should accept a raised limit');

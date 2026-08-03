@@ -11,6 +11,7 @@ const outDir = join(root, 'app', 'build', 'evidence', 'launch-proof', stamp);
 const outPath = join(outDir, 'summary.json');
 
 export const LAUNCH_PROOF_SUITES = [
+  { id: 'pinned_gate_tooling', command: ['npm', 'run', 'check:no-mutable-npx'], kind: 'required' },
   { id: 'launch_contract', command: ['npm', 'run', 'check:launch-readiness'], kind: 'required' },
   { id: 'config', command: ['npm', 'run', 'config:validate'], kind: 'required' },
   { id: 'typecheck', command: ['npm', 'run', 'typecheck'], kind: 'required' },

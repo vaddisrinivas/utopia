@@ -32,6 +32,12 @@ export function buildWebLaneBEnvironment(overrides = {}) {
 
   if (overrides.requireBridge || env.UTOPIA_WEB_LANE_B_REQUIRE_BRIDGE === '1') {
     env.UTOPIA_WEB_GOLDEN_LOOP_DEBUG_BRIDGE = '1';
+    env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG = '1';
+    const debugToken = env.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN || env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN;
+    if (debugToken) {
+      env.EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN = debugToken;
+      env.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN = debugToken;
+    }
   }
 
   return env;

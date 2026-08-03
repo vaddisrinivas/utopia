@@ -1,0 +1,1280 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "recipe-scaler",
+  "version": "2.0.0",
+  "collections": {
+    "recipe_plan": {
+      "id": "recipe_plan",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "base_servings": {
+          "type": "number",
+          "required": true
+        },
+        "target_servings": {
+          "type": "number",
+          "required": true
+        },
+        "entered_total_cost": {
+          "type": "number"
+        },
+        "status": {
+          "type": "text",
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "ingredient": {
+      "id": "ingredient",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "recipe": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "section": {
+          "type": "text",
+          "indexed": true
+        },
+        "base_quantity": {
+          "type": "number",
+          "required": true
+        },
+        "scale_factor": {
+          "type": "number",
+          "required": true
+        },
+        "unit": {
+          "type": "text",
+          "required": true
+        },
+        "conversion_factor": {
+          "type": "number"
+        },
+        "target_unit": {
+          "type": "text"
+        },
+        "unit_cost": {
+          "type": "number"
+        },
+        "prep_status": {
+          "type": "text",
+          "indexed": true
+        },
+        "position": {
+          "type": "number",
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    }
+  },
+  "queries": {
+    "plans": {
+      "from": "recipe_plan",
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        },
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 50
+    },
+    "ingredients": {
+      "from": "ingredient",
+      "orderBy": [
+        {
+          "field": "recipe",
+          "direction": "asc"
+        },
+        {
+          "field": "section",
+          "direction": "asc"
+        },
+        {
+          "field": "position",
+          "direction": "asc"
+        },
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    },
+    "prep_items": {
+      "from": "ingredient",
+      "orderBy": [
+        {
+          "field": "prep_status",
+          "direction": "asc"
+        },
+        {
+          "field": "position",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    }
+  },
+  "views": {
+    "plans": {
+      "id": "plans",
+      "query": "plans",
+      "mode": "list",
+      "fields": [
+        "title",
+        "base_servings",
+        "target_servings",
+        "scale_factor",
+        "total_cost",
+        "cost_per_plate"
+      ]
+    },
+    "ingredients": {
+      "id": "ingredients",
+      "query": "ingredients",
+      "mode": "table",
+      "fields": [
+        "title",
+        "base_quantity",
+        "scale_factor",
+        "scaled_quantity",
+        "unit",
+        "line_cost"
+      ]
+    },
+    "prep_items": {
+      "id": "prep_items",
+      "query": "prep_items",
+      "mode": "list",
+      "fields": [
+        "title",
+        "section",
+        "prep_status"
+      ]
+    }
+  },
+  "computedFields": [
+    {
+      "id": "scale_factor",
+      "collection": "recipe_plan",
+      "dependsOn": [],
+      "expression": {
+        "/": [
+          {
+            "var": "record.target_servings"
+          },
+          {
+            "var": "record.base_servings"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scaled_quantity",
+      "collection": "ingredient",
+      "dependsOn": [],
+      "expression": {
+        "*": [
+          {
+            "var": "record.base_quantity"
+          },
+          {
+            "var": "record.scale_factor"
+          }
+        ]
+      }
+    },
+    {
+      "id": "converted_scaled_quantity",
+      "collection": "ingredient",
+      "dependsOn": [
+        "scaled_quantity"
+      ],
+      "expression": {
+        "*": [
+          {
+            "var": "computed.scaled_quantity"
+          },
+          {
+            "var": [
+              "record.conversion_factor",
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "line_cost",
+      "collection": "ingredient",
+      "dependsOn": [
+        "scaled_quantity"
+      ],
+      "expression": {
+        "*": [
+          {
+            "var": "computed.scaled_quantity"
+          },
+          {
+            "var": [
+              "record.unit_cost",
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "total_cost",
+      "collection": "recipe_plan",
+      "dependsOn": [],
+      "expression": {
+        "+": [
+          {
+            "var": [
+              "record.entered_total_cost",
+              0
+            ]
+          },
+          0
+        ]
+      }
+    },
+    {
+      "id": "cost_per_plate",
+      "collection": "recipe_plan",
+      "dependsOn": [
+        "total_cost"
+      ],
+      "expression": {
+        "/": [
+          {
+            "var": "computed.total_cost"
+          },
+          {
+            "var": "record.target_servings"
+          }
+        ]
+      }
+    }
+  ],
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "ingredient-quantities-scale-per-row",
+    "fractional-scale-rounding-is-deterministic",
+    "recipe-cost-per-plate",
+    "offline-prep-sheet",
+    "unit-conversion-factor"
+  ],
+  "presentation": {
+    "label": "Recipe Scaler",
+    "homeSurface": "scale",
+    "surfaces": [
+      {
+        "id": "scale",
+        "label": "Scale",
+        "collections": [
+          "recipe_plan",
+          "ingredient"
+        ]
+      },
+      {
+        "id": "costs",
+        "label": "Costs",
+        "collections": [
+          "recipe_plan",
+          "ingredient"
+        ]
+      },
+      {
+        "id": "cook",
+        "label": "Cook",
+        "collections": [
+          "recipe_plan",
+          "ingredient"
+        ]
+      },
+      {
+        "id": "library",
+        "label": "Library",
+        "collections": [
+          "recipe_plan",
+          "ingredient"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "collections": [
+          "recipe_plan",
+          "ingredient"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "utensils",
+      "tone": "amber",
+      "accent": "#B45309",
+      "canvas": "#FFF8EF",
+      "identity": "offline kitchen scaling board with exact quantities and cost confidence"
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "scale",
+      "navigation": {
+        "items": [
+          {
+            "screen": "scale",
+            "label": "Scale"
+          },
+          {
+            "screen": "costs",
+            "label": "Costs"
+          },
+          {
+            "screen": "cook",
+            "label": "Cook"
+          },
+          {
+            "screen": "library",
+            "label": "Library"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings"
+          }
+        ]
+      },
+      "screens": {
+        "scale": {
+          "title": "Recipe Scaler",
+          "subtitle": "Scale ingredients, preserve fractions, and keep prep moving.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "scale",
+                "label": "Scale",
+                "screen": "scale"
+              },
+              {
+                "id": "costs",
+                "label": "Costs",
+                "screen": "costs"
+              },
+              {
+                "id": "cook",
+                "label": "Cook",
+                "screen": "cook"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "scale",
+            "status": {
+              "message": "Offline scaling uses shared decimal expressions.",
+              "tone": "success"
+            },
+            "theme": {
+              "canvas": "#FFF8EF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F6E8D7",
+              "ink": "#21170E",
+              "muted": "#735B43",
+              "accent": "#B45309",
+              "accentContrast": "#FFFFFF",
+              "border": "#E8D4BC",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F1FF",
+              "statusSuccess": "#E4F3E6",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "recipe-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Recipe Scaler",
+              "props": {
+                "title": "Recipe Scaler",
+                "subtitle": "A working prep sheet: enter base quantity, scale factor, unit, and optional cost.",
+                "badge": "Prep mode",
+                "stats": [
+                  {
+                    "label": "Fraction",
+                    "value": "0.75 x 2.5 = 1.88"
+                  },
+                  {
+                    "label": "Cost",
+                    "value": "line and plate"
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Offline local"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "ingredient-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Ingredient workspace",
+              "query": {
+                "collections": [
+                  "ingredient"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "ingredient",
+                "positionField": "position",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "metadataFields": [
+                  {
+                    "field": "recipe",
+                    "label": "Recipe",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "section",
+                    "label": "Section",
+                    "type": "select",
+                    "options": [
+                      "Dough",
+                      "Filling",
+                      "Sauce",
+                      "Prep",
+                      "Finish"
+                    ],
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "base_quantity",
+                    "label": "Base quantity",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "scale_factor",
+                    "label": "Scale factor",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "unit",
+                    "label": "Unit",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "conversion_factor",
+                    "label": "Conversion factor",
+                    "type": "number",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "target_unit",
+                    "label": "Target unit",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "unit_cost",
+                    "label": "Unit cost",
+                    "type": "number",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "prep_status",
+                    "label": "Prep status",
+                    "type": "select",
+                    "options": [
+                      "todo",
+                      "prepped",
+                      "cooking",
+                      "done"
+                    ],
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "position",
+                    "label": "Order",
+                    "type": "number",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  "recipe",
+                  "section",
+                  "base_quantity",
+                  "scale_factor",
+                  "unit",
+                  "conversion_factor",
+                  "target_unit",
+                  "unit_cost",
+                  "prep_status",
+                  "position",
+                  "notes"
+                ],
+                "filterFields": [
+                  "recipe",
+                  "section",
+                  "base_quantity",
+                  "scale_factor",
+                  "unit",
+                  "conversion_factor",
+                  "target_unit",
+                  "unit_cost",
+                  "prep_status",
+                  "position",
+                  "notes"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit"
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                },
+                "subtitle": "Ingredient rows are the source of truth for quantity, unit conversion, and cost math.",
+                "placeholder": "e.g. Flour",
+                "suggestions": [
+                  {
+                    "title": "Flour",
+                    "values": {
+                      "recipe": "Bread",
+                      "section": "Dough",
+                      "base_quantity": 2,
+                      "scale_factor": 2.5,
+                      "unit": "cup",
+                      "conversion_factor": 1,
+                      "unit_cost": 0.4,
+                      "prep_status": "todo",
+                      "position": 1
+                    }
+                  },
+                  {
+                    "title": "Water",
+                    "values": {
+                      "recipe": "Bread",
+                      "section": "Dough",
+                      "base_quantity": 0.75,
+                      "scale_factor": 2.5,
+                      "unit": "cup",
+                      "conversion_factor": 1,
+                      "unit_cost": 0.12,
+                      "prep_status": "todo",
+                      "position": 2
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "scaled-ingredient-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Scaled ingredients",
+              "query": {
+                "collections": [
+                  "ingredient"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Ingredient"
+                  },
+                  {
+                    "key": "section",
+                    "label": "Section"
+                  },
+                  {
+                    "key": "base_quantity",
+                    "label": "Base"
+                  },
+                  {
+                    "key": "scale_factor",
+                    "label": "Scale"
+                  },
+                  {
+                    "key": "scaled_quantity",
+                    "label": "Needed"
+                  },
+                  {
+                    "key": "unit",
+                    "label": "Unit"
+                  }
+                ],
+                "emptyText": "No rows yet."
+              }
+            }
+          ]
+        },
+        "costs": {
+          "title": "Costs",
+          "subtitle": "See line cost, total batch cost, and plate cost without spreadsheet work.",
+          "shell": {
+            "layoutMode": "dashboardWorkspace",
+            "density": "compact",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "scale",
+                "label": "Scale",
+                "screen": "scale"
+              },
+              {
+                "id": "costs",
+                "label": "Costs",
+                "screen": "costs"
+              },
+              {
+                "id": "cook",
+                "label": "Cook",
+                "screen": "cook"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "costs",
+            "theme": {
+              "canvas": "#FFF8EF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F6E8D7",
+              "ink": "#21170E",
+              "muted": "#735B43",
+              "accent": "#B45309",
+              "accentContrast": "#FFFFFF",
+              "border": "#E8D4BC",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F1FF",
+              "statusSuccess": "#E4F3E6",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "recipe-total-cost",
+              "kind": "metric",
+              "title": "Recipe plans",
+              "query": {
+                "collections": [
+                  "recipe_plan"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "count"
+              },
+              "props": {
+                "emptyText": "No metric yet."
+              }
+            },
+            {
+              "id": "recipe-plan-costs",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Recipe cost summary",
+              "query": {
+                "collections": [
+                  "recipe_plan"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Recipe"
+                  },
+                  {
+                    "key": "target_servings",
+                    "label": "Servings"
+                  },
+                  {
+                    "key": "scale_factor",
+                    "label": "Scale"
+                  },
+                  {
+                    "key": "entered_total_cost",
+                    "label": "Entered total"
+                  },
+                  {
+                    "key": "total_cost",
+                    "label": "Batch cost"
+                  },
+                  {
+                    "key": "cost_per_plate",
+                    "label": "Per plate"
+                  }
+                ],
+                "emptyText": "No rows yet."
+              }
+            },
+            {
+              "id": "ingredient-cost-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Ingredient cost share",
+              "query": {
+                "collections": [
+                  "ingredient"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "line_cost",
+                "groupBy": "section"
+              },
+              "props": {
+                "chartType": "bar",
+                "emptyText": "No chart data yet."
+              }
+            }
+          ]
+        },
+        "cook": {
+          "title": "Cook mode",
+          "subtitle": "Keep the phone in one calm prep view while cooking.",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "scale",
+                "label": "Scale",
+                "screen": "scale"
+              },
+              {
+                "id": "costs",
+                "label": "Costs",
+                "screen": "costs"
+              },
+              {
+                "id": "cook",
+                "label": "Cook",
+                "screen": "cook"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "cook",
+            "theme": {
+              "canvas": "#FFF8EF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F6E8D7",
+              "ink": "#21170E",
+              "muted": "#735B43",
+              "accent": "#B45309",
+              "accentContrast": "#FFFFFF",
+              "border": "#E8D4BC",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F1FF",
+              "statusSuccess": "#E4F3E6",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 760,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "prep-by-section",
+              "kind": "widget",
+              "widget": "groupedRecordShelf",
+              "title": "Prep by section",
+              "query": {
+                "collections": [
+                  "ingredient"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "ingredient",
+                "groupBy": "section",
+                "subtitleFields": [
+                  "scaled_quantity",
+                  "unit",
+                  "prep_status"
+                ],
+                "emptyText": "No records yet."
+              }
+            },
+            {
+              "id": "cook-mode-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Before you start",
+              "props": {
+                "title": "Before you start",
+                "subtitle": "Check units, yields, and missing ingredient prices before service.",
+                "badge": "Kitchen check",
+                "items": [
+                  {
+                    "id": "cook-mode-review-1",
+                    "title": "Yield mismatch",
+                    "detail": "Update target servings before cooking.",
+                    "status": "watch"
+                  },
+                  {
+                    "id": "cook-mode-review-2",
+                    "title": "Unit conversion",
+                    "detail": "Use conversion factor for grams/ml/oz equivalents.",
+                    "status": "ready"
+                  },
+                  {
+                    "id": "cook-mode-review-3",
+                    "title": "Camera import",
+                    "detail": "Use manual ingredient entry for this recipe.",
+                    "status": "gap"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "library": {
+          "title": "Library",
+          "subtitle": "Reuse recipes and ingredient sets instead of starting over.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "scale",
+                "label": "Scale",
+                "screen": "scale"
+              },
+              {
+                "id": "costs",
+                "label": "Costs",
+                "screen": "costs"
+              },
+              {
+                "id": "cook",
+                "label": "Cook",
+                "screen": "cook"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "library",
+            "theme": {
+              "canvas": "#FFF8EF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F6E8D7",
+              "ink": "#21170E",
+              "muted": "#735B43",
+              "accent": "#B45309",
+              "accentContrast": "#FFFFFF",
+              "border": "#E8D4BC",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F1FF",
+              "statusSuccess": "#E4F3E6",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "recipe-plan-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Recipe plans",
+              "query": {
+                "collections": [
+                  "recipe_plan"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "recipe_plan",
+                "positionField": "position",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "metadataFields": [
+                  {
+                    "field": "base_servings",
+                    "label": "Base servings",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "target_servings",
+                    "label": "Target servings",
+                    "type": "number",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "entered_total_cost",
+                    "label": "Entered total cost",
+                    "type": "number",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "select",
+                    "options": [
+                      "draft",
+                      "prep",
+                      "cooking",
+                      "served"
+                    ],
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "updated_at",
+                    "label": "Updated at",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text",
+                    "required": false,
+                    "filterable": true,
+                    "sortable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  "base_servings",
+                  "target_servings",
+                  "entered_total_cost",
+                  "status",
+                  "updated_at",
+                  "notes"
+                ],
+                "filterFields": [
+                  "base_servings",
+                  "target_servings",
+                  "entered_total_cost",
+                  "status",
+                  "updated_at",
+                  "notes"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit"
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 86400000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true
+                  }
+                },
+                "subtitle": "Plans compute total cost and per-plate cost from matching ingredient rows.",
+                "placeholder": "e.g. Bread",
+                "suggestions": [
+                  {
+                    "title": "Bread",
+                    "values": {
+                      "base_servings": 2,
+                      "target_servings": 5,
+                      "entered_total_cost": 5,
+                      "status": "prep"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "recipe-history",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Recipe history",
+              "query": {
+                "collections": [
+                  "recipe_plan"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "target_servings",
+                  "total_cost",
+                  "cost_per_plate"
+                ],
+                "emptyText": "No timeline yet."
+              }
+            },
+            {
+              "id": "ingredient-change-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Ingredient change history",
+              "props": {
+                "collection": "ingredient",
+                "limit": 50,
+                "emptyText": "No changes yet."
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Make blocked imports and validation visible.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "density": "comfortable",
+            "scrollable": true,
+            "tabs": [
+              {
+                "id": "scale",
+                "label": "Scale",
+                "screen": "scale"
+              },
+              {
+                "id": "costs",
+                "label": "Costs",
+                "screen": "costs"
+              },
+              {
+                "id": "cook",
+                "label": "Cook",
+                "screen": "cook"
+              },
+              {
+                "id": "library",
+                "label": "Library",
+                "screen": "library"
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "screen": "settings"
+              }
+            ],
+            "activeTab": "settings",
+            "theme": {
+              "canvas": "#FFF8EF",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#F6E8D7",
+              "ink": "#21170E",
+              "muted": "#735B43",
+              "accent": "#B45309",
+              "accentContrast": "#FFFFFF",
+              "border": "#E8D4BC",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E8F1FF",
+              "statusSuccess": "#E4F3E6",
+              "statusWarning": "#FFF0C7",
+              "statusError": "#FCE0DD"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "recipe-validation-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Validation and import boundary",
+              "props": {
+                "title": "Validation and import boundary",
+                "subtitle": "Quantities and costs are local. Camera import stays disabled until a real scanner capability is brokered.",
+                "badge": "Honest mode",
+                "items": [
+                  {
+                    "id": "recipe-validation-card-1",
+                    "title": "Required fields",
+                    "detail": "Ingredient, recipe, quantity, scale, and unit must be filled.",
+                    "status": "covered"
+                  },
+                  {
+                    "id": "recipe-validation-card-2",
+                    "title": "Costing",
+                    "detail": "Unit cost is optional and computes line cost when present.",
+                    "status": "covered"
+                  },
+                  {
+                    "id": "recipe-validation-card-3",
+                    "title": "Camera import",
+                    "detail": "Requires camera.scan and parser service.",
+                    "status": "gap"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

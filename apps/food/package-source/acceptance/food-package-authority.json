@@ -1,0 +1,4 @@
+{
+  "id": "food-package-authority",
+  "assertion": "Food canonical package compiles from source while preserving identity, collections, UI screens, workflows, and declared optional native capabilities."
+}

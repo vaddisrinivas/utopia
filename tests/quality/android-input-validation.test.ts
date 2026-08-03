@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectAndroidInputs, nextActionForAndroidBlock, validateGoldenLoopInputs } from "../../scripts/quality/android/run-golden-loop-android-lane.mjs";
+import { collectAndroidInputs, missingRequiredOperationIds, nextActionForAndroidBlock, validateGoldenLoopInputs } from "../../scripts/quality/android/run-golden-loop-android-lane.mjs";
 import { redactSensitiveText } from "../../scripts/quality/android/run-golden-loop-android-lane.mjs";
 
 describe("android lane input validation", () => {
@@ -65,5 +65,17 @@ describe("android lane input validation", () => {
   it("maps blocked states to concrete next action", () => {
     expect(nextActionForAndroidBlock("missing:android_emulator_serials")).toContain("UTOPIA_ANDROID_GOLDEN_LOOP_SERIALS");
     expect(nextActionForAndroidBlock("missing:android_golden_loop_opt_in")).toContain("UTOPIA_ANDROID_GOLDEN_LOOP=1");
+  });
+
+  it("requires every dispatched operation to be observed by the app runtime", () => {
+    expect(missingRequiredOperationIds(["debug-write-record"], ["debug-write-record", "debug-transport-reconnect"]))
+      .toEqual(["debug-transport-reconnect"]);
+    expect(missingRequiredOperationIds(["debug-write-record", "debug-write-record"], ["debug-write-record"]))
+      .toEqual([]);
+  });
+
+  it("maps an absent first-command bridge to a BLOCKED next action", () => {
+    expect(nextActionForAndroidBlock("missing:android_golden_loop_debug_bridge"))
+      .toContain("UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN");
   });
 });

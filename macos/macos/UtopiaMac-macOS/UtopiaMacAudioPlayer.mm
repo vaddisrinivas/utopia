@@ -2,6 +2,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <Cocoa/Cocoa.h>
+#import <CommonCrypto/CommonDigest.h>
 
 @interface UtopiaMacAudioPlayer () <AVAudioPlayerDelegate>
 @property (nonatomic, strong) AVAudioPlayer *player;
@@ -134,6 +135,70 @@ RCT_REMAP_METHOD(openFile,
     }
     resolve(@{ @"opened": @YES });
   });
+}
+
+RCT_REMAP_METHOD(writeProofFile,
+                 writeProofFileWithOptions:(NSDictionary *)options
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  NSString *path = [options[@"path"] isKindOfClass:NSString.class] ? options[@"path"] : @"";
+  NSString *content = [options[@"content"] isKindOfClass:NSString.class] ? options[@"content"] : @"";
+  BOOL append = [options[@"append"] boolValue];
+  if (path.length == 0) {
+    reject(@"bad_path", @"Proof file path is required.", nil);
+    return;
+  }
+
+  NSURL *url = [NSURL fileURLWithPath:path];
+  NSError *error = nil;
+  [[NSFileManager defaultManager] createDirectoryAtURL:url.URLByDeletingLastPathComponent
+                           withIntermediateDirectories:YES
+                                            attributes:nil
+                                                 error:&error];
+  if (error != nil) {
+    reject(@"mkdir_failed", error.localizedDescription ?: @"Proof directory could not be created.", error);
+    return;
+  }
+
+  NSData *data = [content dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
+  if (append && [[NSFileManager defaultManager] fileExistsAtPath:path]) {
+    NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (handle == nil) {
+      reject(@"append_failed", @"Proof file could not be opened for append.", nil);
+      return;
+    }
+    @try {
+      [handle seekToEndOfFile];
+      [handle writeData:data];
+      [handle closeFile];
+    } @catch (NSException *exception) {
+      reject(@"append_failed", exception.reason ?: @"Proof file append failed.", nil);
+      return;
+    }
+  } else {
+    BOOL ok = [data writeToURL:url options:NSDataWritingAtomic error:&error];
+    if (!ok) {
+      reject(@"write_failed", error.localizedDescription ?: @"Proof file could not be written.", error);
+      return;
+    }
+  }
+
+  NSData *written = [NSData dataWithContentsOfURL:url] ?: [NSData data];
+  resolve(@{
+    @"path": path,
+    @"bytes": @(written.length),
+    @"sha256": [self sha256HexForData:written]
+  });
+}
+
+RCT_REMAP_METHOD(sha256Text,
+                 sha256TextWithContent:(NSString *)content
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  NSData *data = [(content ?: @"") dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
+  resolve([self sha256HexForData:data]);
 }
 
 RCT_REMAP_METHOD(load,
@@ -298,6 +363,17 @@ RCT_REMAP_METHOD(getStatus,
   if (self.player != nil) return YES;
   reject(@"not_loaded", @"Choose an audio file first.", nil);
   return NO;
+}
+
+- (NSString *)sha256HexForData:(NSData *)data
+{
+  unsigned char hash[CC_SHA256_DIGEST_LENGTH];
+  CC_SHA256(data.bytes, (CC_LONG)data.length, hash);
+  NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+  for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+    [hex appendFormat:@"%02x", hash[i]];
+  }
+  return hex;
 }
 
 - (NSDictionary *)statusDictionary

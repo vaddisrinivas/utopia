@@ -127,13 +127,13 @@ import {
 } from '@/src/settings/utopia-settings';
 import {
   DomainAskBarWidget as AskFoodBarWidget,
-  DomainHeroWidget as FoodHeroWidget,
-  DomainRecipeCardWidget as RecipeCardWidget,
-  DomainReceiptReviewCardWidget as ReceiptReviewCardWidget,
-  DomainShelfWidget as PantryShelfWidget,
-  DomainTimelineWidget as MealTimelineWidget,
-  UseFirstCarouselWidget,
 } from '@/src/presentation/json-render-domain-widgets';
+import { RecordHeroSummaryWidget } from '@/src/presentation/widgets/record-hero-summary-widget';
+import { GroupedRecordShelfWidget } from '@/src/presentation/widgets/grouped-record-shelf-widget';
+import { HorizontalRecordCarouselWidget } from '@/src/presentation/widgets/horizontal-record-carousel-widget';
+import { RecordTimelineWidget } from '@/src/presentation/widgets/record-timeline-widget';
+import { RecordReviewCardWidget } from '@/src/presentation/widgets/record-review-card-widget';
+import { RecordContentCardWidget } from '@/src/presentation/widgets/record-content-card-widget';
 import {
   DurationTimerWidget,
   StepFlowWidget,
@@ -142,6 +142,15 @@ import {
   FileExportWidget,
   FilePickerWidget,
 } from '@/src/presentation/widgets/file-widgets';
+import { ValueControlWidget } from '@/src/presentation/widgets/interactive-record-widgets';
+import { OperationHistoryWidget } from '@/src/presentation/widgets/operation-history-widget';
+import { ChecklistRecordWidget } from '@/src/presentation/widgets/checklist-record-widget';
+import { QuickAddListWidget } from '@/src/presentation/widgets/quick-add-list-widget';
+import { StructuredListWidget } from '@/src/presentation/widgets/structured-list-widget';
+import { ProductShellWidget } from '@/src/presentation/widgets/product-shell-widget';
+import { AudioLoopLoopModeControl } from '@/src/presentation/widgets/audio-loop-player-controls';
+import { CapabilityDiagnosticWidget } from '@/src/presentation/widgets/capability-diagnostic-widget';
+import { CapabilityExerciserWidget } from '@/src/presentation/widgets/capability-exerciser-widget';
 import { undoOperation } from '@/src/ops/undo';
 
 export {
@@ -1145,7 +1154,12 @@ function SmartCaptureWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'media-picker', action: source, media: 'image' },
+        {
+          kind: 'media-picker',
+          action: source,
+          media: 'image',
+          declaredPurpose: 'capture or choose an image for this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -1405,6 +1419,7 @@ function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProp
     <WidgetShell title={text(props.title, 'Scientific Calculator')} subtitle={text(props.subtitle, 'Tap an expression and evaluate locally.')}>
       <View style={styles.calculatorDisplay}>
         <TextInput
+          accessibilityLabel="Expression"
           value={expression}
           onChangeText={commitExpression}
           placeholder="0"
@@ -1414,16 +1429,16 @@ function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProp
           keyboardType="numbers-and-punctuation"
           style={styles.calculatorInput}
         />
-        <Text style={styles.calculatorResult}>{result}</Text>
-        {error ? <Text style={styles.warning}>{error}</Text> : null}
+        <Text accessibilityLabel={`Result ${result}`} accessibilityLiveRegion="polite" style={styles.calculatorResult}>{result}</Text>
+        {error ? <Text accessibilityRole="alert" style={styles.warning}>{error}</Text> : null}
       </View>
       <View style={styles.segmentedRow}>
         {(['deg', 'rad'] as const).map((mode) => (
-          <Pressable key={mode} style={[styles.segment, angleMode === mode ? styles.segmentActive : null]} onPress={() => setAngleMode(mode)}>
+          <Pressable accessibilityLabel={mode === 'deg' ? 'Degrees' : 'Radians'} accessibilityRole="button" accessibilityState={{ selected: angleMode === mode }} key={mode} style={[styles.segment, angleMode === mode ? styles.segmentActive : null]} onPress={() => setAngleMode(mode)}>
             <Text style={[styles.segmentText, angleMode === mode ? styles.segmentTextActive : null]}>{mode}</Text>
           </Pressable>
         ))}
-        <Pressable style={styles.segment} onPress={() => { setExpression(''); setResult('0'); setError(''); }}>
+        <Pressable accessibilityLabel="Clear" accessibilityRole="button" style={styles.segment} onPress={() => { setExpression(''); setResult('0'); setError(''); }}>
           <Text style={styles.segmentText}>AC</Text>
         </Pressable>
       </View>
@@ -1432,6 +1447,8 @@ function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProp
           <View key={row.join('|')} style={styles.calculatorRow}>
             {row.map((key) => (
               <Pressable
+                accessibilityLabel={scientificCalculatorKeyLabel(key)}
+                accessibilityRole="button"
                 key={key}
                 style={[styles.calculatorKey, key === '=' ? styles.calculatorKeyEquals : null, /[+*/^!-]/.test(key) ? styles.calculatorKeyOperator : null]}
                 onPress={() => press(key)}
@@ -1445,6 +1462,34 @@ function ScientificCalculatorWidget({ element }: ComponentRenderProps<WidgetProp
       <Text style={styles.formHint}>Memory: {formatCalcValue(memory)} · Constants: pi, e, M</Text>
     </WidgetShell>
   );
+}
+
+function scientificCalculatorKeyLabel(key: string): string {
+  const labels: Record<string, string> = {
+    '=': 'Equals',
+    DEL: 'Delete',
+    MC: 'Clear memory',
+    MR: 'Recall memory',
+    'M+': 'Add to memory',
+    'M-': 'Subtract from memory',
+    'sin(': 'Sine',
+    'cos(': 'Cosine',
+    'tan(': 'Tangent',
+    'sqrt(': 'Square root',
+    'ln(': 'Natural logarithm',
+    'log(': 'Common logarithm',
+    '^': 'Power',
+    '!': 'Factorial',
+    pi: 'Pi',
+    '/': 'Divide',
+    '*': 'Multiply',
+    '-': 'Subtract',
+    '+': 'Add',
+    '.': 'Decimal point',
+    '(': 'Open parenthesis',
+    ')': 'Close parenthesis',
+  };
+  return labels[key] ?? key;
 }
 
 function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
@@ -1482,13 +1527,21 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const sessionActive = status === 'playing' || status === 'paused' || status === 'between' || status === 'starting';
   const recorderCapability = useMemo(() => requestWidgetCapability(
     runtime,
-    { kind: 'audio-recorder', action: 'record' },
+    {
+      kind: 'audio-recorder',
+      action: 'record',
+      declaredPurpose: 'record local audio for Audio Loop',
+    },
   ), [runtime]);
   const recorderDisabledMessage = recorderCapability.ok ? null : recorderCapability.error.message;
   const canRecordAudio = recorderCapability.ok && !recorderMessage;
   const audioFileCapability = useMemo(() => requestWidgetCapability(
     runtime,
-    { kind: 'audio-file', action: 'choose' },
+    {
+      kind: 'audio-file',
+      action: 'choose',
+      declaredPurpose: 'choose local audio for Audio Loop playback',
+    },
   ), [runtime]);
   const activeAsset = audioLoopState.assets.find((item) => item.id === audioLoopState.activeAssetId) ?? null;
   const activePlaylist = audioLoopState.playlists.find((item) => item.id === audioLoopState.activePlaylistId) ?? null;
@@ -1609,7 +1662,11 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     name: string;
     volume?: number;
   }) => {
-    const playbackCapability = requestWidgetCapability(runtime, { kind: 'audio-file', action: 'choose' });
+    const playbackCapability = requestWidgetCapability(runtime, {
+      kind: 'audio-file',
+      action: 'choose',
+      declaredPurpose: 'choose local audio for Audio Loop playback',
+    });
     if (!playbackCapability.ok) throw new Error(playbackCapability.error.message);
     clearAudioLoopDelay(delayTimerRef);
     playerRef.current?.pause();
@@ -1950,7 +2007,11 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       try {
         if (!requireWidgetCapability(
           runtime,
-          { kind: 'audio-recorder', action: 'record' },
+          {
+            kind: 'audio-recorder',
+            action: 'record',
+            declaredPurpose: 'record local audio for Audio Loop',
+          },
           setRecorderMessage,
         )) {
           return;
@@ -2110,6 +2171,10 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
               <Text style={styles.audioLoopMeta}>{formatAudioLoopTime(currentTime)}</Text>
               <Text style={styles.audioLoopMeta}>{formatAudioLoopTime(duration)}</Text>
             </View>
+            <AudioLoopLoopModeControl
+              mode={isInfiniteMode ? 'infinite' : 'finite'}
+              onModeChange={(nextMode) => setIsInfiniteMode(nextMode === 'infinite')}
+            />
             {error ? <Text style={styles.warning}>{error}</Text> : null}
           </View>
 
@@ -2194,27 +2259,6 @@ function AudioLoopPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
           </View>
 
           <View style={styles.audioLoopSettings}>
-            <View style={styles.formField}>
-              <Text style={styles.formLabel}>Loop mode</Text>
-              <View style={styles.captureModes}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Finite loop"
-                  style={[styles.captureMode, !isInfiniteMode ? styles.captureModeActive : null]}
-                  onPress={() => setIsInfiniteMode(false)}
-                >
-                  <Text style={[styles.captureModeText, !isInfiniteMode ? styles.captureModeTextActive : null]}>Finite</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Infinite loop"
-                  style={[styles.captureMode, isInfiniteMode ? styles.captureModeActive : null]}
-                  onPress={() => setIsInfiniteMode(true)}
-                >
-                  <Text style={[styles.captureModeText, isInfiniteMode ? styles.captureModeTextActive : null]}>Infinite</Text>
-                </Pressable>
-              </View>
-            </View>
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Play count</Text>
               <View style={styles.audioLoopStepper}>
@@ -2390,7 +2434,11 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const contentFit = props.contentFit === 'cover' || props.contentFit === 'fill' ? props.contentFit : 'contain';
   const videoCapability = requestWidgetCapability(
     runtime,
-    { kind: 'video-player', action: 'render' },
+    {
+      kind: 'video-player',
+      action: 'render',
+      declaredPurpose: 'render local or package-provided video',
+    },
   );
 
   useEffect(() => {
@@ -2439,7 +2487,12 @@ function VideoPlayerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'media-picker', action: mode, media: 'video' },
+        {
+          kind: 'media-picker',
+          action: mode,
+          media: 'video',
+          declaredPurpose: 'capture or choose a video for this package feature',
+        },
         setError,
       )) {
         return;
@@ -2514,6 +2567,7 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     kind: 'camera-scanner',
     action: 'scan',
     barcodeTypes,
+    declaredPurpose: 'scan a code for this package feature',
   });
   useEffect(() => {
     let cancelled = false;
@@ -2539,6 +2593,7 @@ function CameraScannerWidget({ element }: ComponentRenderProps<WidgetProps>) {
       kind: 'camera-scanner',
       action: 'scan',
       barcodeTypes,
+      declaredPurpose: 'scan a code for this package feature',
     });
     if (!currentCapability.ok) {
       return (
@@ -2669,7 +2724,12 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const [error, setError] = useState('');
   const sensorCapability = requestWidgetCapability(
     runtime,
-    { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+    {
+      kind: 'sensor',
+      action: 'watch',
+      sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer',
+      declaredPurpose: 'read a live local sensor sample for this package feature',
+    },
   );
 
   useEffect(() => {
@@ -2694,7 +2754,12 @@ function SensorReadoutWidget({ element }: ComponentRenderProps<WidgetProps>) {
     if (!active || !sensorModule) return undefined;
     if (!requireWidgetCapability(
       runtime,
-        { kind: 'sensor', action: 'watch', sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer' },
+        {
+          kind: 'sensor',
+          action: 'watch',
+          sensor: sensorName as 'accelerometer' | 'gyroscope' | 'magnetometer',
+          declaredPurpose: 'read a live local sensor sample for this package feature',
+        },
       setError,
     )) {
       setActive(false);
@@ -2750,7 +2815,11 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'notification', action: 'schedule' },
+        {
+          kind: 'notification',
+          action: 'schedule',
+          declaredPurpose: 'schedule a local reminder from this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -2780,7 +2849,11 @@ function NotificationSchedulerWidget({ element }: ComponentRenderProps<WidgetPro
     if (!notificationId) return;
     if (!requireWidgetCapability(
       runtime,
-      { kind: 'notification', action: 'cancel' },
+      {
+        kind: 'notification',
+        action: 'cancel',
+        declaredPurpose: 'cancel a local reminder from this package feature',
+      },
       setMessage,
     )) {
       return;
@@ -2817,7 +2890,11 @@ function ContactPickerWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'contacts', action: 'pick' },
+        {
+          kind: 'contacts',
+          action: 'pick',
+          declaredPurpose: 'pick one contact for this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -2870,7 +2947,11 @@ function CalendarEventWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'calendar', action: 'create' },
+        {
+          kind: 'calendar',
+          action: 'create',
+          declaredPurpose: 'create one reviewed calendar event from this package feature',
+        },
         setMessage,
       )) {
         return;
@@ -2924,7 +3005,11 @@ function BiometricGateWidget({ element }: ComponentRenderProps<WidgetProps>) {
     try {
       if (!requireWidgetCapability(
         runtime,
-        { kind: 'biometric', action: 'authenticate' },
+        {
+          kind: 'biometric',
+          action: 'authenticate',
+          declaredPurpose: 'confirm local device authentication before this package action',
+        },
         setMessage,
       )) {
         return;
@@ -2973,7 +3058,12 @@ function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const speak = useCallback(() => {
     if (!requireWidgetCapability(
       runtime,
-      { kind: 'speech', action: 'speak', textLength: phrase.length },
+      {
+        kind: 'speech',
+        action: 'speak',
+        textLength: phrase.length,
+        declaredPurpose: 'speak this package text aloud on this device',
+      },
       setMessage,
     )) {
       return;
@@ -2984,7 +3074,12 @@ function SpeechToolWidget({ element }: ComponentRenderProps<WidgetProps>) {
   const stop = useCallback(() => {
     if (!requireWidgetCapability(
       runtime,
-      { kind: 'speech', action: 'stop', textLength: phrase.length },
+      {
+        kind: 'speech',
+        action: 'stop',
+        textLength: phrase.length,
+        declaredPurpose: 'stop speech started by this package feature',
+      },
       setMessage,
     )) {
       return;
@@ -3028,40 +3123,31 @@ function titleize(value: string): string {
   return value.replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function ChecklistCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
-  const props = element.props ?? {};
-  const items = rows(props.items);
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
-  return (
-    <WidgetShell title={text(props.title, 'Checklist')} subtitle={text(props.subtitle, 'Tasks, packing, QA, habits, recipes, or setup steps.')}>
-      {(items.length ? items : [{ title: 'First step' }, { title: 'Second step' }, { title: 'Done' }]).slice(0, 10).map((item) => {
-        const key = label(item);
-        return (
-          <Pressable key={key} style={styles.checkRow} onPress={() => setChecked((prev) => ({ ...prev, [key]: !prev[key] }))}>
-            <Text style={[styles.checkBox, checked[key] ? styles.checkBoxOn : null]}>{checked[key] ? '✓' : ''}</Text>
-            <View style={styles.checkCopy}>
-              <Text style={styles.checkTitle}>{key}</Text>
-              {detail(item) ? <Text style={styles.checkDetail}>{detail(item)}</Text> : null}
-            </View>
-          </Pressable>
-        );
-      })}
-    </WidgetShell>
-  );
-}
+const ChecklistCardWidget = ChecklistRecordWidget;
 
-function PermissionCardWidget({ element }: ComponentRenderProps<WidgetProps>) {
+function PermissionCardWidget({ element, emit }: ComponentRenderProps<WidgetProps>) {
   const props = element.props ?? {};
+  if ((props as Record<string, unknown>).diagnostic === true) return <CapabilityDiagnosticWidget element={element} emit={emit} />;
   const permissions = rows(props.permissions);
+  const capability = text(props.capability);
+  const fallbackPermissions = capability
+    ? [{
+        id: capability,
+        title: titleize(capability),
+        platform: 'device',
+        required: false,
+        prompt: 'Requested only when you choose to use this feature.',
+      }]
+    : [];
   return (
-    <WidgetShell title={text(props.title, 'Permissions')} subtitle={text(props.subtitle, 'This app asks only when a package feature needs native access.')}>
-      {(permissions.length ? permissions : [{ title: 'Health Connect', subtitle: 'Optional device context; you stay in control.' }]).map((permission) => (
+    <WidgetShell title={text(props.title, 'Permissions')} subtitle={text(props.subtitle, 'This app asks before using device features.')}>
+      {(permissions.length ? permissions : fallbackPermissions).map((permission) => (
         <View key={text(permission.id, permissionLabel(permission))} style={styles.permissionRow}>
           <View style={styles.permissionHeading}>
             <Text style={styles.permissionTitle}>{permissionLabel(permission)}</Text>
             <Text style={styles.permissionMeta}>{permissionMeta(permission)}</Text>
           </View>
-          <Text style={styles.permissionDetail}>{text(permission.prompt, detail(permission, 'Used only for this package feature.'))}</Text>
+          <Text style={styles.permissionDetail}>{text(permission.prompt, detail(permission, 'Requested only when you choose to use this feature.'))}</Text>
         </View>
       ))}
     </WidgetShell>
@@ -3315,6 +3401,16 @@ export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
   AudioLoopPlayerWidget,
   StepFlowWidget,
   DurationTimerWidget,
+  ValueControlWidget,
+  OperationHistoryWidget,
+  QuickAddListWidget,
+  StructuredListWidget,
+  GroupedRecordShelfWidget,
+  HorizontalRecordCarouselWidget,
+  RecordTimelineWidget,
+  RecordContentCardWidget,
+  RecordReviewCardWidget,
+  ProductShellWidget,
   FilePickerWidget,
   FileExportWidget,
   VideoPlayerWidget,
@@ -3329,13 +3425,9 @@ export const JSON_RENDER_WIDGET_REGISTRY: ComponentRegistry = {
   SpeechToolWidget,
   ChecklistCardWidget,
   PermissionCardWidget,
+  CapabilityExerciserWidget,
   ProviderStatusWidget,
-  FoodHeroWidget,
-  UseFirstCarouselWidget,
-  MealTimelineWidget,
-  RecipeCardWidget,
-  ReceiptReviewCardWidget,
-  PantryShelfWidget,
+  RecordHeroSummaryWidget,
   AskFoodBarWidget,
 };
 
@@ -3378,16 +3470,13 @@ export const styles = StyleSheet.create({
   recordSaveState: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   card: {
     backgroundColor: '#FFFCF5',
-    borderRadius: 20,
+    borderColor: '#E6DDCF',
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 14,
-    gap: 12,
-    shadowColor: '#271D14',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
+    gap: 10,
   },
-  title: { color: '#241C16', fontSize: 22, fontWeight: '800' },
+  title: { color: '#241C16', fontSize: 20, fontWeight: '800' },
   subtitle: { color: '#6D6257', fontSize: 14, lineHeight: 20 },
   bodyText: { color: '#4E463E', fontSize: 14, lineHeight: 20 },
   chatLog: { maxHeight: 420 },
@@ -3542,18 +3631,18 @@ export const styles = StyleSheet.create({
   providerActionTitle: { color: '#3F2D42', fontSize: 12, fontWeight: '900' },
   providerActionDetail: { color: '#6D6257', fontSize: 11, lineHeight: 15 },
   providerCta: { alignSelf: 'flex-start', backgroundColor: '#2F7448', borderRadius: 999, color: '#FFFFFF', fontSize: 13, fontWeight: '900', paddingHorizontal: 14, paddingVertical: 9 },
-  premiumHero: { backgroundColor: '#E4F1E8', borderRadius: 32, padding: 22, gap: 14, overflow: 'hidden', shadowColor: '#2F7448', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 3 },
-  premiumEmoji: { position: 'absolute', right: 20, top: 18, width: 74, height: 74, borderRadius: 26, backgroundColor: '#FFFCF5', textAlign: 'center', lineHeight: 74, fontSize: 38, overflow: 'hidden' },
+  premiumHero: { backgroundColor: '#E4F1E8', borderColor: '#C9DDD0', borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 9, overflow: 'hidden' },
+  premiumEmoji: { position: 'absolute', right: 14, top: 14, width: 44, height: 44, borderRadius: 8, backgroundColor: '#FFFCF5', textAlign: 'center', lineHeight: 44, fontSize: 22, overflow: 'hidden' },
   premiumBadge: { alignSelf: 'flex-start', backgroundColor: '#FFF1B8', borderRadius: 999, color: '#9A4B2E', fontSize: 12, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden' },
-  premiumTitle: { color: '#142016', fontSize: 30, lineHeight: 34, fontWeight: '900', letterSpacing: -0.7, maxWidth: '76%' },
-  premiumSubtitle: { color: '#536557', fontSize: 15, lineHeight: 21, fontWeight: '700', maxWidth: '82%' },
-  premiumStats: { flexDirection: 'row', gap: 8 },
-  premiumStat: { flex: 1, backgroundColor: 'rgba(255,252,245,0.72)', borderRadius: 18, paddingHorizontal: 10, paddingVertical: 10, gap: 2 },
-  premiumStatValue: { color: '#142016', fontSize: 18, fontWeight: '900' },
+  premiumTitle: { color: '#142016', fontSize: 23, lineHeight: 28, fontWeight: '900', maxWidth: '80%' },
+  premiumSubtitle: { color: '#536557', fontSize: 13, lineHeight: 18, fontWeight: '700', maxWidth: '84%' },
+  premiumStats: { flexDirection: 'row', gap: 6 },
+  premiumStat: { flex: 1, backgroundColor: 'rgba(255,252,245,0.72)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7, gap: 1 },
+  premiumStatValue: { color: '#142016', fontSize: 16, fontWeight: '900' },
   premiumStatLabel: { color: '#6D6257', fontSize: 11, fontWeight: '800' },
-  premiumBody: { color: '#26372A', fontSize: 16, lineHeight: 23 },
+  premiumBody: { color: '#26372A', fontSize: 14, lineHeight: 20 },
   premiumActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  premiumAction: { backgroundColor: 'rgba(36,28,22,0.08)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },
+  premiumAction: { backgroundColor: 'rgba(36,28,22,0.08)', borderRadius: 8, minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
   premiumActionPrimary: { backgroundColor: '#241C16' },
   premiumActionText: { color: '#241C16', fontSize: 13, fontWeight: '900' },
   premiumActionPrimaryText: { color: '#FFFFFF' },
@@ -3563,45 +3652,13 @@ export const styles = StyleSheet.create({
   premiumSectionCta: { color: '#2F7448', fontSize: 13, fontWeight: '900' },
   premiumSectionSubtitle: { color: '#657066', fontSize: 14, lineHeight: 20 },
   premiumRail: { gap: 12, paddingRight: 18 },
-  useFirstPremiumCard: { width: 144, minHeight: 152, borderRadius: 22, backgroundColor: '#F9E7D9', padding: 13, gap: 6, justifyContent: 'space-between' },
-  useFirstPremiumBlue: { backgroundColor: '#E3EFF3' },
-  useFirstPremiumYellow: { backgroundColor: '#FFF1B8' },
-  useFirstPremiumEmoji: { fontSize: 28 },
-  useFirstPremiumBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,252,245,0.78)', borderRadius: 999, color: '#9A4B2E', fontSize: 11, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, overflow: 'hidden' },
-  useFirstPremiumTitle: { color: '#241C16', fontSize: 16, fontWeight: '900', lineHeight: 20 },
-  useFirstPremiumDetail: { color: '#6D6257', fontSize: 12, lineHeight: 16 },
-  premiumCard: { backgroundColor: '#FFFCF5', borderRadius: 28, padding: 18, gap: 12, shadowColor: '#271D14', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
-  mealPremiumRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, backgroundColor: '#F6F1E8', padding: 12 },
-  mealPremiumTime: { width: 58, minHeight: 48, borderRadius: 18, backgroundColor: '#E4F1E8', color: '#2F7448', textAlign: 'center', lineHeight: 48, fontSize: 11, fontWeight: '900', overflow: 'hidden' },
-  mealPremiumCopy: { flex: 1, gap: 3 },
-  mealPremiumTitle: { color: '#241C16', fontSize: 16, fontWeight: '900' },
-  mealPremiumDetail: { color: '#6D6257', fontSize: 13, lineHeight: 18 },
-  mealPremiumChevron: { color: '#B8AB9A', fontSize: 30, fontWeight: '300' },
-  recipePremiumCard: { flexDirection: 'row', gap: 14, borderRadius: 30, backgroundColor: '#241C16', padding: 16, shadowColor: '#241C16', shadowOpacity: 0.16, shadowRadius: 16, shadowOffset: { width: 0, height: 10 }, elevation: 4 },
-  recipePremiumArt: { width: 102, borderRadius: 24, backgroundColor: '#FFF1B8', alignItems: 'center', justifyContent: 'center' },
-  recipePremiumEmoji: { fontSize: 48 },
-  recipePremiumCopy: { flex: 1, gap: 8 },
-  recipePremiumBadge: { alignSelf: 'flex-start', color: '#F3B15E', fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
-  recipePremiumTitle: { color: '#FFFFFF', fontSize: 22, lineHeight: 26, fontWeight: '900' },
-  recipePremiumDetail: { color: '#DCD2C3', fontSize: 13, lineHeight: 18 },
-  recipePremiumChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  recipePremiumChip: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 999, color: '#FFFFFF', fontSize: 11, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden' },
-  receiptPremiumCard: { backgroundColor: '#FFF5EA', borderRadius: 30, padding: 18, gap: 12, borderWidth: 1, borderColor: '#F2D6BE' },
-  receiptPremiumHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  receiptPremiumIcon: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#FFFCF5', textAlign: 'center', lineHeight: 48, fontSize: 25, overflow: 'hidden' },
-  receiptPremiumTitle: { color: '#241C16', fontSize: 21, fontWeight: '900' },
-  receiptPremiumDetail: { color: '#6D6257', fontSize: 13, lineHeight: 18 },
-  receiptPremiumBadge: { color: '#9A4B2E', backgroundColor: '#FFF1B8', borderRadius: 999, fontSize: 11, fontWeight: '900', paddingHorizontal: 9, paddingVertical: 5, overflow: 'hidden' },
-  receiptPremiumLine: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFCF5', borderRadius: 16, padding: 11 },
-  receiptPremiumLineTitle: { flex: 0.8, color: '#241C16', fontSize: 14, fontWeight: '900' },
-  receiptPremiumLineDetail: { flex: 1.2, color: '#6D6257', fontSize: 12, lineHeight: 16 },
-  receiptPremiumLineStatus: { color: '#2F7448', fontSize: 11, fontWeight: '900' },
+  premiumCard: { backgroundColor: '#FFFCF5', borderColor: '#E6DDCF', borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 10 },
   shelfPremiumGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  shelfPremiumTile: { width: '47%', minHeight: 118, borderRadius: 22, backgroundColor: '#F6F1E8', padding: 14, gap: 6 },
+  shelfPremiumTile: { width: '47%', minHeight: 108, borderRadius: 8, backgroundColor: '#F6F1E8', padding: 12, gap: 5 },
   shelfPremiumEmoji: { fontSize: 28 },
   shelfPremiumTitle: { color: '#241C16', fontSize: 16, fontWeight: '900' },
   shelfPremiumDetail: { color: '#6D6257', fontSize: 12, lineHeight: 17 },
-  askPremiumCard: { backgroundColor: '#FFFCF5', borderRadius: 28, padding: 18, gap: 12, borderWidth: 1, borderColor: '#E6DDCF' },
+  askPremiumCard: { backgroundColor: '#FFFCF5', borderRadius: 8, padding: 14, gap: 10, borderWidth: 1, borderColor: '#E6DDCF' },
   askPremiumTitle: { color: '#241C16', fontSize: 28, fontWeight: '900', letterSpacing: -0.4 },
   askPremiumSubtitle: { color: '#6D6257', fontSize: 14, lineHeight: 20 },
   askPremiumChip: { backgroundColor: '#E4F1E8', borderRadius: 999, color: '#2F7448', fontSize: 12, fontWeight: '900', paddingHorizontal: 11, paddingVertical: 8, overflow: 'hidden' },
@@ -3652,14 +3709,14 @@ export const styles = StyleSheet.create({
   formField: { borderRadius: 14, backgroundColor: '#F6F1E8', padding: 12, gap: 7 },
   formLabel: { color: '#241C16', fontWeight: '900', fontSize: 14 },
   formHint: { color: '#6D6257', fontSize: 12 },
-  formInput: { minHeight: 42, borderRadius: 12, backgroundColor: '#FFFFFF', color: '#241C16', paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 },
+  formInput: { minHeight: 48, borderRadius: 12, backgroundColor: '#FFFFFF', color: '#241C16', paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 },
   formInputMultiline: { minHeight: 82, textAlignVertical: 'top' },
-  calculatorDisplay: { backgroundColor: '#F6F1E8', borderRadius: 18, gap: 8, padding: 14 },
+  calculatorDisplay: { backgroundColor: '#F6F1E8', borderRadius: 8, gap: 6, padding: 12 },
   calculatorInput: { color: '#241C16', fontSize: 26, fontWeight: '800', minHeight: 48 },
   calculatorResult: { color: '#2F7448', fontSize: 30, fontWeight: '900', textAlign: 'right' },
   calculatorPad: { gap: 8 },
   calculatorRow: { flexDirection: 'row', gap: 8 },
-  calculatorKey: { alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, flex: 1, minHeight: 50, justifyContent: 'center', paddingHorizontal: 4 },
+  calculatorKey: { alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 8, flex: 1, minHeight: 48, justifyContent: 'center', paddingHorizontal: 4 },
   calculatorKeyOperator: { backgroundColor: '#E3EFF3' },
   calculatorKeyEquals: { backgroundColor: '#241C16' },
   calculatorKeyText: { color: '#241C16', fontSize: 15, fontWeight: '900' },
@@ -3679,7 +3736,7 @@ export const styles = StyleSheet.create({
   audioLoopControls: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   audioLoopSettings: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   audioLoopStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  audioLoopNumberInput: { minWidth: 76, borderRadius: 14, backgroundColor: '#FFFFFF', color: '#241C16', fontSize: 18, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 9, textAlign: 'center' },
+  audioLoopNumberInput: { minHeight: 44, minWidth: 76, borderRadius: 14, backgroundColor: '#FFFFFF', color: '#241C16', fontSize: 18, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 9, textAlign: 'center' },
   audioLoopVolumeText: { minWidth: 64, color: '#241C16', fontSize: 16, fontWeight: '900', textAlign: 'center' },
   fileRow: { alignItems: 'center', backgroundColor: '#F6F1E8', borderRadius: 16, flexDirection: 'row', gap: 10, padding: 12 },
   fileIcon: { alignItems: 'center', backgroundColor: '#E4F1E8', borderRadius: 14, height: 42, justifyContent: 'center', width: 42 },

@@ -87,7 +87,19 @@ type PackageRegistryStore = Readonly<{
 type PackageRegistryOptions = {
   path?: string;
   now?: () => string;
+  bundledPackages?: readonly AppPackage[];
 };
+
+type PackageRegistryLoadRecovery = Readonly<{
+  id: string;
+  previousKey: string;
+  packageKey: string;
+  package: AppPackage;
+}>;
+
+type ParsedPackageRegistryStore = PackageRegistryStore & Readonly<{
+  recoveredPackages: readonly PackageRegistryLoadRecovery[];
+}>;
 
 const packageRegistryReceiptSchema = z.object({
   id: z.string().min(1),
@@ -147,10 +159,12 @@ export class PackageRegistry {
   private receipts: PackageRegistryReceipt[] = [];
   private readonly path?: string;
   private readonly now: () => string;
+  private readonly bundledPackages: readonly AppPackage[];
 
   constructor(options: PackageRegistryOptions = {}) {
     this.path = options.path;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.bundledPackages = options.bundledPackages ?? [];
     if (this.path) {
       this.load(this.path);
     }
@@ -329,14 +343,18 @@ export class PackageRegistry {
 
   private load(path: string): void {
     if (!existsSync(path)) return;
-    const parsed = parsePackageRegistryStore(readFileSync(path, 'utf8'));
+    const parsed = parsePackageRegistryStore(readFileSync(path, 'utf8'), this.bundledPackages);
     this.packages = new Map(Object.entries(parsed.packages));
     this.workspaces = new Map(Object.entries(parsed.workspaces ?? {}));
     this.installations = new Map(Object.entries(parsed.installations ?? {}));
     this.packageState = new Map(Object.entries(parsed.packageState ?? {}));
     this.receipts = [...parsed.receipts];
     this.migrateLegacySingleton(parsed.activeKey, parsed.previousKey);
+    this.recordBundledPackageRecoveries(parsed.recoveredPackages);
     this.refreshDefaultPackagePointers();
+    if (parsed.recoveredPackages.length > 0) {
+      this.persist();
+    }
   }
 
   private persist(): void {
@@ -434,6 +452,20 @@ export class PackageRegistry {
     this.active = state?.activePackageKey ? this.packages.get(state.activePackageKey) ?? null : null;
     this.previous = state?.previousPackageKey ? this.packages.get(state.previousPackageKey) ?? null : null;
   }
+
+  private recordBundledPackageRecoveries(recoveries: readonly PackageRegistryLoadRecovery[]): void {
+    if (recoveries.length < 1) return;
+    const now = this.now();
+    for (const recovery of recoveries) {
+      const activeStates = [...this.packageState.values()].filter((state) => state.activePackageKey === recovery.packageKey);
+      for (const state of activeStates) {
+        const workspaceId = this.installations.get(state.installationId)?.workspaceId ?? DEFAULT_WORKSPACE_ID;
+        this.receipts.push(this.receipt('activate', recovery.packageKey, recovery.previousKey, {
+          packageHash: hashValue(recovery.package),
+        }, workspaceId, state.installationId, now));
+      }
+    }
+  }
 }
 
 function packageKey(pkg: AppPackage): string {
@@ -476,7 +508,10 @@ function hashValue(value: unknown): string {
   return sha256Canonical(value);
 }
 
-function parsePackageRegistryStore(serialized: string): PackageRegistryStore {
+function parsePackageRegistryStore(
+  serialized: string,
+  bundledPackages: readonly AppPackage[] = [],
+): ParsedPackageRegistryStore {
   let value: unknown;
   try {
     value = JSON.parse(serialized);
@@ -487,28 +522,85 @@ function parsePackageRegistryStore(serialized: string): PackageRegistryStore {
   const row = packageRegistryStoreSchema.safeParse(value);
   if (!row.success) throw new Error('package_registry_schema_invalid');
   const packages: Record<string, AppPackage> = {};
+  const bundledPackagesById = new Map(bundledPackages.map((pkg) => [pkg.id, pkg]));
+  const keyReplacements = new Map<string, string>();
+  const recoveredPackages: PackageRegistryLoadRecovery[] = [];
   for (const [key, pkg] of Object.entries(row.data.packages)) {
-    const validation = validateAppPackage(pkg);
+    let validation = validateAppPackage(pkg);
+    if (!validation.valid) {
+      const replacement = replacementBundledPackage(pkg, bundledPackagesById);
+      if (replacement) {
+        validation = validateAppPackage(replacement);
+        if (validation.valid) {
+          const replacementKey = packageKey(validation.package);
+          keyReplacements.set(key, replacementKey);
+          recoveredPackages.push({
+            id: validation.package.id,
+            previousKey: key,
+            packageKey: replacementKey,
+            package: validation.package,
+          });
+        }
+      }
+    }
     if (!validation.valid) throw new Error(`package_registry_package_invalid:${key}:${validation.errors.join('|')}`);
-    if (packageKey(validation.package) !== key) throw new Error(`package_registry_package_key_mismatch:${key}`);
-    packages[key] = validation.package;
+    const validatedKey = packageKey(validation.package);
+    if (validatedKey !== key && keyReplacements.get(key) !== validatedKey) throw new Error(`package_registry_package_key_mismatch:${key}`);
+    packages[validatedKey] = validation.package;
   }
-  const activeKey = row.data.activeKey;
-  const previousKey = row.data.previousKey;
+  const activeKey = remapPackageKey(row.data.activeKey, keyReplacements);
+  const previousKey = remapPackageKey(row.data.previousKey, keyReplacements);
+  const packageState = remapPackageState(row.data.packageState, keyReplacements);
   if (activeKey && !packages[activeKey]) throw new Error(`package_registry_active_missing:${activeKey}`);
   if (previousKey && !packages[previousKey]) throw new Error(`package_registry_previous_missing:${previousKey}`);
+  for (const state of Object.values(packageState ?? {})) {
+    if (state.activePackageKey && !packages[state.activePackageKey]) throw new Error(`package_registry_active_missing:${state.activePackageKey}`);
+    if (state.previousPackageKey && !packages[state.previousPackageKey]) throw new Error(`package_registry_previous_missing:${state.previousPackageKey}`);
+  }
   return {
     schemaVersion: PACKAGE_REGISTRY_SCHEMA_VERSION,
     activeKey,
     previousKey,
     workspaces: row.data.workspaces,
     installations: row.data.installations,
-    packageState: row.data.packageState,
+    packageState,
     packages,
     receipts: row.data.receipts.map((receipt) => ({
       ...receipt,
       workspaceId: receipt.workspaceId ?? DEFAULT_WORKSPACE_ID,
       installationId: receipt.installationId ?? DEFAULT_APP_INSTALLATION_ID,
     })),
+    recoveredPackages,
   };
+}
+
+function replacementBundledPackage(
+  pkg: unknown,
+  bundledPackagesById: ReadonlyMap<string, AppPackage>,
+): AppPackage | null {
+  if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) return null;
+  const row = pkg as Partial<AppPackage>;
+  if (typeof row.id !== 'string' || typeof row.version !== 'string') return null;
+  const replacement = bundledPackagesById.get(row.id);
+  if (!replacement) return null;
+  const sourceSchemaVersion = row.presentation?.sourceSchemaVersion;
+  const isPriorBundledSource = row.version.includes('+bundle.') || sourceSchemaVersion === 'utopia.domain.v1';
+  return isPriorBundledSource ? replacement : null;
+}
+
+function remapPackageKey(key: string | null | undefined, replacements: ReadonlyMap<string, string>): string | null {
+  if (!key) return null;
+  return replacements.get(key) ?? key;
+}
+
+function remapPackageState(
+  state: Readonly<Record<string, InstallationPackageState>> | undefined,
+  replacements: ReadonlyMap<string, string>,
+): Readonly<Record<string, InstallationPackageState>> | undefined {
+  if (!state) return undefined;
+  return Object.fromEntries(Object.entries(state).map(([installationId, item]) => [installationId, {
+    ...item,
+    activePackageKey: remapPackageKey(item.activePackageKey, replacements),
+    previousPackageKey: remapPackageKey(item.previousPackageKey, replacements),
+  }]));
 }

@@ -67,6 +67,8 @@ describe('CI and release gate wiring', () => {
     expect(signedGate).toContain('android-release-build-receipt.json');
     expect(signedGate).toContain('check_android_release_artifacts_script_failed_without_payload');
     expect(signedArtifactsCheck).toContain('BUILD_RELEASE_ARTIFACTS=1 npm run release:proof:signed-android');
+    expect(signedArtifactsCheck).toContain('UTOPIA_RELEASE_BUNDLE=1');
+    expect(signedArtifactsCheck).toContain('WF_ANDROID_BUILD_COMMAND="UTOPIA_RELEASE_BUNDLE=1 android/gradlew :app:assembleRelease :app:bundleRelease"');
 
     expect(deviceGate).toContain('physical_device_evidence_missing');
     expect(deviceGate).toContain('validatePhysicalDeviceReleaseEvidence');

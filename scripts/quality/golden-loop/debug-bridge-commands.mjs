@@ -50,8 +50,10 @@ export function buildSharedHouseholdBoardDebugCommands({
   token,
   installationId,
   recordId = 'golden-loop-task-1',
+  referenceSyncEndpoint = undefined,
 }) {
   const artifacts = buildSharedHouseholdBoardWebPackageArtifacts({ root, sourceFixturePath });
+  const syncArgs = referenceSyncEndpoint ? { reference_sync_endpoint: referenceSyncEndpoint } : {};
   const commands = [
     buildGoldenLoopDebugCommand({
       token,
@@ -61,6 +63,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       args: {
         package_json: artifacts.v1.package,
         source_url: SHARED_HOUSEHOLD_BOARD_V1_URL,
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -71,6 +74,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       args: {
         record_id: recordId,
         field_values_hash: hashDebugCommand({ recordId, phase: 'write' }),
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -81,6 +85,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       args: {
         package_json: artifacts.v2.package,
         source_url: SHARED_HOUSEHOLD_BOARD_V2_URL,
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -90,6 +95,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       installationId,
       args: {
         backup_id: 'debug-before-reset',
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -97,12 +103,14 @@ export function buildSharedHouseholdBoardDebugCommands({
       command: 'package.rollback',
       operationId: 'debug-rollback',
       installationId,
+      args: syncArgs,
     }),
     buildGoldenLoopDebugCommand({
       token,
       command: 'transport.disconnect',
       operationId: 'debug-transport-disconnect',
       installationId,
+      args: syncArgs,
     }),
     buildGoldenLoopDebugCommand({
       token,
@@ -112,6 +120,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       args: {
         record_id: `${recordId}-offline`,
         field_values_hash: hashDebugCommand({ recordId, phase: 'offline' }),
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -119,6 +128,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       command: 'transport.reconnect',
       operationId: 'debug-transport-reconnect',
       installationId,
+      args: syncArgs,
     }),
     buildGoldenLoopDebugCommand({
       token,
@@ -128,6 +138,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       args: {
         capability: 'debug.local-sync',
         scope: ['golden-loop'],
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -138,6 +149,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       args: {
         capability: 'debug.local-sync',
         scope: ['golden-loop'],
+        ...syncArgs,
       },
     }),
     buildGoldenLoopDebugCommand({
@@ -145,6 +157,7 @@ export function buildSharedHouseholdBoardDebugCommands({
       command: 'state.checksum',
       operationId: 'debug-state-checksum',
       installationId,
+      args: syncArgs,
     }),
   ];
 

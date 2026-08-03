@@ -42,7 +42,7 @@ describe('widget native capability boundaries', () => {
 
   it('checks audio capability before creating the native player', () => {
     const source = readFileSync(resolve(root, 'src/presentation/json-render-widgets.tsx'), 'utf8');
-    expect(source).toContain("const playbackCapability = requestWidgetCapability(runtime, { kind: 'audio-file', action: 'choose' });");
+    expect(source).toMatch(/const playbackCapability = requestWidgetCapability\(runtime,\s*\{[\s\S]*kind:\s*'audio-file'[\s\S]*action:\s*'choose'[\s\S]*declaredPurpose:/);
     expect(source).toContain('if (!playbackCapability.ok) throw new Error(playbackCapability.error.message);');
   });
 });

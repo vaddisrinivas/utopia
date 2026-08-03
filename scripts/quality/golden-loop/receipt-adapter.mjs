@@ -120,6 +120,7 @@ export function validateLifecycleScenario(receipt, label, requiredScenarioId = R
  *   requiredScenarioId?: string;
  *   requireShellProof?: boolean;
  *   requiredSourceSurface?: string | null;
+ *   expectedGit?: ReturnType<typeof currentGit>;
  * }} options
  */
 export function validateReceipt({
@@ -132,6 +133,7 @@ export function validateReceipt({
   requiredScenarioId = REQUIRED_SCENARIO_ID,
   requireShellProof = false,
   requiredSourceSurface = null,
+  expectedGit = null,
 } = {}) {
   const normalizedRoot = root ?? process.cwd();
   const result = {
@@ -139,6 +141,7 @@ export function validateReceipt({
     exists: false,
     proof: null,
     status: null,
+    checked_at: null,
     pass: false,
     issues: [],
     checksum: null,
@@ -175,13 +178,19 @@ export function validateReceipt({
   }
 
   result.exists = true;
-  result.envelope = validateEvidenceEnvelope(normalizedRoot, path, receipt, currentGit(normalizedRoot));
+  result.envelope = validateEvidenceEnvelope(
+    normalizedRoot,
+    path,
+    receipt,
+    expectedGit ?? currentGit(normalizedRoot),
+  );
   if (!result.envelope.valid) {
     blockList.push(`invalid_envelope:${label}_receipt`);
     result.issues.push(...result.envelope.issues);
   }
 
   result.proof = typeof receipt.proof === 'string' ? receipt.proof : null;
+  result.checked_at = typeof receipt.checked_at === 'string' ? receipt.checked_at : null;
   result.status = receipt.status ?? (receipt.pass === true ? 'passed' : 'failed');
   result.pass = receipt.status === 'passed' || receipt.status === 'PASS' || receipt.pass === true;
   if (!result.pass) blockList.push(`receipt_not_passed:${label}`);

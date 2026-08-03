@@ -1,5 +1,3 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
 import { DATABASE_VERSION, RECOVERY_TABLES, type RecoveryExport } from '@/src/db/migrations';
 
@@ -7,6 +5,14 @@ const tableSet = new Set<string>(RECOVERY_TABLES);
 const MAX_RECOVERY_ROWS = 100_000;
 const MAX_RECOVERY_BYTES = 32 * 1024 * 1024;
 type BindValue = string | number | null | Uint8Array;
+
+export type RecoveryDatabase = {
+  execAsync(source: string): Promise<void>;
+  getFirstAsync<T>(source: string, ...params: any[]): Promise<T | null>;
+  getAllAsync<T>(source: string, ...params: any[]): Promise<T[]>;
+  runAsync(source: string, ...params: any[]): Promise<unknown>;
+  withTransactionAsync(task: () => Promise<void>): Promise<void>;
+};
 
 function assertSafeTable(name: string): asserts name is typeof RECOVERY_TABLES[number] {
   if (!tableSet.has(name)) {
@@ -22,12 +28,12 @@ function assertSafeColumn(column: string) {
 
 type PrismaColumns = Set<string>;
 
-async function getTableColumns(db: SQLiteDatabase, table: string): Promise<PrismaColumns> {
+async function getTableColumns(db: RecoveryDatabase, table: string): Promise<PrismaColumns> {
   const info = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
   return new Set(info.map((column) => column.name));
 }
 
-async function getRecoveryTableSchemas(db: SQLiteDatabase) {
+async function getRecoveryTableSchemas(db: RecoveryDatabase) {
   const entries = await Promise.all(
     RECOVERY_TABLES.map(async (table) => [table, await getTableColumns(db, table)] as const),
   );
@@ -50,7 +56,7 @@ function toBindValue(value: unknown): BindValue {
   return JSON.stringify(value);
 }
 
-export async function importRecoverySnapshot(db: SQLiteDatabase, snapshot: RecoveryExport): Promise<void> {
+export function validateRecoverySnapshot(snapshot: RecoveryExport): Map<string, Array<Record<string, unknown>>> {
   if (!snapshot || !Number.isInteger(snapshot.schema_version) || snapshot.schema_version < 1) {
     throw new Error('Invalid recovery snapshot schema');
   }
@@ -87,6 +93,11 @@ export async function importRecoverySnapshot(db: SQLiteDatabase, snapshot: Recov
   if (snapshot.manifest.snapshot_checksum !== sha256Canonical(payload)) {
     throw new Error('Recovery snapshot checksum mismatch');
   }
+  return rowsByTable;
+}
+
+export async function importRecoverySnapshot(db: RecoveryDatabase, snapshot: RecoveryExport): Promise<void> {
+  const rowsByTable = validateRecoverySnapshot(snapshot);
   const currentFkStateRow = await db.getFirstAsync<{ foreign_keys: number | string }>('PRAGMA foreign_keys');
   const restoreForeignKeys = (() => {
     if (currentFkStateRow == null) return true;

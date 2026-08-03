@@ -27,6 +27,8 @@ type RecurrenceStream = {
   id: string;
   kind: RecurrenceRuleSpec['kind'] | 'override';
   rule?: RRule;
+  nextLocal?: Date | null;
+  timezone?: string;
   next: Date | null;
   sourceRuleIds: string[];
   ruleKind?: RecurrenceRuleSpec['kind'];
@@ -202,11 +204,14 @@ export function recurrenceScheduleSummary(scheduleInput: unknown): RecurrenceSch
 function buildStreams(schedule: RecurrenceScheduleSpec, after: Date, overrides: NormalizedOverride[]): RecurrenceStream[] {
   const streams: RecurrenceStream[] = schedule.rules.map((rule) => {
     const ruleInstance = buildRule(schedule, rule);
+    const nextLocal = ruleInstance.after(toRRuleLocalDate(after, schedule.timezone), false);
     return {
       id: rule.id,
       kind: rule.kind,
       rule: ruleInstance,
-      next: ruleInstance.after(after, false),
+      nextLocal,
+      timezone: schedule.timezone,
+      next: nextLocal ? fromRRuleLocalDate(nextLocal, schedule.timezone) : null,
       sourceRuleIds: [rule.id],
       ruleKind: rule.kind,
     };
@@ -261,7 +266,10 @@ function advanceStreams(streams: RecurrenceStream[], date: Date): void {
   for (const stream of streams) {
     if (!stream.next || stream.next.getTime() !== instant) continue;
     if (stream.rule) {
-      stream.next = stream.rule.after(date, false);
+      stream.nextLocal = stream.nextLocal ? stream.rule.after(stream.nextLocal, false) : null;
+      stream.next = stream.nextLocal && stream.timezone
+        ? fromRRuleLocalDate(stream.nextLocal, stream.timezone)
+        : null;
     } else if (stream.kind === 'override') {
       stream.next = null;
     }
@@ -274,9 +282,12 @@ function hasAnyFutureCandidate(streams: RecurrenceStream[], overrides: Normalize
 }
 
 function buildRule(schedule: RecurrenceScheduleSpec, rule: RecurrenceRuleSpec): RRule {
+  const anchorInstant = parseInstant(schedule.anchor)!;
   const options = {
-    dtstart: parseInstant(schedule.anchor),
-    tzid: schedule.timezone,
+    // RRule with tzid expects UTC fields to carry the intended local wall time.
+    // Passing the real instant makes recurrence output depend on the host timezone.
+    dtstart: toRRuleLocalDate(anchorInstant, schedule.timezone),
+    tzid: null,
     interval: rule.every,
     wkst: null,
     count: null,
@@ -310,6 +321,47 @@ function buildRule(schedule: RecurrenceScheduleSpec, rule: RecurrenceRuleSpec): 
   }
 
   return new RRule(options);
+}
+
+function toRRuleLocalDate(date: Date, timezone: string): Date {
+  const { local } = formatLocalInstant(date, timezone);
+  return new Date(`${local}Z`);
+}
+
+function fromRRuleLocalDate(localDate: Date, timezone: string): Date {
+  const desiredWallTime = localDate.getTime();
+  const offsets = new Set<number>();
+  for (const deltaHours of [-36, 0, 36]) {
+    const sample = new Date(desiredWallTime + (deltaHours * 60 * 60 * 1000));
+    offsets.add(offsetToMilliseconds(formatLocalInstant(sample, timezone).offset));
+  }
+
+  const candidates = [...offsets].map((offset) => {
+    const instant = new Date(desiredWallTime - offset);
+    return {
+      instant,
+      wallTime: toRRuleLocalDate(instant, timezone).getTime(),
+    };
+  });
+  const exact = candidates
+    .filter((candidate) => candidate.wallTime === desiredWallTime)
+    .sort((left, right) => left.instant.getTime() - right.instant.getTime());
+  if (exact.length) return exact[0]!.instant;
+
+  // Compatible DST-gap behavior moves forward by the size of the gap.
+  const afterGap = candidates
+    .filter((candidate) => candidate.wallTime > desiredWallTime)
+    .sort((left, right) => left.wallTime - right.wallTime || left.instant.getTime() - right.instant.getTime());
+  if (afterGap.length) return afterGap[0]!.instant;
+
+  return candidates.sort((left, right) => right.wallTime - left.wallTime)[0]!.instant;
+}
+
+function offsetToMilliseconds(offset: string): number {
+  const match = /^(?<sign>[+-])(?<hours>\d{2}):(?<minutes>\d{2})$/.exec(offset);
+  if (!match?.groups) return 0;
+  const minutes = (Number(match.groups.hours) * 60) + Number(match.groups.minutes);
+  return (match.groups.sign === '-' ? -1 : 1) * minutes * 60 * 1000;
 }
 
 function validateRule(rule: RecurrenceRuleSpec): void {

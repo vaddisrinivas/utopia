@@ -40,6 +40,7 @@ import { useAppRuntime } from '@/src/domain/runtime-context';
 import { confirmLifecycleAction } from '@/src/presentation/lifecycle-confirmation';
 import { colors } from '@/src/theme';
 import { useUtopiaSettingsSnapshot } from '@/src/settings/utopia-settings';
+import { buildFeaturedAppLibraryEntries } from '@/src/domain/app-library-featured';
 
 export default function InstallScreen() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function InstallScreen() {
   const [installations, setInstallations] = useState<AppInstallation[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFullRegistry, setShowFullRegistry] = useState(false);
   const settings = useUtopiaSettingsSnapshot();
 
   const declaredDataHomes = useMemo(() => extractDeclaredDataHomeAdapterIds(candidate?.packageJson), [candidate?.packageJson]);
@@ -143,6 +145,7 @@ export default function InstallScreen() {
     setError(null);
     try {
       setRegistry(await fetchRegistryManifest(registryUrl, fetcher));
+      setShowFullRegistry(true);
       setCandidate(null);
       setSelectedPackage(null);
     } catch (registryError) {
@@ -295,6 +298,7 @@ export default function InstallScreen() {
   const activeInstallations = installations.filter((item) => item.status === 'active');
   const archivedInstallations = installations.filter((item) => item.status === 'archived');
   const disabledInstallations = installations.filter((item) => item.status === 'disabled');
+  const featuredApps = buildFeaturedAppLibraryEntries({ registry: bundledRegistry, installations });
   const updateTargets = preview?.packageId
     ? installations.filter((item) => item.status === 'active' && item.packageBinding?.packageId === preview.packageId && item.packageBinding?.version !== preview.version)
     : [];
@@ -303,8 +307,63 @@ export default function InstallScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>App Library</Text>
-        <Text style={styles.title}>Review apps and installs</Text>
-        <Text style={styles.subtitle}>Install from a link, inspect trust, and manage lifecycle actions without guesswork.</Text>
+        <Text style={styles.title}>Useful apps, ready to explore</Text>
+        <Text style={styles.subtitle}>Open the Food flagship or review a focused local app before installing it.</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Featured apps</Text>
+        <Text style={styles.muted}>Nine distinct product and capability demonstrations.</Text>
+        <View style={styles.featuredGrid}>
+          {featuredApps.map((item) => (
+            <View key={item.id} style={styles.featuredCard}>
+              <Text style={styles.featuredCapability}>{item.capability}</Text>
+              <Text style={styles.featuredName}>{item.name}</Text>
+              <Text style={styles.muted}>{item.description}</Text>
+              <Pressable
+                accessibilityLabel={`${item.action === 'open' ? 'Open' : item.action === 'review' ? 'Review' : 'Unavailable'} ${item.name}`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy || item.action === 'unavailable' }}
+                disabled={busy || item.action === 'unavailable'}
+                onPress={() => {
+                  if (item.id === 'food' && installationId) {
+                    router.push({
+                      pathname: '/apps/[installationId]',
+                      params: { installationId },
+                    });
+                    return;
+                  }
+                  if (item.route) {
+                    router.push(item.route);
+                    return;
+                  }
+                  if (item.installation) {
+                    router.push({
+                      pathname: '/apps/[installationId]',
+                      params: { installationId: item.installation.id },
+                    });
+                    return;
+                  }
+                  if (item.registryPackage) {
+                    setPackageUrl(item.registryPackage.url);
+                    void previewPackage(item.registryPackage.url, item.registryPackage);
+                  }
+                }}
+                style={[
+                  item.action === 'open' ? styles.primaryButton : styles.secondaryButton,
+                  item.action === 'unavailable' ? styles.disabled : null,
+                ]}
+              >
+                <Text style={item.action === 'open' ? styles.primaryText : styles.secondaryText}>
+                  {item.action === 'open' ? 'Open' : item.action === 'review' ? 'Review and install' : 'Unavailable'}
+                </Text>
+              </Pressable>
+              {item.action === 'unavailable' ? (
+                <Text style={styles.muted}>Not present in the current bundled registry.</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -363,7 +422,17 @@ export default function InstallScreen() {
           <Text style={styles.secondaryText}>Choose registry</Text>
         </Pressable>
         <Text style={styles.registryName}>{registry.name}</Text>
-        {registry.packages.map((item) => (
+        <Pressable
+          accessibilityLabel={showFullRegistry ? 'Hide complete app registry' : `Show all ${registry.packages.length} registry apps`}
+          accessibilityRole="button"
+          style={styles.secondaryButton}
+          onPress={() => setShowFullRegistry((current) => !current)}
+        >
+          <Text style={styles.secondaryText}>
+            {showFullRegistry ? 'Hide complete registry' : `Show all ${registry.packages.length} apps`}
+          </Text>
+        </Pressable>
+        {showFullRegistry ? registry.packages.map((item) => (
           <Pressable
             key={`${item.id}@${item.version}`}
             style={[styles.packageRow, selectedPackage?.id === item.id && selectedPackage.version === item.version ? styles.selectedRow : null]}
@@ -383,7 +452,7 @@ export default function InstallScreen() {
             </Text>
             {item.description ? <Text style={styles.muted}>{item.description}</Text> : null}
           </Pressable>
-        ))}
+        )) : null}
       </View>
 
       {installations.length ? (
@@ -679,7 +748,7 @@ function errorMessage(error: unknown): string {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  content: { gap: 16, padding: 18, paddingTop: 48 },
+  content: { gap: 16, padding: 18, paddingBottom: 100, paddingTop: 48 },
   header: { gap: 4 },
   eyebrow: { color: colors.moss, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   title: { color: colors.ink, fontSize: 28, fontWeight: '900' },
@@ -698,6 +767,10 @@ const styles = StyleSheet.create({
   dangerText: { color: colors.red, fontWeight: '900' },
   registryName: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   packageRow: { gap: 3, borderColor: colors.line, borderRadius: 8, borderWidth: 1, padding: 10 },
+  featuredGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  featuredCard: { flexBasis: 260, flexGrow: 1, gap: 8, borderColor: colors.line, borderRadius: 8, borderWidth: 1, padding: 12 },
+  featuredCapability: { color: colors.moss, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+  featuredName: { color: colors.ink, fontSize: 18, fontWeight: '900' },
   selectedRow: { borderColor: colors.moss, backgroundColor: colors.mossSoft },
   packageName: { color: colors.ink, fontWeight: '900' },
   packageMeta: { color: colors.muted, fontSize: 12 },

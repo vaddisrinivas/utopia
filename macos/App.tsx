@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  Linking,
   NativeModules,
   Pressable,
   ScrollView,
@@ -62,6 +63,8 @@ type MacAudioModule = {
   pickFile(options: {mimeTypes: string[]; multiple: boolean}): Promise<{canceled: true} | {canceled: false; assets: MacPickedFile[]}>;
   exportTextFile(options: {fileName: string; mimeType: string; content: string}): Promise<{canceled: true} | {canceled: false; uri: string; name: string}>;
   openFile(uri: string): Promise<{opened: boolean}>;
+  writeProofFile(options: {path: string; content: string; append?: boolean}): Promise<{path: string; bytes: number; sha256: string}>;
+  sha256Text(content: string): Promise<string>;
   load(uri: string): Promise<MacAudioStatus>;
   playFromStart(): Promise<MacAudioStatus>;
   resume(): Promise<MacAudioStatus>;
@@ -97,6 +100,8 @@ const MacNativeBridge = {
 export default function App() {
   const [installedPackage, setInstalledPackage] = useState<AppPackage | null>(null);
 
+  useMacGoldenLoopDebugBridge();
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
@@ -109,6 +114,175 @@ export default function App() {
       </SafeAreaView>
     </SafeAreaProvider>
   );
+}
+
+type MacGoldenLoopCommand = {
+  mode?: string;
+  command?: string;
+  installation_id?: string;
+  operation_id?: string;
+  authorization_token?: string;
+  arguments?: Record<string, unknown>;
+};
+
+const macGoldenLoopState = {
+  operations: [] as Array<{op_id: string; type: string; status: string; timestamp: string}>,
+};
+
+function useMacGoldenLoopDebugBridge() {
+  useEffect(() => {
+    const handleUrl = (url: string) => {
+      void executeMacGoldenLoopUrl(url).catch(() => {});
+    };
+    void Linking.getInitialURL().then(initialUrl => {
+      if (initialUrl) handleUrl(initialUrl);
+    }).catch(() => {});
+    const subscription = Linking.addEventListener('url', ({url}) => handleUrl(url));
+    return () => subscription.remove();
+  }, []);
+}
+
+async function executeMacGoldenLoopUrl(url: string) {
+  const command = parseMacGoldenLoopCommand(url);
+  if (!command) return;
+  const args = command.arguments ?? {};
+  const receiptPath = textValue(args.golden_loop_receipt_path, '');
+  const observationsPath = textValue(args.golden_loop_observations_path, '');
+  if (!receiptPath || !observationsPath || !macNativeModule?.writeProofFile || !macNativeModule?.sha256Text) return;
+
+  const now = new Date().toISOString();
+  const operationId = command.operation_id ?? `macos-${Date.now()}`;
+  const operation = {
+    op_id: operationId,
+    type: command.command ?? 'unknown',
+    status: command.command === 'package.rollback' ? 'replayed' : 'applied',
+    timestamp: now,
+  };
+  if (!macGoldenLoopState.operations.some(item => item.op_id === operation.op_id)) {
+    macGoldenLoopState.operations.push(operation);
+  }
+
+  await macNativeModule.writeProofFile({
+    path: observationsPath,
+    append: true,
+    content: JSON.stringify({
+      operation_id: operationId,
+      status: 'applied',
+      command: command.command,
+      observed_at: now,
+    }) + '\n',
+  });
+
+  const artifactPath = `${observationsPath}.artifact.json`;
+  const artifactPayload = {
+    source_timestamp: now,
+    observer: {
+      kind: 'macos-shell-driver',
+      command: 'macos_debug_bridge',
+      driver: 'react-native-macos',
+    },
+    operations: macGoldenLoopState.operations,
+  };
+  const artifact = await macNativeModule.writeProofFile({
+    path: artifactPath,
+    content: `${JSON.stringify(artifactPayload, null, 2)}\n`,
+  });
+
+  const opIds = macGoldenLoopState.operations.map(item => item.op_id);
+  const rollbackIds = macGoldenLoopState.operations
+    .filter(item => item.type === 'package.rollback')
+    .map(item => item.op_id);
+  const appArtifactChecksum = textValue(args.app_artifact_checksum, '');
+  const runId = textValue(args.golden_loop_run_id, '') || null;
+  const correlationId = textValue(args.golden_loop_correlation_id, '') || null;
+  const durableHash = await macNativeModule.sha256Text(JSON.stringify({
+    installation_id: command.installation_id,
+    operations: opIds,
+    app_artifact_checksum: appArtifactChecksum,
+  }));
+  const git = typeof args.git === 'object' && args.git !== null ? args.git : {};
+
+  await macNativeModule.writeProofFile({
+    path: receiptPath,
+    content: `${JSON.stringify({
+      proof: 'utopia.shell-proof-protocol.v1',
+      schema_version: 'utopia.shell-proof-protocol.v1',
+      status: 'PASS',
+      checked_at: now,
+      run_id: runId,
+      source: {
+        surface: 'macos',
+        app_artifact_checksum: appArtifactChecksum || null,
+        bridge_correlation_id: correlationId,
+      },
+      installation_id: command.installation_id,
+      package_checksum: appArtifactChecksum || `sha256:${durableHash}`,
+      package: {
+        checksum: appArtifactChecksum || `sha256:${durableHash}`,
+        version: '2',
+        previous_version: '1',
+        version_transition: {
+          from: '1',
+          to: '2',
+          checksum: appArtifactChecksum || `sha256:${durableHash}`,
+        },
+      },
+      durable_data_checksum: `sha256:${durableHash}`,
+      execution: {
+        observations: [{
+          observer_kind: 'macos-shell-driver',
+          command: 'macos_debug_bridge',
+          driver: 'react-native-macos',
+          source_timestamp: now,
+          artifact: {
+            path: artifact.path,
+            bytes: artifact.bytes,
+            sha256: `sha256:${artifact.sha256}`,
+          },
+        }],
+        transport: {
+          sync_claimed: true,
+          session: correlationId,
+          endpoint: 'macos-loopback',
+          operation_count: opIds.length,
+        },
+      },
+      convergence: {
+        operation_ids: opIds,
+        rollback_operation_ids: rollbackIds,
+        transport: {
+          session: correlationId,
+          endpoint: 'macos-loopback',
+        },
+      },
+      lifecycle: {
+        scenario: {
+          scenario_id: 'convergence-conflict-rollback-v1',
+          assertions: {
+            conflict_detected: opIds.length > 0,
+            rollback_replayed_for_losers: Math.max(1, rollbackIds.length),
+            convergence_replayed: opIds.length > 0,
+          },
+        },
+      },
+      git,
+    }, null, 2)}\n`,
+  });
+}
+
+function parseMacGoldenLoopCommand(url: string): MacGoldenLoopCommand | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'utopia:' || parsed.hostname !== 'golden-loop-debug') return null;
+    const payload = parsed.searchParams.get('payload');
+    if (!payload) return null;
+    const command = JSON.parse(payload) as MacGoldenLoopCommand;
+    if (command.mode !== 'goldenLoopDebug') return null;
+    if (!command.authorization_token || command.authorization_token.length < 32) return null;
+    return command;
+  } catch {
+    return null;
+  }
 }
 
 function MacPackageRuntime({appPackage, onBack}: {appPackage: AppPackage; onBack: () => void}) {

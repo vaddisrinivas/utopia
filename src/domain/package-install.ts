@@ -20,15 +20,17 @@ import bundledExpenseSplitterPackageJson from '@/apps/expense-splitter/expense-s
 import bundledSplitRentPackageJson from '@/apps/split-rent/split-rent.v1.json';
 import bundledWorkoutLoggerPackageJson from '@/apps/workout-logger/workout-logger.v1.json';
 import bundledFocusIntervalsPackageJson from '@/apps/focus-intervals/focus-intervals.v1.json';
+import { getBundledProductionPackages } from './bundled-production-packages';
 
-export const BUNDLED_UTOPIA_REGISTRY_URL = 'https://wonder.app/registry/bundled.json';
-export const BUNDLED_DEMO_PACKAGE_URL = 'https://wonder.app/bundled/scientific-calculator.package.json';
-export const BUNDLED_AUDIO_LOOP_PACKAGE_URL = 'https://wonder.app/bundled/audio-loop-108.package.json';
-export const BUNDLED_HABIT_GRID_PACKAGE_URL = 'https://wonder.app/bundled/habit-grid.package.json';
-export const BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL = 'https://wonder.app/bundled/expense-splitter.package.json';
-export const BUNDLED_SPLIT_RENT_PACKAGE_URL = 'https://wonder.app/bundled/split-rent.package.json';
-export const BUNDLED_WORKOUT_LOGGER_PACKAGE_URL = 'https://wonder.app/bundled/workout-logger.package.json';
-export const BUNDLED_FOCUS_INTERVALS_PACKAGE_URL = 'https://wonder.app/bundled/focus-intervals.package.json';
+const BUNDLED_PACKAGE_ORIGIN = 'https://bundled.utopia.invalid';
+export const BUNDLED_UTOPIA_REGISTRY_URL = `${BUNDLED_PACKAGE_ORIGIN}/registry.json`;
+export const BUNDLED_DEMO_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/scientific-calculator.package.json`;
+export const BUNDLED_AUDIO_LOOP_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/audio-loop-108.package.json`;
+export const BUNDLED_HABIT_GRID_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/habit-grid.package.json`;
+export const BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/expense-splitter.package.json`;
+export const BUNDLED_SPLIT_RENT_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/split-rent.package.json`;
+export const BUNDLED_WORKOUT_LOGGER_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/workout-logger.package.json`;
+export const BUNDLED_FOCUS_INTERVALS_PACKAGE_URL = `${BUNDLED_PACKAGE_ORIGIN}/focus-intervals.package.json`;
 export const PACKAGE_INSTALL_FETCH_TIMEOUT_MS = 10_000;
 export const PACKAGE_INSTALL_MAX_BODY_BYTES = 1024 * 1024;
 
@@ -388,44 +390,96 @@ export function getBundledFocusIntervalsPackage(): unknown {
   return bundledFocusIntervalsPackageJson;
 }
 
-function getBundledPackages(): Array<{ packageJson: { id: string; version: string; presentation?: { label?: string } }; url: string; description: string }> {
-  return [
+type BundledPackage = {
+  packageJson: { id?: string; version?: string; presentation?: { label?: string } };
+  registryId: string;
+  registryVersion: string;
+  url: string;
+  description: string;
+};
+
+function bundledPackageVersion(packageJson: BundledPackage['packageJson'], fallback = '1.0.0'): string {
+  return typeof packageJson.version === 'string' && packageJson.version.trim()
+    ? packageJson.version
+    : fallback;
+}
+
+function getBundledPackages(): BundledPackage[] {
+  const scientificCalculatorPackage = getBundledDemoPackage() as BundledPackage['packageJson'];
+  const audioLoopPackage = getBundledAudioLoopPackage() as BundledPackage['packageJson'];
+  const habitGridPackage = getBundledHabitGridPackage() as BundledPackage['packageJson'];
+  const expenseSplitterPackage = getBundledExpenseSplitterPackage() as BundledPackage['packageJson'];
+  const splitRentPackage = getBundledSplitRentPackage() as BundledPackage['packageJson'];
+  const workoutLoggerPackage = getBundledWorkoutLoggerPackage() as BundledPackage['packageJson'];
+  const focusIntervalsPackage = getBundledFocusIntervalsPackage() as BundledPackage['packageJson'];
+  const specialPackages: BundledPackage[] = [
     {
-      packageJson: getBundledDemoPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: scientificCalculatorPackage,
+      registryId: 'scientific-calculator',
+      registryVersion: bundledPackageVersion(scientificCalculatorPackage),
       url: BUNDLED_DEMO_PACKAGE_URL,
       description: 'Local bundled calculator app.',
     },
     {
-      packageJson: getBundledAudioLoopPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: audioLoopPackage,
+      registryId: 'audio-loop-108',
+      registryVersion: bundledPackageVersion(audioLoopPackage),
       url: BUNDLED_AUDIO_LOOP_PACKAGE_URL,
       description: 'Local bundled audio loop app.',
     },
     {
-      packageJson: getBundledHabitGridPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: habitGridPackage,
+      registryId: 'habit-grid',
+      registryVersion: bundledPackageVersion(habitGridPackage),
       url: BUNDLED_HABIT_GRID_PACKAGE_URL,
       description: 'Local bundled habit grid app.',
     },
     {
-      packageJson: getBundledExpenseSplitterPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: expenseSplitterPackage,
+      registryId: 'expense-splitter',
+      registryVersion: bundledPackageVersion(expenseSplitterPackage),
       url: BUNDLED_EXPENSE_SPLITTER_PACKAGE_URL,
       description: 'Local bundled expense splitter app.',
     },
     {
-      packageJson: getBundledSplitRentPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: splitRentPackage,
+      registryId: 'split-rent',
+      registryVersion: bundledPackageVersion(splitRentPackage),
       url: BUNDLED_SPLIT_RENT_PACKAGE_URL,
       description: 'Local bundled weighted rent allocation app.',
     },
     {
-      packageJson: getBundledWorkoutLoggerPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: workoutLoggerPackage,
+      registryId: 'workout-logger',
+      registryVersion: bundledPackageVersion(workoutLoggerPackage),
       url: BUNDLED_WORKOUT_LOGGER_PACKAGE_URL,
       description: 'Local bundled persisted workout flow app.',
     },
     {
-      packageJson: getBundledFocusIntervalsPackage() as { id: string; version: string; presentation?: { label?: string } },
+      packageJson: focusIntervalsPackage,
+      registryId: 'focus-intervals',
+      registryVersion: bundledPackageVersion(focusIntervalsPackage),
       url: BUNDLED_FOCUS_INTERVALS_PACKAGE_URL,
       description: 'Local bundled focus interval flow app.',
     },
   ];
+  const allPackages = [
+    ...specialPackages,
+    ...getBundledProductionPackages().map((productionPackage) => ({
+      packageJson: productionPackage.packageJson as BundledPackage['packageJson'],
+      registryId: productionPackage.portfolioId,
+      registryVersion: typeof productionPackage.packageJson.version === 'string'
+        ? productionPackage.packageJson.version
+        : '1.0.0',
+      url: `${BUNDLED_PACKAGE_ORIGIN}/${productionPackage.portfolioId}.package.json`,
+      description: productionPackage.description,
+    })),
+  ];
+  const unique = new Map<string, BundledPackage>();
+  for (const item of allPackages) {
+    if (!unique.has(item.registryId)) unique.set(item.registryId, item);
+  }
+  return [...unique.values()];
 }
 
 export async function buildPackageInstallPreviewWithSignatureVerification(
@@ -536,9 +590,9 @@ export function getBundledRegistryManifest(): UtopiaRegistryManifest {
     schemaVersion: 'utopia.registry.v1',
     name: 'Bundled apps',
     packages: getBundledPackages().map((bundledPackage) => ({
-      id: bundledPackage.packageJson.id,
-      name: bundledPackage.packageJson.presentation?.label ?? bundledPackage.packageJson.id,
-      version: bundledPackage.packageJson.version,
+      id: bundledPackage.registryId,
+      name: bundledPackage.packageJson.presentation?.label ?? bundledPackage.registryId,
+      version: bundledPackage.registryVersion,
       url: bundledPackage.url,
       checksum: sha256Canonical(bundledPackage.packageJson),
       description: bundledPackage.description,

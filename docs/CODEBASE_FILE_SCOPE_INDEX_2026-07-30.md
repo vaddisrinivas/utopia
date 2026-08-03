@@ -2,7 +2,10 @@
 
 Generated: 2026-07-30
 Commit: `0b340b1`
-Coverage: 1228 tracked files; original index plus 51 post-`bf0efff` additions.
+Documentation refreshed: 2026-07-31
+Coverage after this refresh: 1228 tracked files; original index, 51
+post-`bf0efff` additions, the archived historical audit, and removal of one
+private workspace setup script.
 
 This is the exhaustive scope ledger supporting `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md`. It assigns every tracked file an ownership role and next-review scope. It is not a claim that every line has equal risk. Manual findings in the companion report take precedence over these mechanical classifications.
 
@@ -463,7 +466,6 @@ This is the exhaustive scope ledger supporting `docs/CODEBASE_DEEP_REVIEW_2026-0
 | `scripts/quality/android-harness.sh` | 56 | Quality/proof gate | Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
 | `scripts/quality/android/golden-loop-android-plan.mjs` | 175 | Quality/proof gate | Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
 | `scripts/quality/android/run-golden-loop-android-lane.mjs` | 1193 | Quality/proof gate | Rewrite boundary candidate: Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
-| `scripts/quality/apply-utopia-notion-home.py` | 467 | Quality/proof gate | Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
 | `scripts/quality/apply-utopia-product-surface.py` | 694 | Quality/proof gate | Split/review hotspot: Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
 | `scripts/quality/check-accessibility-smoke.mjs` | 243 | Quality/proof gate | Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
 | `scripts/quality/check-adversarial-app-matrix.mjs` | 122 | Quality/proof gate | Reject synthetic evidence; pin tools; fail on warnings and stale artifacts. |
@@ -1199,8 +1201,9 @@ still covers the current commit.
 | `.github/workflows/golden-loop-macos.yml` | 57 | GitHub workflow | Keep permissions narrow; require real evidence and preserve fail-closed blockers. |
 | `.github/workflows/golden-loop-web.yml` | 54 | GitHub workflow | Keep permissions narrow; require real evidence and preserve fail-closed blockers. |
 | `adapters/core-crypto.ts` | 27 | Shell adapter | Own concrete runtime dependencies behind Core ports. |
-| `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md` | 1424 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
-| `docs/CODEBASE_FILE_SCOPE_INDEX_2026-07-30.md` | 1247 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
+| `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md` | 135 | Documentation | Keep only current findings, statuses, evidence, and release-profile blockers. |
+| `docs/CODEBASE_FILE_SCOPE_INDEX_2026-07-30.md` | 1250 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
+| `docs/archive/CODEBASE_DEEP_REVIEW_BASELINE_BF0EFFF_2026-07-30.md` | 1429 | Documentation archive | Preserve historical findings for provenance; never present them as current without reconfirmation. |
 | `docs/chat-control-decomposition.md` | 25 | Documentation | Keep claims tied to current artifacts; distinguish local readiness from external proof. |
 | `schemas/utopia-spectral-rules.json` | 8 | Schema authority | Validate through canonical JSON Schema and keep generated consumers aligned. |
 | `scripts/factory/run-creator-proof-harness.ts` | 216 | Quality/factory tooling | Use observed artifacts; never convert blocked, synthetic, or stale evidence into PASS. |

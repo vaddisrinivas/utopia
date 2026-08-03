@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { currentGit } from '../evidence-provenance.mjs';
 import {
@@ -14,9 +14,12 @@ import {
 import { SHELL_PROOF_SCHEMA_VERSION, validateShellProofReceipt } from './shell-proof-protocol.mjs';
 
 const root = process.cwd();
-const outDir = join(root, 'app', 'build', 'evidence', 'golden-loop', 'virtual-lab');
+const defaultOutDir = join(root, 'app', 'build', 'evidence', 'golden-loop', 'virtual-lab');
 const outPath = process.env.UTOPIA_GOLDEN_LOOP_VIRTUAL_LAB_PATH
-  || join(outDir, 'virtual-lab-proof.json');
+  || join(defaultOutDir, 'virtual-lab-proof.json');
+const outDir = process.env.UTOPIA_GOLDEN_LOOP_VIRTUAL_LAB_PATH
+  ? dirname(outPath)
+  : defaultOutDir;
 const fixturePath = join(root, 'tests', 'fixtures', 'golden-loop', 'shared-household-board.source.json');
 
 export const VIRTUAL_LAB_PROOF_ID = 'utopia_golden_loop_virtual_lab';
@@ -155,13 +158,13 @@ function makeConvergence(checkedAt) {
   };
 }
 
-function makeReceipt({ surface, label, installationId }, checkedAt, checksum, observation, convergence, synthetic = true) {
+function makeReceipt({ surface, label, installationId }, checkedAt, checksum, observation, convergence, git, synthetic = true) {
   return {
     proof: 'utopia_virtual_surface_execution_receipt',
     schema_version: SHELL_PROOF_SCHEMA_VERSION,
     checked_at: checkedAt,
     status: 'passed',
-    git: currentGit(root),
+    git,
     source: {
       surface,
       installation_id: installationId,
@@ -217,7 +220,7 @@ function makeReceipt({ surface, label, installationId }, checkedAt, checksum, ob
   };
 }
 
-function validateVirtualStructure(receipt, receiptPath, surface) {
+function validateVirtualStructure(receipt, receiptPath, surface, expectedGit) {
   const strictCandidate = {
     ...receipt,
     synthetic_plan_is_not_device_proof: false,
@@ -227,6 +230,7 @@ function validateVirtualStructure(receipt, receiptPath, surface) {
     label: receipt.source?.surface || surface,
     path: receiptPath,
     requiredSourceSurface: surface,
+    expectedGit,
   });
   return {
     pass: result.pass,
@@ -271,6 +275,7 @@ function main() {
   const commandArtifacts = [];
   const cleanSnapshot = runCleanSnapshotCandidate();
   if (cleanSnapshot.status !== 'CANDIDATE_PASS') blockers.push('clean_snapshot_candidate_failed');
+  const proofGit = currentGit(root);
 
   for (const surface of surfaces) {
     const commands = buildCommandFixture(surface, checkedAt, checksum, token);
@@ -299,9 +304,9 @@ function main() {
       makeConvergence(checkedAt),
     );
     const receiptPath = join(outDir, `${surface.label}-virtual-receipt.json`);
-    const receipt = makeReceipt(surface, checkedAt, checksum, observation, convergence, true);
+    const receipt = makeReceipt(surface, checkedAt, checksum, observation, convergence, proofGit, true);
     writeJson(receiptPath, receipt);
-    const structure = validateVirtualStructure(receipt, receiptPath, surface.surface);
+    const structure = validateVirtualStructure(receipt, receiptPath, surface.surface, proofGit);
     if (!structure.pass) blockers.push(...structure.blockers.map((blocker) => `${surface.label}:${blocker}`));
     surfaceReceipts.push({
       label: surface.label,
@@ -321,7 +326,7 @@ function main() {
     proof: VIRTUAL_LAB_PROOF_ID,
     checked_at: checkedAt,
     status,
-    git: currentGit(root),
+    git: proofGit,
     blockers,
     app: {
       id: 'shared-household-board',

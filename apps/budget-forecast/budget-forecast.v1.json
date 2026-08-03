@@ -1,0 +1,1542 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "budget-forecast",
+  "version": "1.0.0",
+  "collections": {
+    "budget_line": {
+      "id": "budget_line",
+      "fields": {
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "period": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "category": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "planned": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "actual": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    }
+  },
+  "computedFields": [
+    {
+      "id": "variance",
+      "collection": "budget_line",
+      "dependsOn": [],
+      "expression": {
+        "-": [
+          {
+            "var": "record.actual"
+          },
+          {
+            "var": "record.planned"
+          }
+        ]
+      }
+    },
+    {
+      "id": "remaining",
+      "collection": "budget_line",
+      "dependsOn": [],
+      "expression": {
+        "-": [
+          {
+            "var": "record.planned"
+          },
+          {
+            "var": "record.actual"
+          }
+        ]
+      }
+    }
+  ],
+  "queries": {
+    "lines": {
+      "from": "budget_line",
+      "orderBy": [
+        {
+          "field": "period",
+          "direction": "desc"
+        },
+        {
+          "field": "category",
+          "direction": "asc"
+        }
+      ],
+      "limit": 200
+    }
+  },
+  "views": {
+    "home": {
+      "id": "home",
+      "query": "lines",
+      "mode": "table",
+      "fields": [
+        "title",
+        "period",
+        "category",
+        "planned",
+        "actual",
+        "variance",
+        "remaining"
+      ],
+      "layout": {
+        "size": "feature",
+        "tone": "moss"
+      }
+    },
+    "transactions": {
+      "id": "transactions",
+      "query": "lines",
+      "mode": "table",
+      "fields": [
+        "title",
+        "period",
+        "category",
+        "planned",
+        "actual",
+        "variance",
+        "remaining"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "moss"
+      }
+    },
+    "forecast": {
+      "id": "forecast",
+      "query": "lines",
+      "mode": "chart",
+      "fields": [
+        "period",
+        "planned",
+        "actual",
+        "remaining"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "blue"
+      }
+    },
+    "comparison": {
+      "id": "comparison",
+      "query": "lines",
+      "mode": "table",
+      "fields": [
+        "category",
+        "planned",
+        "actual",
+        "variance",
+        "remaining"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "amber"
+      }
+    },
+    "settings": {
+      "id": "settings",
+      "query": "lines",
+      "mode": "list",
+      "fields": [
+        "title",
+        "period",
+        "notes"
+      ],
+      "layout": {
+        "size": "standard",
+        "tone": "neutral"
+      }
+    }
+  },
+  "rules": [],
+  "capabilities": [
+    "records.read",
+    "records.write",
+    "offline.local"
+  ],
+  "acceptanceTests": [
+    "planned-and-actual-inputs-are-required",
+    "variance-is-actual-minus-planned",
+    "remaining-is-planned-minus-actual",
+    "running-balance",
+    "planned-actual-variance",
+    "recurring-month"
+  ],
+  "presentation": {
+    "label": "Budget Forecast",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Runway",
+        "icon": "line-chart",
+        "collections": [
+          "budget_line"
+        ],
+        "views": [
+          "home"
+        ]
+      },
+      {
+        "id": "transactions",
+        "label": "Records",
+        "icon": "list-plus",
+        "collections": [
+          "budget_line"
+        ],
+        "views": [
+          "transactions"
+        ]
+      },
+      {
+        "id": "forecast",
+        "label": "Forecast",
+        "icon": "calendar-range",
+        "collections": [
+          "budget_line"
+        ],
+        "views": [
+          "forecast"
+        ]
+      },
+      {
+        "id": "comparison",
+        "label": "Compare",
+        "icon": "bar-chart-3",
+        "collections": [
+          "budget_line"
+        ],
+        "views": [
+          "comparison"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Control",
+        "icon": "shield-check",
+        "collections": [
+          "budget_line"
+        ],
+        "views": [
+          "settings"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "identity": "A serious cash runway desk: future balance risk first, record entry close, comparison analytical but quiet.",
+      "firstViewportWorkflow": "Open the app, see the runway, then add or correct the next income/expense/recurring line.",
+      "tone": "moss",
+      "accent": "#2F7D50",
+      "accentAlt": "#7B61FF",
+      "canvas": "#F5F7F1",
+      "audience": "personal budget planners who need cash-flow forecast, not a generic expense list",
+      "accessibility": {
+        "minimumTargetSize": 44,
+        "visibleRequiredFields": true,
+        "nonColorStatus": true,
+        "responsiveTables": true
+      }
+    },
+    "render": {
+      "schemaVersion": "utopia.gold-render-contract.v1",
+      "authoredPass": "gpt55-gold-wave2c-001",
+      "firstViewportWorkflow": "Open the app, see the runway, then add or correct the next income/expense/recurring line.",
+      "responsiveTargets": [
+        "phone",
+        "desktop"
+      ],
+      "referenceScreenshots": [
+        "store-01",
+        "store-02",
+        "store-03",
+        "store-04"
+      ]
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "localization": {
+        "defaultLocale": "en-US",
+        "fallbackLocale": "en-US",
+        "messages": {
+          "en-US": {
+            "app.title": "Budget Forecast"
+          }
+        }
+      },
+      "navigation": {
+        "items": [
+          {
+            "screen": "home",
+            "label": "Runway",
+            "icon": "line-chart"
+          },
+          {
+            "screen": "transactions",
+            "label": "Lines",
+            "icon": "list-plus"
+          },
+          {
+            "screen": "forecast",
+            "label": "Forecast",
+            "icon": "calendar-range"
+          },
+          {
+            "screen": "comparison",
+            "label": "Compare",
+            "icon": "bar-chart-3"
+          },
+          {
+            "screen": "settings",
+            "label": "Control",
+            "icon": "shield-check"
+          }
+        ]
+      },
+      "screens": {
+        "home": {
+          "title": "Balance Runway",
+          "subtitle": "Opening state, forecast delta, and next records visible immediately.",
+          "shell": {
+            "layoutMode": "cashRunwayDashboard",
+            "appBarTitle": "Budget Forecast",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "home",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Runway"
+              },
+              {
+                "id": "transactions",
+                "screen": "transactions",
+                "label": "Lines"
+              },
+              {
+                "id": "forecast",
+                "screen": "forecast",
+                "label": "Forecast"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Control"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F7F1",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0E2",
+              "ink": "#17231A",
+              "muted": "#687360",
+              "accent": "#2F7D50",
+              "accentContrast": "#FFFFFF",
+              "border": "#CCDCC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5EEFF",
+              "statusSuccess": "#DFF4E7",
+              "statusWarning": "#FFF2C6",
+              "statusError": "#FDE1E1",
+              "focusRing": "#7B61FF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "budget-forecast-home-screen-title",
+              "kind": "text",
+              "title": "Balance Runway",
+              "subtitle": "Opening state, forecast delta, and next records visible immediately.",
+              "tone": "neutral"
+            },
+            {
+              "id": "forecast-runway-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Next balance forecast",
+              "subtitle": "Plan today, secure tomorrow.",
+              "tone": "moss",
+              "props": {
+                "title": "Forecast is local and editable",
+                "subtitle": "Planned minus actual shows the current variance.",
+                "badge": "runway",
+                "stats": [
+                  {
+                    "label": "tracked periods",
+                    "value": "monthly"
+                  },
+                  {
+                    "label": "variance",
+                    "value": "variance"
+                  },
+                  {
+                    "label": "mode",
+                    "value": "offline"
+                  }
+                ],
+                "actions": [
+                  {
+                    "id": "add-line",
+                    "label": "Add record",
+                    "route": "/apps/budget-forecast?screen=transactions"
+                  },
+                  {
+                    "id": "review-risk",
+                    "label": "Review variance",
+                    "route": "/apps/budget-forecast?screen=comparison"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-remaining-total",
+              "kind": "metric",
+              "title": "Remaining total",
+              "subtitle": "Aggregate of planned minus actual.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "remaining"
+              },
+              "props": {
+                "emptyText": "Add planned and actual lines."
+              }
+            },
+            {
+              "id": "forecast-cashflow-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Forecast by period",
+              "subtitle": "Trend planned, actual, and remaining values together.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "chartType": "bar",
+                "xField": "period",
+                "yField": "remaining",
+                "emptyText": "Forecast chart appears after records."
+              }
+            },
+            {
+              "id": "forecast-next-lines",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Next records",
+              "subtitle": "Recently planned income, expense, transfer, and recurring lines.",
+              "tone": "neutral",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 8
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Line"
+                  },
+                  {
+                    "key": "period",
+                    "label": "Period"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Category"
+                  },
+                  {
+                    "key": "planned",
+                    "label": "Planned"
+                  },
+                  {
+                    "key": "actual",
+                    "label": "Actual"
+                  },
+                  {
+                    "key": "variance",
+                    "label": "Variance"
+                  },
+                  {
+                    "key": "remaining",
+                    "label": "Remaining"
+                  }
+                ],
+                "emptyText": "No forecast lines yet."
+              }
+            },
+            {
+              "id": "forecast-empty-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Empty state",
+              "subtitle": "The first action is adding one income, expense, transfer, or recurring budget line.",
+              "tone": "neutral",
+              "props": {
+                "title": "No records yet",
+                "badge": "empty",
+                "items": [
+                  {
+                    "id": "forecast-empty-state-focus",
+                    "title": "No records yet",
+                    "status": "empty",
+                    "detail": "The first action is adding one income, expense, transfer, or recurring budget line."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-populated-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Populated state",
+              "subtitle": "Totals, chart, and next-line table all read from local budget_line rows.",
+              "tone": "moss",
+              "props": {
+                "title": "Runway populated",
+                "badge": "populated",
+                "items": [
+                  {
+                    "id": "forecast-populated-state-focus",
+                    "title": "Runway populated",
+                    "status": "populated",
+                    "detail": "Totals, chart, and next-line table all read from local budget_line rows."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "transactions": {
+          "title": "Records",
+          "subtitle": "Create and edit income, expense, transfer, and recurring lines.",
+          "shell": {
+            "layoutMode": "budgetLineEditor",
+            "appBarTitle": "Budget Forecast",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "transactions",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Runway"
+              },
+              {
+                "id": "transactions",
+                "screen": "transactions",
+                "label": "Lines"
+              },
+              {
+                "id": "forecast",
+                "screen": "forecast",
+                "label": "Forecast"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Control"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F7F1",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0E2",
+              "ink": "#17231A",
+              "muted": "#687360",
+              "accent": "#2F7D50",
+              "accentContrast": "#FFFFFF",
+              "border": "#CCDCC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5EEFF",
+              "statusSuccess": "#DFF4E7",
+              "statusWarning": "#FFF2C6",
+              "statusError": "#FDE1E1",
+              "focusRing": "#7B61FF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "budget-forecast-transactions-screen-title",
+              "kind": "text",
+              "title": "Records",
+              "subtitle": "Create and edit income, expense, transfer, and recurring lines.",
+              "tone": "neutral"
+            },
+            {
+              "id": "forecast-line-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Budget line editor",
+              "subtitle": "Fast local entry with required planned and actual amounts.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "collection": "budget_line",
+                "positionField": "position",
+                "placeholder": "Salary, rent, subscription, transfer",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "emptyText": "Add the first income or expense line.",
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "confirmation": {
+                    "required": false,
+                    "message": "Save this local change?"
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "title",
+                      "period",
+                      "category",
+                      "planned",
+                      "actual"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true,
+                    "labels": {
+                      "pending": "Saving locally",
+                      "saved": "Saved locally",
+                      "error": "Needs attention",
+                      "queued": "Queued offline",
+                      "undone": "Undo applied",
+                      "cancelled": "Cancelled"
+                    }
+                  }
+                },
+                "metadataFields": [
+                  {
+                    "field": "period",
+                    "label": "Period",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "category",
+                    "label": "Category",
+                    "type": "select",
+                    "required": true,
+                    "options": [
+                      "Income",
+                      "Housing",
+                      "Food",
+                      "Transport",
+                      "Transfer",
+                      "Subscription",
+                      "Savings"
+                    ],
+                    "filterable": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "planned",
+                    "label": "Planned",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "actual",
+                    "label": "Actual",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "cadence",
+                    "label": "Cadence",
+                    "type": "select",
+                    "options": [
+                      "one-time",
+                      "weekly",
+                      "monthly",
+                      "quarterly",
+                      "yearly"
+                    ],
+                    "filterable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "Salary",
+                    "values": {
+                      "period": "2026-08",
+                      "category": "Income",
+                      "planned": 2500,
+                      "actual": 2500,
+                      "cadence": "monthly"
+                    }
+                  },
+                  {
+                    "title": "Rent",
+                    "values": {
+                      "period": "2026-08",
+                      "category": "Housing",
+                      "planned": 1400,
+                      "actual": 1400,
+                      "cadence": "monthly"
+                    }
+                  },
+                  {
+                    "title": "Groceries",
+                    "values": {
+                      "period": "2026-08",
+                      "category": "Food",
+                      "planned": 650,
+                      "actual": 0,
+                      "cadence": "weekly"
+                    }
+                  }
+                ],
+                "filterFields": [
+                  "period",
+                  "category",
+                  "cadence"
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  {
+                    "kind": "field",
+                    "field": "period",
+                    "label": "Period",
+                    "direction": "desc"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-ledger-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Ledger with variance",
+              "subtitle": "The table shows row-level balance details.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Line"
+                  },
+                  {
+                    "key": "period",
+                    "label": "Period"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Category"
+                  },
+                  {
+                    "key": "planned",
+                    "label": "Planned"
+                  },
+                  {
+                    "key": "actual",
+                    "label": "Actual"
+                  },
+                  {
+                    "key": "variance",
+                    "label": "Variance"
+                  },
+                  {
+                    "key": "remaining",
+                    "label": "Remaining"
+                  }
+                ],
+                "emptyText": "Create a line to see planned, actual, variance, and remaining."
+              }
+            },
+            {
+              "id": "forecast-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Record history",
+              "subtitle": "Audit create, edit, restore, and recovery events.",
+              "tone": "neutral",
+              "props": {
+                "collection": "budget_line",
+                "limit": 40,
+                "emptyText": "Line edits appear here."
+              }
+            },
+            {
+              "id": "forecast-editing-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Editing state",
+              "subtitle": "Required fields and local drafts prevent silent partial records.",
+              "tone": "moss",
+              "props": {
+                "title": "Editing protects the forecast",
+                "badge": "editing",
+                "items": [
+                  {
+                    "id": "forecast-editing-state-focus",
+                    "title": "Editing protects the forecast",
+                    "status": "editing",
+                    "detail": "Required fields and local drafts prevent silent partial records."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-error-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Error state",
+              "subtitle": "Missing period/category/planned/actual values are shown inline and announced.",
+              "tone": "amber",
+              "props": {
+                "title": "Fix the line before saving",
+                "badge": "error",
+                "items": [
+                  {
+                    "id": "forecast-error-state-focus",
+                    "title": "Fix the line before saving",
+                    "status": "error",
+                    "detail": "Missing period/category/planned/actual values are shown inline and announced."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "forecast": {
+          "title": "Future Forecast",
+          "subtitle": "Planned cash-flow view with recurring cadence visible.",
+          "shell": {
+            "layoutMode": "budgetForecastPlanner",
+            "appBarTitle": "Budget Forecast",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "forecast",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Runway"
+              },
+              {
+                "id": "transactions",
+                "screen": "transactions",
+                "label": "Lines"
+              },
+              {
+                "id": "forecast",
+                "screen": "forecast",
+                "label": "Forecast"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Control"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F7F1",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0E2",
+              "ink": "#17231A",
+              "muted": "#687360",
+              "accent": "#2F7D50",
+              "accentContrast": "#FFFFFF",
+              "border": "#CCDCC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5EEFF",
+              "statusSuccess": "#DFF4E7",
+              "statusWarning": "#FFF2C6",
+              "statusError": "#FDE1E1",
+              "focusRing": "#7B61FF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "budget-forecast-forecast-screen-title",
+              "kind": "text",
+              "title": "Future Forecast",
+              "subtitle": "Planned cash-flow view with recurring cadence visible.",
+              "tone": "neutral"
+            },
+            {
+              "id": "forecast-runway-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Cash-flow runway",
+              "subtitle": "Sort periods and inspect expected remaining balances.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Line"
+                  },
+                  {
+                    "key": "period",
+                    "label": "Period"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Category"
+                  },
+                  {
+                    "key": "planned",
+                    "label": "Planned"
+                  },
+                  {
+                    "key": "actual",
+                    "label": "Actual"
+                  },
+                  {
+                    "key": "variance",
+                    "label": "Variance"
+                  },
+                  {
+                    "key": "remaining",
+                    "label": "Remaining"
+                  }
+                ],
+                "emptyText": "Forecast rows appear after line entry."
+              }
+            },
+            {
+              "id": "forecast-monthly-overview",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Monthly overview",
+              "subtitle": "Period-level analytics from saved records.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "chartType": "line",
+                "xField": "period",
+                "yField": "remaining",
+                "emptyText": "Add records to see the runway."
+              }
+            },
+            {
+              "id": "forecast-recurring-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Recurring transactions",
+              "subtitle": "Recurring bills, subscriptions, salary, and transfers are represented as cadence-bearing local lines.",
+              "tone": "amber",
+              "props": {
+                "badge": "Recurring",
+                "items": [
+                  {
+                    "id": "salary",
+                    "title": "Salary",
+                    "status": "covered",
+                    "detail": "Monthly income line with planned and actual amounts."
+                  },
+                  {
+                    "id": "subscription",
+                    "title": "Subscription",
+                    "status": "covered",
+                    "detail": "Monthly expense line with category and notes."
+                  },
+                  {
+                    "id": "expansion",
+                    "title": "Schedule expansion",
+                    "status": "boundary",
+                    "detail": "No hidden auto-expansion beyond saved rows is claimed."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-add-recurring-action",
+              "kind": "action",
+              "title": "Add recurring line",
+              "placement": "inline",
+              "action": {
+                "kind": "propose",
+                "label": "Add recurring",
+                "command": "budget_line.create_recurring",
+                "payload": {
+                  "collection": "budget_line",
+                  "cadence": "monthly"
+                }
+              }
+            },
+            {
+              "id": "forecast-loading-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Loading state",
+              "subtitle": "Keep the last local runway visible while rows hydrate.",
+              "tone": "neutral",
+              "props": {
+                "title": "Forecast loading",
+                "badge": "loading",
+                "items": [
+                  {
+                    "id": "forecast-loading-state-focus",
+                    "title": "Forecast loading",
+                    "status": "loading",
+                    "detail": "Keep the last local runway visible while rows hydrate."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "comparison": {
+          "title": "Plan vs Actual",
+          "subtitle": "Variance, remaining, category pressure, and scenario comparison.",
+          "shell": {
+            "layoutMode": "budgetComparisonAnalytics",
+            "appBarTitle": "Budget Forecast",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "comparison",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Runway"
+              },
+              {
+                "id": "transactions",
+                "screen": "transactions",
+                "label": "Lines"
+              },
+              {
+                "id": "forecast",
+                "screen": "forecast",
+                "label": "Forecast"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Control"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F7F1",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0E2",
+              "ink": "#17231A",
+              "muted": "#687360",
+              "accent": "#2F7D50",
+              "accentContrast": "#FFFFFF",
+              "border": "#CCDCC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5EEFF",
+              "statusSuccess": "#DFF4E7",
+              "statusWarning": "#FFF2C6",
+              "statusError": "#FDE1E1",
+              "focusRing": "#7B61FF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "budget-forecast-comparison-screen-title",
+              "kind": "text",
+              "title": "Plan vs Actual",
+              "subtitle": "Variance, remaining, category pressure, and scenario comparison.",
+              "tone": "neutral"
+            },
+            {
+              "id": "forecast-variance-total",
+              "kind": "metric",
+              "title": "Variance total",
+              "subtitle": "Actual minus planned across visible rows.",
+              "tone": "amber",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "dataBinding": {
+                "source": "query-aggregate",
+                "aggregate": "sum",
+                "valueField": "variance"
+              },
+              "props": {
+                "emptyText": "Variance appears after records."
+              }
+            },
+            {
+              "id": "forecast-plan-actual-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Plan vs actual",
+              "subtitle": "Planned, actual, variance, and remaining columns.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Line"
+                  },
+                  {
+                    "key": "period",
+                    "label": "Period"
+                  },
+                  {
+                    "key": "category",
+                    "label": "Category"
+                  },
+                  {
+                    "key": "planned",
+                    "label": "Planned"
+                  },
+                  {
+                    "key": "actual",
+                    "label": "Actual"
+                  },
+                  {
+                    "key": "variance",
+                    "label": "Variance"
+                  },
+                  {
+                    "key": "remaining",
+                    "label": "Remaining"
+                  }
+                ],
+                "emptyText": "No comparison data yet."
+              }
+            },
+            {
+              "id": "forecast-category-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Category pressure",
+              "subtitle": "Scan which categories are driving remaining or overrun values.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "budget_line"
+                ],
+                "limit": 200
+              },
+              "props": {
+                "chartType": "bar",
+                "xField": "category",
+                "yField": "variance",
+                "emptyText": "Add category lines to compare."
+              }
+            },
+            {
+              "id": "forecast-scenario-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Scenario comparison",
+              "subtitle": "Use period and category filters for daily/monthly what-if review without inventing external sync.",
+              "tone": "neutral",
+              "props": {
+                "badge": "scenario",
+                "items": [
+                  {
+                    "id": "daily",
+                    "title": "Daily view",
+                    "status": "covered",
+                    "detail": "Use period labels such as 2026-08-15."
+                  },
+                  {
+                    "id": "monthly",
+                    "title": "Monthly view",
+                    "status": "covered",
+                    "detail": "Use period labels such as 2026-08."
+                  },
+                  {
+                    "id": "notes",
+                    "title": "Notes",
+                    "status": "covered",
+                    "detail": "Every row carries category and notes."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Controls",
+          "subtitle": "Local storage, offline behavior, recovery, and product boundaries.",
+          "shell": {
+            "layoutMode": "budgetSettings",
+            "appBarTitle": "Budget Forecast",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Runway"
+              },
+              {
+                "id": "transactions",
+                "screen": "transactions",
+                "label": "Lines"
+              },
+              {
+                "id": "forecast",
+                "screen": "forecast",
+                "label": "Forecast"
+              },
+              {
+                "id": "comparison",
+                "screen": "comparison",
+                "label": "Compare"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Control"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F7F1",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0E2",
+              "ink": "#17231A",
+              "muted": "#687360",
+              "accent": "#2F7D50",
+              "accentContrast": "#FFFFFF",
+              "border": "#CCDCC4",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#E5EEFF",
+              "statusSuccess": "#DFF4E7",
+              "statusWarning": "#FFF2C6",
+              "statusError": "#FDE1E1",
+              "focusRing": "#7B61FF"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "budget-forecast-settings-screen-title",
+              "kind": "text",
+              "title": "Controls",
+              "subtitle": "Local storage, offline behavior, recovery, and product boundaries.",
+              "tone": "neutral"
+            },
+            {
+              "id": "forecast-settings-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Forecast controls",
+              "subtitle": "Cash-flow planning remains local and deterministic until live sync has receipts.",
+              "tone": "moss",
+              "props": {
+                "badge": "Local",
+                "items": [
+                  {
+                    "id": "offline",
+                    "title": "Offline entry",
+                    "status": "covered",
+                    "detail": "Structured list writes local records."
+                  },
+                  {
+                    "id": "recovery",
+                    "title": "Recovery",
+                    "status": "covered",
+                    "detail": "Operation history and draft policy make recovery visible."
+                  },
+                  {
+                    "id": "sync",
+                    "title": "Bank sync",
+                    "status": "unavailable",
+                    "detail": "No bank connector or remote sync is advertised."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-accessibility-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Accessibility and responsive IA",
+              "subtitle": "Phone starts with runway; desktop separates record entry and analytics.",
+              "tone": "blue",
+              "props": {
+                "columns": [
+                  {
+                    "key": "target",
+                    "label": "Target"
+                  },
+                  {
+                    "key": "decision",
+                    "label": "Decision"
+                  },
+                  {
+                    "key": "status",
+                    "label": "Status"
+                  }
+                ],
+                "emptyText": "No records yet.",
+                "items": [
+                  {
+                    "target": "Phone",
+                    "decision": "Runway before tables",
+                    "status": "covered"
+                  },
+                  {
+                    "target": "Desktop",
+                    "decision": "Forecast and comparison workspaces",
+                    "status": "covered"
+                  },
+                  {
+                    "target": "A11y",
+                    "decision": "Required fields, target sizes, non-color status",
+                    "status": "covered"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-offline-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Offline state",
+              "subtitle": "Rows can be entered and corrected locally; reconnect is not required for calculation.",
+              "tone": "moss",
+              "props": {
+                "title": "Offline forecast",
+                "badge": "offline",
+                "items": [
+                  {
+                    "id": "forecast-offline-state-focus",
+                    "title": "Offline forecast",
+                    "status": "offline",
+                    "detail": "Rows can be entered and corrected locally; reconnect is not required for calculation."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "forecast-recovery-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Recovery state",
+              "subtitle": "Draft persistence and operation history make interrupted line entry visible.",
+              "tone": "amber",
+              "props": {
+                "title": "Recover edits",
+                "badge": "recovery",
+                "items": [
+                  {
+                    "id": "forecast-recovery-state-focus",
+                    "title": "Recover edits",
+                    "status": "recovery",
+                    "detail": "Draft persistence and operation history make interrupted line entry visible."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "defaultScreen": "home"
+    }
+  }
+}

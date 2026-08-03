@@ -15,6 +15,10 @@ LogBox.ignoreLogs([
   'SafeAreaView has been deprecated',
 ]);
 
+export const unstable_settings = {
+  initialRouteName: 'install',
+};
+
 function IncomingShareRouter() {
   const router = useRouter();
   const incomingShare = useIncomingShareSafe();

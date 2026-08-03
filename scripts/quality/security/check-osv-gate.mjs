@@ -8,7 +8,7 @@ const root = resolve(process.env.QUALITY_GATE_ROOT?.trim() || process.cwd());
 const outputPrefix = 'OSV_GATE_JSON=';
 const policyPath = resolve(root, process.env.OSV_GATE_POLICY_PATH?.trim() || 'scripts/quality/security/osv-gate-policy.json');
 const scannerCommand = process.env.OSV_SCANNER_CMD?.trim() || 'osv-scanner';
-const scannerArgs = parseArgs(process.env.OSV_SCANNER_ARGS?.trim() || '--recursive . --format json');
+const scannerArgs = parseArgs(process.env.OSV_SCANNER_ARGS?.trim() || 'scan --recursive --format json .');
 const artifactPath = process.env.OSV_REPORT_PATH?.trim() || 'app/build/evidence/osv-report.json';
 
 function parseJson(path) {

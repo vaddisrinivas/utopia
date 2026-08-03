@@ -1,0 +1,1332 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "meditation-timer",
+  "version": "2.0.0",
+  "collections": {
+    "meditation_routine": {
+      "id": "meditation_routine",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "duration_seconds": {
+          "type": "number",
+          "required": true
+        },
+        "bell_interval_minutes": {
+          "type": "number"
+        },
+        "soundscape": {
+          "type": "text"
+        },
+        "goal_tag": {
+          "type": "text",
+          "indexed": true
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "meditation_session": {
+      "id": "meditation_session",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "routine_id": {
+          "type": "text",
+          "indexed": true
+        },
+        "started_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "finished_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "duration_seconds": {
+          "type": "number",
+          "required": true
+        },
+        "soundscape": {
+          "type": "text"
+        },
+        "bell_interval_minutes": {
+          "type": "number"
+        },
+        "goal_seconds": {
+          "type": "number"
+        },
+        "mood": {
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        },
+        "manually_logged": {
+          "type": "boolean"
+        }
+      }
+    },
+    "practice_goal": {
+      "id": "practice_goal",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "daily_goal_seconds": {
+          "type": "number",
+          "required": true
+        },
+        "streak_days": {
+          "type": "number"
+        },
+        "target_days_per_week": {
+          "type": "number"
+        },
+        "reminder_time": {
+          "type": "text"
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "routines": {
+      "from": "meditation_routine",
+      "where": {
+        "op": "eq",
+        "field": "status",
+        "value": "active"
+      },
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 50
+    },
+    "sessions": {
+      "from": "meditation_session",
+      "orderBy": [
+        {
+          "field": "started_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    },
+    "goals": {
+      "from": "practice_goal",
+      "where": {
+        "op": "eq",
+        "field": "status",
+        "value": "active"
+      },
+      "orderBy": [
+        {
+          "field": "updated_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 10
+    }
+  },
+  "views": {
+    "routines": {
+      "id": "routines",
+      "query": "routines",
+      "mode": "list",
+      "fields": [
+        "title",
+        "duration_seconds",
+        "bell_interval_minutes",
+        "soundscape",
+        "status"
+      ]
+    },
+    "sessions": {
+      "id": "sessions",
+      "query": "sessions",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "status",
+        "duration_seconds",
+        "started_at",
+        "finished_at",
+        "notes"
+      ]
+    },
+    "goals": {
+      "id": "goals",
+      "query": "goals",
+      "mode": "chart",
+      "fields": [
+        "title",
+        "daily_goal_seconds",
+        "streak_days",
+        "target_days_per_week"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "configure-meditation-timer",
+    "meditation-session-oracle-600s",
+    "goal-reached-history-row",
+    "editable-meditation-history",
+    "create-meditation-routines",
+    "restart-recovery-confirmed-elapsed",
+    "uncertain-elapsed-review-required",
+    "gold-from-scratch-presentation",
+    "generic-widget-only"
+  ],
+  "presentation": {
+    "label": "Meditation Timer",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Home",
+        "icon": "play",
+        "collections": [
+          "meditation_routine",
+          "meditation_session",
+          "practice_goal"
+        ],
+        "views": [
+          "routines",
+          "sessions",
+          "goals"
+        ]
+      },
+      {
+        "id": "routines",
+        "label": "Routines",
+        "icon": "repeat",
+        "collections": [
+          "meditation_routine",
+          "meditation_session",
+          "practice_goal"
+        ],
+        "views": [
+          "routines",
+          "sessions",
+          "goals"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "icon": "history",
+        "collections": [
+          "meditation_routine",
+          "meditation_session",
+          "practice_goal"
+        ],
+        "views": [
+          "routines",
+          "sessions",
+          "goals"
+        ]
+      },
+      {
+        "id": "goals",
+        "label": "Goals",
+        "icon": "sparkle",
+        "collections": [
+          "meditation_routine",
+          "meditation_session",
+          "practice_goal"
+        ],
+        "views": [
+          "routines",
+          "sessions",
+          "goals"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "collections": [
+          "meditation_routine",
+          "meditation_session",
+          "practice_goal"
+        ],
+        "views": [
+          "routines",
+          "sessions",
+          "goals"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "timer",
+      "tone": "Practice",
+      "accent": "#3D8B76",
+      "canvas": "#F5F8F6",
+      "surface": "#FFFFFF",
+      "ink": "#17201B",
+      "muted": "#687971",
+      "responsive": {
+        "phone": "single-column, bottom primary action, minimum 44px targets",
+        "desktop": "multi-panel workspace with navigation tabs and dense data review"
+      },
+      "accessibility": {
+        "minimumTargetSize": 44,
+        "liveStatus": true,
+        "nonColorStatus": true,
+        "keyboardReachable": true
+      }
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "navigation": {
+        "items": [
+          {
+            "screen": "home",
+            "label": "Timer",
+            "icon": "circle-play"
+          },
+          {
+            "screen": "routines",
+            "label": "Routines",
+            "icon": "repeat"
+          },
+          {
+            "screen": "history",
+            "label": "History",
+            "icon": "book-open"
+          },
+          {
+            "screen": "goals",
+            "label": "Goals",
+            "icon": "sparkle"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings",
+            "icon": "settings"
+          }
+        ]
+      },
+      "screens": {
+        "home": {
+          "title": "Timer",
+          "subtitle": "Choose a routine, start 10 minutes, and return to the day without distraction.",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "appBarTitle": "Meditation Timer",
+            "appBarSubtitle": "Start quietly, keep routines, edit the journey.",
+            "appBarEyebrow": "Practice",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "home",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Timer",
+                "icon": "play"
+              },
+              {
+                "id": "routines",
+                "screen": "routines",
+                "label": "Routines",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "book-open"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "bookmark"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "log-session",
+                "label": "Log",
+                "icon": "plus",
+                "tone": "secondary",
+                "event": "open-manual-log"
+              },
+              {
+                "id": "start-meditation",
+                "label": "Start",
+                "icon": "play",
+                "tone": "primary",
+                "event": "start-meditation-session"
+              }
+            ],
+            "theme": {
+              "canvas": "#F5F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0EC",
+              "ink": "#17201B",
+              "muted": "#687971",
+              "accent": "#3D8B76",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D7D0",
+              "danger": "#C95353",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDF1E7",
+              "statusWarning": "#F7E9C8",
+              "statusError": "#F7D6D6"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 980,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "practice-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Today",
+              "query": {
+                "collections": [
+                  "practice_goal",
+                  "meditation_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "11 / 15 min today",
+                "subtitle": "3-day streak. Peaceful Pause routine is ready.",
+                "badge": "Daily goal",
+                "stats": [
+                  {
+                    "label": "goal",
+                    "value": "15m"
+                  },
+                  {
+                    "label": "streak",
+                    "value": "3"
+                  },
+                  {
+                    "label": "bells",
+                    "value": "5m"
+                  }
+                ],
+                "actions": [
+                  {
+                    "label": "Edit routine",
+                    "route": "/apps/meditation-timer?screen=routines"
+                  },
+                  {
+                    "label": "Open history",
+                    "route": "/apps/meditation-timer?screen=history"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "practice-timer",
+              "kind": "widget",
+              "widget": "durationTimer",
+              "title": "Meditation timer",
+              "props": {
+                "runId": "meditation-session",
+                "label": "Peaceful Pause",
+                "durationSeconds": 600,
+                "completionRecord": {
+                  "collection": "meditation_session",
+                  "title": "Peaceful Pause",
+                  "properties": {
+                    "routine_id": "peaceful-pause",
+                    "status": "completed",
+                    "duration_seconds": 600,
+                    "goal_seconds": 600,
+                    "soundscape": "silence",
+                    "bell_interval_minutes": 5,
+                    "manually_logged": false
+                  }
+                },
+                "recovery": {
+                  "onRestart": "restore-active-session",
+                  "onUncertainElapsed": "require-confirmation"
+                }
+              }
+            },
+            {
+              "id": "practice-soundscape-card",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Sound and bells",
+              "props": {
+                "title": "Sound and bells",
+                "subtitle": "Choose silence, soundscape, bell interval, and ending tone before the run.",
+                "badge": "Session setup",
+                "items": [
+                  {
+                    "title": "Soundscape",
+                    "detail": "Silence by default; imported sound asks for device permission first.",
+                    "status": "local setting"
+                  },
+                  {
+                    "title": "Interval bell",
+                    "detail": "5-minute bell is retained with the routine.",
+                    "status": "configured"
+                  },
+                  {
+                    "title": "Session end",
+                    "detail": "Completion writes one history row.",
+                    "status": "saved"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "manual-meditation-log",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Manual log",
+              "props": {
+                "fields": [
+                  {
+                    "id": "title",
+                    "label": "Session title",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "id": "duration_seconds",
+                    "label": "Seconds",
+                    "type": "number",
+                    "required": true
+                  },
+                  {
+                    "id": "started_at",
+                    "label": "Started at",
+                    "type": "timestamp"
+                  },
+                  {
+                    "id": "mood",
+                    "label": "Mood",
+                    "type": "text"
+                  },
+                  {
+                    "id": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "autosave": "on-blur",
+                "errorState": "inline",
+                "submitLabel": "Add session"
+              }
+            },
+            {
+              "id": "practice-loading-state",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Loading practice",
+              "props": {
+                "title": "Loading practice",
+                "subtitle": "Keep the last local timer visible",
+                "body": "Timer state loads from local storage before showing controls.",
+                "chips": [
+                  {
+                    "label": "state",
+                    "value": "loading"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        },
+        "routines": {
+          "title": "Routines",
+          "subtitle": "Save repeatable practices with duration, bells, sound choice, and goal tags.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Meditation Timer",
+            "appBarSubtitle": "Start quietly, keep routines, edit the journey.",
+            "appBarEyebrow": "Practice",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "routines",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Timer",
+                "icon": "play"
+              },
+              {
+                "id": "routines",
+                "screen": "routines",
+                "label": "Routines",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "book-open"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "bookmark"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0EC",
+              "ink": "#17201B",
+              "muted": "#687971",
+              "accent": "#3D8B76",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D7D0",
+              "danger": "#C95353",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDF1E7",
+              "statusWarning": "#F7E9C8",
+              "statusError": "#F7D6D6"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "routine-editor",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Routine editor",
+              "props": {
+                "fields": [
+                  {
+                    "id": "title",
+                    "label": "Routine name",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "id": "duration_seconds",
+                    "label": "Duration seconds",
+                    "type": "number",
+                    "required": true
+                  },
+                  {
+                    "id": "bell_interval_minutes",
+                    "label": "Bell interval minutes",
+                    "type": "number"
+                  },
+                  {
+                    "id": "soundscape",
+                    "label": "Soundscape",
+                    "type": "text"
+                  },
+                  {
+                    "id": "goal_tag",
+                    "label": "Goal tag",
+                    "type": "text"
+                  }
+                ],
+                "autosave": "on-blur",
+                "errorState": "inline",
+                "submitLabel": "Save routine"
+              }
+            },
+            {
+              "id": "routine-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Saved routines",
+              "query": {
+                "collections": [
+                  "meditation_routine"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "meditation_routine",
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "metadataFields": [
+                  {
+                    "field": "duration_seconds",
+                    "label": "Duration",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "bell_interval_minutes",
+                    "label": "Bell",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "soundscape",
+                    "label": "Sound",
+                    "type": "text",
+                    "filterable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "text",
+                    "filterable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "recent",
+                  "alphabetic"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": true,
+                  "failure": "inline-error"
+                },
+                "emptyText": "Create a routine to start faster tomorrow."
+              }
+            },
+            {
+              "id": "routine-widget-summary",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Widget-ready summary",
+              "props": {
+                "title": "Widget-ready summary",
+                "subtitle": "Routines show duration and goal progress; system widgets stay separate.",
+                "badge": "Widget surface",
+                "items": [
+                  {
+                    "title": "Start action",
+                    "detail": "Default routine and duration are visible.",
+                    "status": "ready"
+                  },
+                  {
+                    "title": "Goal ring",
+                    "detail": "Daily goal and streak update from saved sessions.",
+                    "status": "ready"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "History",
+          "subtitle": "Edit, add, delete, and review meditation sessions without losing notes.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Meditation Timer",
+            "appBarSubtitle": "Start quietly, keep routines, edit the journey.",
+            "appBarEyebrow": "Practice",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Timer",
+                "icon": "play"
+              },
+              {
+                "id": "routines",
+                "screen": "routines",
+                "label": "Routines",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "book-open"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "bookmark"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0EC",
+              "ink": "#17201B",
+              "muted": "#687971",
+              "accent": "#3D8B76",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D7D0",
+              "danger": "#C95353",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDF1E7",
+              "statusWarning": "#F7E9C8",
+              "statusError": "#F7D6D6"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "meditation-history-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Editable history",
+              "query": {
+                "collections": [
+                  "meditation_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "meditation_session",
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "metadataFields": [
+                  {
+                    "field": "duration_seconds",
+                    "label": "Seconds",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "soundscape",
+                    "label": "Sound",
+                    "type": "text",
+                    "filterable": true
+                  },
+                  {
+                    "field": "mood",
+                    "label": "Mood",
+                    "type": "text",
+                    "filterable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "text",
+                    "filterable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "recent",
+                  "alphabetic"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": true,
+                  "failure": "inline-error"
+                },
+                "emptyText": "Completed and manually logged sessions appear here."
+              }
+            },
+            {
+              "id": "meditation-session-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Journey",
+              "query": {
+                "collections": [
+                  "meditation_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "duration_seconds",
+                  "mood",
+                  "notes"
+                ]
+              }
+            },
+            {
+              "id": "meditation-session-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "History edit review",
+              "props": {
+                "title": "Before deleting",
+                "subtitle": "Deleted or edited sessions update goals and streaks only after confirmation.",
+                "badge": "Editable",
+                "items": [
+                  {
+                    "title": "Add missing session",
+                    "detail": "Manual log is available from Timer.",
+                    "status": "supported"
+                  },
+                  {
+                    "title": "Correct duration",
+                    "detail": "History rows are editable.",
+                    "status": "supported"
+                  },
+                  {
+                    "title": "Delete entry",
+                    "detail": "Requires explicit action and remains auditable.",
+                    "status": "review"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "meditation-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Saved changes",
+              "props": {
+                "collection": "meditation_session",
+                "limit": 50,
+                "emptyText": "No history changes yet."
+              }
+            }
+          ]
+        },
+        "goals": {
+          "title": "Goals",
+          "subtitle": "Daily target, streak, and practice trend stay visible without turning meditation into a scoreboard.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Meditation Timer",
+            "appBarSubtitle": "Start quietly, keep routines, edit the journey.",
+            "appBarEyebrow": "Practice",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "goals",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Timer",
+                "icon": "play"
+              },
+              {
+                "id": "routines",
+                "screen": "routines",
+                "label": "Routines",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "book-open"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "bookmark"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0EC",
+              "ink": "#17201B",
+              "muted": "#687971",
+              "accent": "#3D8B76",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D7D0",
+              "danger": "#C95353",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDF1E7",
+              "statusWarning": "#F7E9C8",
+              "statusError": "#F7D6D6"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "meditation-goal-metric",
+              "kind": "metric",
+              "title": "Daily goal progress",
+              "query": {
+                "collections": [
+                  "meditation_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "emptyText": "Complete a session to fill the ring.",
+                "valueField": "duration_seconds"
+              }
+            },
+            {
+              "id": "meditation-streak-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Streak and minutes",
+              "query": {
+                "collections": [
+                  "meditation_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "dataBinding": {
+                  "source": "query-aggregate",
+                  "aggregate": "sum",
+                  "valueField": "duration_seconds",
+                  "groupBy": "routine_id",
+                  "labelField": "routine_id"
+                },
+                "emptyText": "No practice minutes yet."
+              }
+            },
+            {
+              "id": "practice-goal-editor",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Goal editor",
+              "props": {
+                "fields": [
+                  {
+                    "id": "daily_goal_seconds",
+                    "label": "Daily goal seconds",
+                    "type": "number",
+                    "required": true
+                  },
+                  {
+                    "id": "target_days_per_week",
+                    "label": "Days per week",
+                    "type": "number"
+                  },
+                  {
+                    "id": "reminder_time",
+                    "label": "Reminder time",
+                    "type": "text"
+                  },
+                  {
+                    "id": "status",
+                    "label": "Status",
+                    "type": "text",
+                    "required": true
+                  }
+                ],
+                "autosave": "on-blur",
+                "errorState": "inline",
+                "submitLabel": "Save goal"
+              }
+            },
+            {
+              "id": "goal-reached-oracle",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "600-second goal check",
+              "props": {
+                "title": "600-second goal check",
+                "subtitle": "A 600-second session against a 600-second goal reaches the goal and adds one row.",
+                "badge": "Goal check",
+                "items": [
+                  {
+                    "title": "Elapsed seconds",
+                    "detail": "600",
+                    "status": "exact"
+                  },
+                  {
+                    "title": "Completed sessions",
+                    "detail": "1",
+                    "status": "exact"
+                  },
+                  {
+                    "title": "Goal reached",
+                    "detail": "true",
+                    "status": "exact"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Reminder time, quiet defaults, density, offline posture, and recovery policy.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Meditation Timer",
+            "appBarSubtitle": "Start quietly, keep routines, edit the journey.",
+            "appBarEyebrow": "Practice",
+            "scrollable": true,
+            "density": "compact",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Timer",
+                "icon": "play"
+              },
+              {
+                "id": "routines",
+                "screen": "routines",
+                "label": "Routines",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "book-open"
+              },
+              {
+                "id": "goals",
+                "screen": "goals",
+                "label": "Goals",
+                "icon": "bookmark"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#F5F8F6",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E7F0EC",
+              "ink": "#17201B",
+              "muted": "#687971",
+              "accent": "#3D8B76",
+              "accentContrast": "#FFFFFF",
+              "border": "#C8D7D0",
+              "danger": "#C95353",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DDEAF7",
+              "statusSuccess": "#DDF1E7",
+              "statusWarning": "#F7E9C8",
+              "statusError": "#F7D6D6"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "meditation-reminder-settings",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Reminder settings",
+              "props": {
+                "fields": [
+                  {
+                    "id": "reminder_time",
+                    "label": "Reminder time",
+                    "type": "text"
+                  },
+                  {
+                    "id": "default_soundscape",
+                    "label": "Default soundscape",
+                    "type": "text"
+                  },
+                  {
+                    "id": "default_bell_interval",
+                    "label": "Default bell interval",
+                    "type": "number"
+                  },
+                  {
+                    "id": "quiet_start",
+                    "label": "Quiet start",
+                    "type": "boolean"
+                  }
+                ],
+                "autosave": "on-blur",
+                "errorState": "inline",
+                "submitLabel": "Save settings"
+              }
+            },
+            {
+              "id": "meditation-provider-status",
+              "kind": "widget",
+              "widget": "providerStatus",
+              "title": "Offline and native boundary",
+              "props": {
+                "unavailableText": "Practice timer, routines, goals, and history work locally. Notifications and imported sound need separate native receipts."
+              }
+            },
+            {
+              "id": "meditation-density",
+              "kind": "widget",
+              "widget": "themeDensitySelector",
+              "title": "Display density"
+            },
+            {
+              "id": "meditation-recovery-state",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Recovery",
+              "props": {
+                "title": "Recovery",
+                "subtitle": "Clock uncertainty pauses for review",
+                "body": "If wall clock and monotonic clock disagree, the session asks for confirmed elapsed time before saving.",
+                "chips": [
+                  {
+                    "label": "uncertain",
+                    "value": "review required"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ import {
   decimalCompare,
   decimalDivide,
   decimalMultiply,
+  decimalPower,
   decimalSubtract,
   decimalToString,
   maybeParseComparableDecimal,
@@ -10,6 +11,8 @@ import {
 } from '@/packages/runtime-kernel/decimal';
 import { readPath, stableJson } from '@/packages/runtime-kernel/query';
 import { expandRecurrenceSchedule, nextRecurrenceOccurrence } from '@/packages/runtime-kernel/recurrence';
+import { evaluateDateDiff } from '@/packages/runtime-kernel/date-diff';
+import { EXPRESSION_OPERATOR_NAMES, type ExpressionOperator } from '@/packages/shared/contracts/expression';
 
 export type Expression = boolean | string | number | null | Record<string, unknown> | Expression[];
 
@@ -33,31 +36,7 @@ const DEFAULT_BUDGET: Required<ExpressionBudget> = {
   maxRelations: 256,
   maxOperations: 512,
 };
-const SUPPORTED_OPERATORS = new Set([
-  'var',
-  'if',
-  'and',
-  'or',
-  '!',
-  '+',
-  '-',
-  '*',
-  '/',
-  '>',
-  '>=',
-  '<',
-  '<=',
-  '==',
-  '===',
-  '!=',
-  '!==',
-  'group_sum',
-  'allocate_weighted',
-  'balance_transfers',
-  'relation_rows',
-  'recurrence_next',
-  'recurrence_expand',
-]);
+const SUPPORTED_OPERATORS = new Set<ExpressionOperator>(EXPRESSION_OPERATOR_NAMES);
 
 export function validateExpressionBudget(expression: Expression, budget: ExpressionBudget = {}): void {
   const limits = { ...DEFAULT_BUDGET, ...budget };
@@ -103,6 +82,10 @@ function evaluateNode(input: unknown, expression: Expression, state: EvaluationS
       return foldDecimal(input, operand, state, decimalMultiply, parseDecimal(1), true);
     case '/':
       return evaluateDivide(input, operand, state);
+    case 'pow':
+      return evaluatePower(input, operand, state);
+    case 'date_diff':
+      return evaluateDateDiffExpression(input, operand, state);
     case '>':
     case '>=':
     case '<':
@@ -204,6 +187,30 @@ function evaluateDivide(input: unknown, operand: unknown, state: EvaluationState
   const values = operand.map((entry) => parseDecimal(evaluateNode(input, entry as Expression, state)));
   const result = values.slice(1).reduce((current, entry) => decimalDivide(current, entry), values[0]!);
   return decimalToString(result);
+}
+
+function evaluatePower(input: unknown, operand: unknown, state: EvaluationState): string {
+  if (!Array.isArray(operand) || operand.length !== 2) throw new Error('expression_power_invalid');
+  const base = parseDecimal(evaluateNode(input, operand[0] as Expression, state));
+  const exponent = evaluateNode(input, operand[1] as Expression, state);
+  return decimalToString(decimalPower(base, exponent));
+}
+
+function evaluateDateDiffExpression(input: unknown, operand: unknown, state: EvaluationState): number {
+  const spec = object(operand, 'expression_date_diff_spec_invalid');
+  if (!Object.hasOwn(spec, 'start') || !Object.hasOwn(spec, 'end')) {
+    throw new Error('expression_date_diff_spec_invalid');
+  }
+  return evaluateDateDiff({
+    start: evaluateNode(input, spec.start as Expression, state),
+    end: evaluateNode(input, spec.end as Expression, state),
+    unit: spec.unit as never,
+    inputKind: spec.inputKind as never,
+    timezone: spec.timezone as never,
+    onMissing: spec.onMissing as never,
+    onInvalid: spec.onInvalid as never,
+    onEndBeforeStart: spec.onEndBeforeStart as never,
+  });
 }
 
 function evaluateComparison(
@@ -475,8 +482,22 @@ function validateOperatorTree(value: unknown): void {
     return;
   }
   const [operator, operand] = entries[0]!;
-  if (!SUPPORTED_OPERATORS.has(operator)) {
+  if (!SUPPORTED_OPERATORS.has(operator as ExpressionOperator)) {
     throw new Error(`unsupported_expression_operator:${operator}`);
+  }
+  if (operator === 'pow') {
+    if (!Array.isArray(operand) || operand.length !== 2) throw new Error('expression_power_invalid');
+    operand.forEach(validateOperatorTree);
+    return;
+  }
+  if (operator === 'date_diff') {
+    const spec = object(operand, 'expression_date_diff_spec_invalid');
+    if (!Object.hasOwn(spec, 'start') || !Object.hasOwn(spec, 'end')) {
+      throw new Error('expression_date_diff_spec_invalid');
+    }
+    validateOperatorTree(spec.start);
+    validateOperatorTree(spec.end);
+    return;
   }
   if (
     operator === 'group_sum'

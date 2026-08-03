@@ -40,6 +40,7 @@ jobs:
           UTOPIA_MACOS_LANE_C_RECEIPT_PATH: app/build/evidence/golden-loop/macos-lane-c-receipt.json
           UTOPIA_MACOS_RUNTIME_BRIDGE_RECEIPT_PATH: app/build/evidence/golden-loop/macos-debug-bridge-receipt.json
           UTOPIA_MACOS_RUNTIME_BRIDGE_RAW_OBSERVATION_PATH: app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl
+          UTOPIA_MACOS_RUNTIME_BRIDGE_DISPATCH_OBSERVATION_PATH: app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl.dispatch.jsonl
           UTOPIA_MACOS_SCHEME: UtopiaMac-macOS
           UTOPIA_MACOS_CONFIGURATION: Debug
         run: node scripts/quality/macos/run-golden-loop-macos-lane.mjs
@@ -53,5 +54,6 @@ jobs:
             app/build/evidence/golden-loop/macos-lane-c-receipt.json
             app/build/evidence/golden-loop/macos-debug-bridge-receipt.json
             app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl
+            app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl.dispatch.jsonl
             app/build/evidence/golden-loop/macos-build-receipt.json
           if-no-files-found: ignore

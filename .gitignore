@@ -65,6 +65,7 @@ server/server-data/
 docs/baseline/apk/
 docs/baseline/db/*.db
 docs/baseline/screenshots/
+research/app-ui-corpus*/
 
 # Secrets and local env
 .env

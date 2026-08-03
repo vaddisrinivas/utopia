@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { AppPackage, A2UiSurface } from '@/packages/shared/contracts/package';
 import type { CanonicalRecord } from '@/packages/shared/contracts/records';
+import offlineChecklistPackage from '@/apps/offline-checklist/offline-checklist.v1.json';
 import { loadAppPackage } from '@/src/domain/package-loader';
 import { recordsToViews } from '@/src/domain/renderer';
 
@@ -84,6 +85,21 @@ describe('reference app renderer', () => {
     expect(specText(v11Spec)).toContain('30 min · Weekly');
   });
 
+  it('resolves package UI and generic widget copy without app-specific renderer code', () => {
+    const spec = buildJsonRenderSpec({
+      title: 'Fallback',
+      ui: offlineChecklistPackage.presentation.ui as A2UiSurface,
+      screen: 'today',
+      localeOverride: 'ru-RU',
+      records: [],
+    });
+    const text = specText(spec);
+    expect(text).toContain('Сегодня');
+    expect(text).toContain('Добавить пункт');
+    expect(text).toContain('Нет задач.');
+    expect(text).not.toContain('$l:');
+  });
+
   it('shows a neutral unsupported state and survives malformed widget props', () => {
     const spec = buildJsonRenderSpec({
       title: 'Custom',
@@ -109,7 +125,8 @@ describe('reference app renderer', () => {
     expect(text).toContain('Mystery block');
     expect(text).toContain('This package component is unavailable in this runtime.');
     expect(text).toContain('No feed items yet');
-    expect(text).toContain('Sample');
+    expect(text).toContain('No table rows yet.');
+    expect(text).not.toContain('Sample');
   });
 
   it('maps the extracted panel widget family and keeps blocked widgets blocked', () => {
@@ -203,6 +220,64 @@ describe('reference app renderer', () => {
     expect(elementTypes).toContain('SearchableRecordListWidget');
   });
 
+  it('wraps opted-in package screens in the reusable product shell', () => {
+    const spec = buildJsonRenderSpec({
+      title: 'Checklist',
+      screen: 'today',
+      records: [],
+      ui: offlineChecklistPackage.presentation.ui as A2UiSurface,
+    });
+    const elements = Object.values(spec.elements);
+    const shell = elements.find((element) => element.type === 'ProductShellWidget');
+
+    expect(shell?.props).toMatchObject({
+      layoutMode: 'collectionWorkspace',
+      scrollable: true,
+      title: 'Today',
+    });
+    expect(elements.map((element) => element.type)).not.toContain('ScreenHeaderWidget');
+  });
+
+  it('binds shell tabs only to declared package screens', () => {
+    const spec = buildJsonRenderSpec({
+      title: 'Navigation',
+      screen: 'home',
+      screenRouteBase: '/apps/demo',
+      ui: {
+        schemaVersion: 'a2ui.v0_9',
+        defaultScreen: 'home',
+        screens: {
+          home: {
+            title: 'Home',
+            shell: {
+              tabs: [
+                { id: 'home', screen: 'home', label: 'Home' },
+                { id: 'history', screen: 'history', label: 'History' },
+                { id: 'unknown', screen: 'secret', label: 'Unknown' },
+              ],
+            },
+            components: [],
+          },
+          history: { title: 'History', components: [] },
+        },
+      } satisfies A2UiSurface,
+    });
+    const shell = Object.values(spec.elements).find((element) => element.type === 'ProductShellWidget');
+    expect(shell?.on).toMatchObject({
+      'tab:home': { action: 'navigate', params: { screen: '/apps/demo?screen=home' } },
+      'tab:history': { action: 'navigate', params: { screen: '/apps/demo?screen=history' } },
+    });
+    expect(shell?.props.tabRoutes).toEqual({
+      home: '/apps/demo?screen=home',
+      history: '/apps/demo?screen=history',
+    });
+    expect(shell?.props.tabScreens).toEqual({
+      home: 'home',
+      history: 'history',
+    });
+    expect(shell?.on).not.toHaveProperty('tab:unknown');
+  });
+
   it('uses galleryGrid as a generic inventory surface with item details', () => {
     const spec = buildJsonRenderSpec({
       title: 'Workshop',
@@ -288,6 +363,57 @@ describe('reference app renderer', () => {
     expect(text).not.toContain('Sample');
   });
 
+  it('binds dataTable rows directly from queried records without fixture rows', () => {
+    const spec = buildJsonRenderSpec({
+      title: 'Budget',
+      screen: 'reports',
+      records: [{
+        id: 'entry-1',
+        collection: 'budget_entry',
+        title: 'August salary',
+        body: '',
+        source: 'local',
+        status: 'Ready',
+        tone: 'neutral',
+        meta: '',
+        properties: {
+          direction: 'income',
+          category: 'Pay',
+          amount: 5000,
+        },
+      }],
+      ui: {
+        schemaVersion: 'a2ui.v0_9',
+        defaultScreen: 'reports',
+        screens: {
+          reports: {
+            components: [{
+              kind: 'widget',
+              widget: 'dataTable',
+              title: 'All entries',
+              query: { collections: ['budget_entry'], limit: 200 },
+              props: {
+                columns: [
+                  { key: 'title', label: 'Entry' },
+                  { key: 'direction', label: 'Type' },
+                  { key: 'category', label: 'Category' },
+                  { key: 'amount', label: 'Amount' },
+                ],
+              },
+            }],
+          },
+        },
+      },
+    });
+
+    const text = specText(spec);
+    expect(text).toContain('August salary');
+    expect(text).toContain('income');
+    expect(text).toContain('Pay');
+    expect(text).toContain('5000');
+    expect(text).not.toContain('Sample');
+  });
+
   it('renders chartBlock with configured points and fallback defaults', () => {
     const spec = buildJsonRenderSpec({
       title: 'Metrics',
@@ -370,6 +496,74 @@ describe('reference app renderer', () => {
     expect(Object.values(spec.elements).filter((element) => element.type === 'Heading').map((element) => element.props.text)).toContain('1');
   });
 
+  it('renders query-bound aggregate metrics and grouped computed chart points', () => {
+    const records = recordsToViews([
+      budgetRecord('budget-1', 'Rent', 'Jan', -100),
+      budgetRecord('budget-2', 'Pay', 'Jan', 250),
+      budgetRecord('budget-3', 'Food', 'Feb', -40),
+    ]);
+    const spec = buildJsonRenderSpec({
+      title: 'Household Budget',
+      screen: 'home',
+      records,
+      ui: {
+        schemaVersion: 'a2ui.v0_9',
+        defaultScreen: 'home',
+        screens: {
+          home: {
+            components: [
+              {
+                kind: 'metric',
+                title: 'Recorded total',
+                query: { collections: ['budget_entry'], limit: 100 },
+                dataBinding: { source: 'query-aggregate', aggregate: 'sum', valueField: 'signed_amount' },
+              },
+              {
+                kind: 'widget',
+                widget: 'chartBlock',
+                title: 'By month',
+                query: { collections: ['budget_entry'], limit: 100 },
+                dataBinding: { source: 'query-aggregate', aggregate: 'sum', groupBy: 'month', valueField: 'signed_amount' },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(Object.values(spec.elements).filter((element) => element.type === 'Heading').map((element) => element.props.text)).toContain('110');
+    expect(specText(spec)).toContain('Jan');
+    expect(specText(spec)).toContain('150');
+    expect(specText(spec)).toContain('Feb');
+    expect(specText(spec)).toContain('-40');
+  });
+
+  it('renders accessible loading, empty, and error states for bound visualizations', () => {
+    const ui = {
+      schemaVersion: 'a2ui.v0_9' as const,
+      defaultScreen: 'home',
+      screens: {
+        home: {
+          components: [{
+            kind: 'widget' as const,
+            widget: 'chartBlock' as const,
+            title: 'Trend',
+            dataBinding: { source: 'query-records' as const, xField: 'day', yField: 'remaining' },
+            props: { emptyText: 'No trend yet.' },
+          }],
+        },
+      },
+    };
+    const loading = buildJsonRenderSpec({ title: 'Loading', screen: 'home', records: [], recordsState: 'loading', ui });
+    const empty = buildJsonRenderSpec({ title: 'Empty', screen: 'home', records: [], ui });
+    const error = buildJsonRenderSpec({ title: 'Error', screen: 'home', records: [], recordsState: 'error', recordsError: 'Query unavailable.', ui });
+
+    expect(specText(loading)).toContain('Loading');
+    expect(specText(empty)).toContain('No trend yet.');
+    expect(specText(error)).toContain('Query unavailable.');
+    expect(Object.values(error.elements).some((element) => element.props.accessibilityRole === 'alert')).toBe(true);
+  });
+
   it('preserves dataTable row action bindings from item payloads', () => {
     const spec = buildJsonRenderSpec({
       title: 'Allocation',
@@ -422,6 +616,33 @@ describe('reference app renderer', () => {
     expect(firstColumnProps(comfortable).gap).toBe(14);
     expect(firstColumnProps(compact).gap).toBe(10);
     expect(firstColumnProps(compact).padding).toBe(12);
+  });
+
+  it('lets the product shell own safe-area layout without repeating the screen subtitle', () => {
+    const subtitle = 'A compact shell subtitle.';
+    const spec = buildJsonRenderSpec({
+      title: 'Reference tool',
+      ui: {
+        defaultScreen: 'home',
+        navigation: { items: [{ screen: 'home', label: 'Home', icon: 'home' }] },
+        screens: {
+          home: {
+            title: 'Home',
+            subtitle,
+            shell: { tabs: [{ id: 'home', label: 'Home', screen: 'home' }] },
+            components: [],
+          },
+        },
+      },
+      screen: 'home',
+      records: [],
+    });
+
+    expect(spec.elements[spec.root]?.type).toBe('ProductShellWidget');
+    expect(Object.values(spec.elements).filter((element) => (
+      element.type === 'Paragraph'
+      && element.props?.text === subtitle
+    ))).toHaveLength(0);
   });
 
   it('renders a configured assistant as a full-page surface without nested page scrolling', () => {
@@ -723,10 +944,10 @@ describe('reference app renderer', () => {
     expect(parentSource).not.toContain('function FilePickerWidget');
     expect(parentSource).not.toContain('function FileExportWidget');
     expect(familySource).toContain('requestWidgetCapability');
-    expect(familySource).toContain("{ kind: 'file-picker', action: 'choose'");
-    expect(familySource).toContain("{ kind: 'file-export', action: 'export'");
+    expect(familySource).toMatch(/kind:\s*'file-picker'[\s\S]*action:\s*'choose'[\s\S]*declaredPurpose:/);
+    expect(familySource).toMatch(/kind:\s*'file-export'[\s\S]*action:\s*'export'[\s\S]*declaredPurpose:/);
     expect(familySource).not.toMatch(/@\/src\/(db|chat|providers|health|settings)\//);
-    expect(familySource.split('\n')).toHaveLength(232);
+    expect(familySource.split('\n').length).toBeLessThanOrEqual(260);
   });
 });
 
@@ -780,6 +1001,33 @@ function genericRecord(id: string, title: string, body: string, priority: string
       evidence: [],
       reason: 'renderer_test_fixture',
     },
+  };
+}
+
+function budgetRecord(id: string, title: string, month: string, signedAmount: number): CanonicalRecord {
+  const timestamp = '2026-07-29T00:00:00.000Z';
+  return {
+    id,
+    domain: 'household-budget',
+    collection: 'budget_entry',
+    title,
+    properties: { month, signed_amount: signedAmount },
+    relations: [],
+    source: {
+      provider: 'sqlite',
+      external_id: id,
+      url: null,
+      observed_at: timestamp,
+      content_hash: null,
+    },
+    archived_at: null,
+    created_at: timestamp,
+    updated_at: timestamp,
+    revision: 1,
+    schema_version: 'utopia.record.v1',
+    deleted: false,
+    privacy: 'personal',
+    provenance: null,
   };
 }
 

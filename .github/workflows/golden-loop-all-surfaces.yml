@@ -43,8 +43,8 @@ jobs:
           PLAYWRIGHT_VERSION: 1.55.0
         run: |
           set -euo pipefail
-          npm install --no-save --no-audit --no-fund playwright@$PLAYWRIGHT_VERSION
-          npx --yes playwright@$PLAYWRIGHT_VERSION install --with-deps chromium
+          npm install --no-save --no-audit --no-fund "playwright@$PLAYWRIGHT_VERSION"
+          ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Run web proof
         env:
@@ -93,6 +93,7 @@ jobs:
           UTOPIA_MACOS_LANE_C_RECEIPT_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-lane-c-receipt.json
           UTOPIA_MACOS_RUNTIME_BRIDGE_RECEIPT_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-receipt.json
           UTOPIA_MACOS_RUNTIME_BRIDGE_RAW_OBSERVATION_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl
+          UTOPIA_MACOS_RUNTIME_BRIDGE_DISPATCH_OBSERVATION_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl.dispatch.jsonl
           UTOPIA_MACOS_GOLDEN_LOOP_DEBUG_TOKEN: ${{ inputs.debug_token || secrets.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN }}
           UTOPIA_MACOS_SCHEME: UtopiaMac-macOS
           UTOPIA_MACOS_CONFIGURATION: Debug
@@ -107,6 +108,7 @@ jobs:
             ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-lane-c-receipt.json
             ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-receipt.json
             ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl
+            ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl.dispatch.jsonl
             ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-build-receipt.json
           if-no-files-found: error
 
@@ -212,6 +214,9 @@ jobs:
 
       - name: Build distinct golden-loop APKs
         id: build-apks
+        env:
+          EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG: '1'
+          EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN: ${{ env.GOLDEN_LOOP_DEBUG_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -219,15 +224,7 @@ jobs:
 
           patch_gradle() {
             local version_code="$1"
-            node - <<'NODE' "$version_code"
-            const fs = require('node:fs');
-            const versionCode = Number(process.argv[2]);
-            const path = 'android/app/build.gradle';
-            const text = fs.readFileSync(path, 'utf8')
-              .replace("applicationId 'app.utopia'", "applicationId 'app.utopia.goldenloop'")
-              .replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
-            fs.writeFileSync(path, `${text}\n`, 'utf8');
-            NODE
+            node -e 'const fs = require("node:fs"); const versionCode = Number(process.argv[1]); const path = "android/app/build.gradle"; const text = fs.readFileSync(path, "utf8").replace("applicationId '\''app.utopia'\''", "applicationId '\''app.utopia.goldenloop'\''").replace(/versionCode\s+\d+/, "versionCode " + versionCode); fs.writeFileSync(path, text + "\n", "utf8");' "$version_code"
           }
 
           resolve_apk() {

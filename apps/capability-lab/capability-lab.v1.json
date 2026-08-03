@@ -107,6 +107,141 @@
             {
               "kind": "widget",
               "props": {
+                "capabilityIds": [
+                  "camera",
+                  "microphone",
+                  "files",
+                  "notifications",
+                  "background_task",
+                  "location",
+                  "contacts",
+                  "calendar",
+                  "biometrics",
+                  "health",
+                  "sensors",
+                  "speech",
+                  "share",
+                  "deep_link",
+                  "file_open",
+                  "shortcut"
+                ],
+                "diagnostic": true,
+                "executors": [
+                  {
+                    "capabilityId": "camera",
+                    "controls": [
+                      "Camera scanner"
+                    ],
+                    "detail": "Choose camera access and scan a code. Results remain inside the scanner control."
+                  },
+                  {
+                    "capabilityId": "microphone",
+                    "controls": [
+                      "Microphone exerciser"
+                    ],
+                    "detail": "Requests recorder consent through the broker, then starts and stops one explicit microphone session if granted."
+                  },
+                  {
+                    "capabilityId": "files",
+                    "controls": [
+                      "File picker",
+                      "File export"
+                    ],
+                    "detail": "Choose a local file. File export writes a local text artifact only after explicit user action."
+                  },
+                  {
+                    "capabilityId": "notifications",
+                    "controls": [
+                      "Notification scheduler"
+                    ],
+                    "detail": "Request notification access, schedule a local reminder, then cancel it from the same control."
+                  },
+                  {
+                    "capabilityId": "location",
+                    "controls": [
+                      "Location map"
+                    ],
+                    "detail": "Request foreground location and inspect the returned coordinate before opening a map."
+                  },
+                  {
+                    "capabilityId": "contacts",
+                    "controls": [
+                      "Contact picker"
+                    ],
+                    "detail": "Request access and choose one contact. No bulk import is performed."
+                  },
+                  {
+                    "capabilityId": "calendar",
+                    "controls": [
+                      "Calendar event"
+                    ],
+                    "detail": "Request access and create one reviewed local event."
+                  },
+                  {
+                    "capabilityId": "biometrics",
+                    "controls": [
+                      "Biometric gate"
+                    ],
+                    "detail": "Check hardware and enrollment, then explicitly start local authentication."
+                  },
+                  {
+                    "capabilityId": "health",
+                    "controls": [
+                      "Health exerciser"
+                    ],
+                    "detail": "Requests Android Health Connect access through the existing Health bridge. Non-Android shells stay unavailable."
+                  },
+                  {
+                    "capabilityId": "sensors",
+                    "controls": [
+                      "Sensor readout"
+                    ],
+                    "detail": "Start a local accelerometer sample and stop it from the same control."
+                  },
+                  {
+                    "capabilityId": "speech",
+                    "controls": [
+                      "Speech tool"
+                    ],
+                    "detail": "Speak and stop a local phrase. Speech-to-text remains NOT_RUN."
+                  },
+                  {
+                    "capabilityId": "share",
+                    "controls": [
+                      "File export"
+                    ],
+                    "detail": "Share/download runs only from the file export control."
+                  },
+                  {
+                    "capabilityId": "deep_link",
+                    "controls": [
+                      "Deep-link exerciser"
+                    ],
+                    "detail": "Opens the declared self link through React Native Linking."
+                  },
+                  {
+                    "capabilityId": "background_task",
+                    "controls": [
+                      "Background task exerciser"
+                    ],
+                    "detail": "Loads TaskManager on demand, but background OS execution remains NOT_RUN until a scheduler receipt exists."
+                  },
+                  {
+                    "capabilityId": "file_open",
+                    "controls": [
+                      "File-open exerciser"
+                    ],
+                    "detail": "Checks the declared inbound file-open intent. OS file-open event injection remains NOT_RUN."
+                  },
+                  {
+                    "capabilityId": "shortcut",
+                    "controls": [
+                      "Shortcut exerciser"
+                    ],
+                    "detail": "Checks the declared shortcut intent. Native shortcut publication remains NOT_RUN."
+                  }
+                ],
+                "observations": [],
                 "permissions": [
                   {
                     "deviceProofRequired": true,
@@ -158,10 +293,63 @@
                     "supportedContract": false
                   }
                 ],
-                "subtitle": "Required capabilities block install when unsupported. Optional capabilities must render blocked states.",
-                "title": "Capability matrix"
+                "subtitle": "Run the explicit controls below. Contract support and observed outcomes remain separate.",
+                "title": "Capability diagnostics"
               },
               "widget": "permissionCard"
+            },
+            {
+              "kind": "widget",
+              "props": {
+                "probes": [
+                  {
+                    "action": "microphone",
+                    "capabilityId": "microphone",
+                    "cta": "Run microphone probe",
+                    "detail": "Request recorder consent through the broker, then start and stop one explicit recorder session if granted.",
+                    "title": "Microphone"
+                  },
+                  {
+                    "action": "background_task",
+                    "capabilityId": "background_task",
+                    "cta": "Check background task",
+                    "detail": "Load TaskManager after a tap and report that OS background execution is still NOT_RUN.",
+                    "title": "Background task"
+                  },
+                  {
+                    "action": "health",
+                    "capabilityId": "health",
+                    "cta": "Choose health access",
+                    "detail": "Request Android Health Connect permissions through the existing Health bridge.",
+                    "title": "Health"
+                  },
+                  {
+                    "action": "deep_link",
+                    "capabilityId": "deep_link",
+                    "cta": "Open self link",
+                    "detail": "Open the declared self link through React Native Linking.",
+                    "title": "Deep link",
+                    "url": "utopia://capability-lab/matrix?source=capability-lab"
+                  },
+                  {
+                    "action": "file_open",
+                    "capabilityId": "file_open",
+                    "cta": "Check file-open path",
+                    "detail": "Verify the inbound file-open declaration without injecting an OS event.",
+                    "title": "File open"
+                  },
+                  {
+                    "action": "shortcut",
+                    "capabilityId": "shortcut",
+                    "cta": "Check shortcut path",
+                    "detail": "Verify the shortcut declaration without claiming shortcut publication.",
+                    "title": "Shortcut"
+                  }
+                ],
+                "subtitle": "Six explicit probes for edge native paths. These controls update only local runtime state after a tap.",
+                "title": "Frontier exercisers"
+              },
+              "widget": "capabilityExerciser"
             },
             {
               "kind": "widget",
@@ -236,17 +424,6 @@
                 "title": "File export"
               },
               "widget": "fileExport"
-            },
-            {
-              "kind": "widget",
-              "props": {
-                "allowCapture": true,
-                "allowPick": true,
-                "contentFit": "contain",
-                "subtitle": "Play a package video or pick/record a local one.",
-                "title": "Video player"
-              },
-              "widget": "videoPlayer"
             },
             {
               "kind": "widget",
@@ -350,11 +527,12 @@
     "schemaVersion": "wonder.app-package-native-capabilities.v1",
     "platform": "expo",
     "packages": [
+      "expo-audio",
       "expo-calendar",
       "expo-camera",
       "expo-contacts",
       "expo-document-picker",
-      "expo-image-picker",
+      "expo-file-system",
       "expo-local-authentication",
       "expo-location",
       "expo-notifications",
@@ -362,9 +540,58 @@
       "expo-sharing",
       "expo-speech",
       "expo-task-manager",
-      "expo-video"
+      "react-native-health-connect"
     ],
     "permissions": [
+      {
+        "id": "health-read-active-calories",
+        "permission": "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "platform": "android",
+        "reason": "Request Android Health Connect active calorie access during the health probe.",
+        "required": false
+      },
+      {
+        "id": "health-read-hydration",
+        "permission": "android.permission.health.READ_HYDRATION",
+        "platform": "android",
+        "reason": "Request Android Health Connect hydration access during the health probe.",
+        "required": false
+      },
+      {
+        "id": "health-read-nutrition",
+        "permission": "android.permission.health.READ_NUTRITION",
+        "platform": "android",
+        "reason": "Request Android Health Connect nutrition access during the health probe.",
+        "required": false
+      },
+      {
+        "id": "health-read-steps",
+        "permission": "android.permission.health.READ_STEPS",
+        "platform": "android",
+        "reason": "Request Android Health Connect steps access during the health probe.",
+        "required": false
+      },
+      {
+        "id": "health-read-weight",
+        "permission": "android.permission.health.READ_WEIGHT",
+        "platform": "android",
+        "reason": "Request Android Health Connect weight access during the health probe.",
+        "required": false
+      },
+      {
+        "id": "health-write-hydration",
+        "permission": "android.permission.health.WRITE_HYDRATION",
+        "platform": "android",
+        "reason": "Request Android Health Connect hydration write access for guarded round-trip probes.",
+        "required": false
+      },
+      {
+        "id": "record-microphone",
+        "permission": "expo-audio",
+        "platform": "expo",
+        "reason": "Exercise the microphone recorder probe only after explicit user action.",
+        "required": false
+      },
       {
         "id": "create-calendar-event",
         "permission": "expo-calendar",
@@ -394,17 +621,10 @@
         "required": false
       },
       {
-        "id": "record-video",
-        "permission": "expo-image-picker:camera",
+        "id": "write-export-files",
+        "permission": "expo-file-system",
         "platform": "expo",
-        "reason": "Record local videos for playback.",
-        "required": false
-      },
-      {
-        "id": "pick-video",
-        "permission": "expo-image-picker:media-library",
-        "platform": "expo",
-        "reason": "Pick local videos for playback.",
+        "reason": "Create the local export artifact before the share/download path opens.",
         "required": false
       },
       {
@@ -452,6 +672,13 @@
     ],
     "intents": [
       {
+        "id": "future-background-task",
+        "kind": "background_task",
+        "platform": "expo",
+        "reason": "Track background execution without claiming an OS background receipt.",
+        "required": false
+      },
+      {
         "id": "open-capability-lab",
         "kind": "deep_link",
         "payload": {
@@ -460,6 +687,20 @@
         },
         "platform": "expo",
         "reason": "Open the lab from release-smoke links.",
+        "required": false
+      },
+      {
+        "id": "future-file-open",
+        "kind": "file_open",
+        "platform": "expo",
+        "reason": "Track planned inbound file-open support without injecting an OS event.",
+        "required": false
+      },
+      {
+        "id": "future-shortcut",
+        "kind": "shortcut",
+        "platform": "expo",
+        "reason": "Track planned native shortcut support without claiming shortcut publication.",
         "required": false
       }
     ]
@@ -479,11 +720,12 @@
       "schemaVersion": "wonder.app-package-native-capabilities.v1",
       "platform": "expo",
       "packages": [
+        "expo-audio",
         "expo-calendar",
         "expo-camera",
         "expo-contacts",
         "expo-document-picker",
-        "expo-image-picker",
+        "expo-file-system",
         "expo-local-authentication",
         "expo-location",
         "expo-notifications",
@@ -491,9 +733,58 @@
         "expo-sharing",
         "expo-speech",
         "expo-task-manager",
-        "expo-video"
+        "react-native-health-connect"
       ],
       "permissions": [
+        {
+          "id": "health-read-active-calories",
+          "permission": "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+          "platform": "android",
+          "reason": "Request Android Health Connect active calorie access during the health probe.",
+          "required": false
+        },
+        {
+          "id": "health-read-hydration",
+          "permission": "android.permission.health.READ_HYDRATION",
+          "platform": "android",
+          "reason": "Request Android Health Connect hydration access during the health probe.",
+          "required": false
+        },
+        {
+          "id": "health-read-nutrition",
+          "permission": "android.permission.health.READ_NUTRITION",
+          "platform": "android",
+          "reason": "Request Android Health Connect nutrition access during the health probe.",
+          "required": false
+        },
+        {
+          "id": "health-read-steps",
+          "permission": "android.permission.health.READ_STEPS",
+          "platform": "android",
+          "reason": "Request Android Health Connect steps access during the health probe.",
+          "required": false
+        },
+        {
+          "id": "health-read-weight",
+          "permission": "android.permission.health.READ_WEIGHT",
+          "platform": "android",
+          "reason": "Request Android Health Connect weight access during the health probe.",
+          "required": false
+        },
+        {
+          "id": "health-write-hydration",
+          "permission": "android.permission.health.WRITE_HYDRATION",
+          "platform": "android",
+          "reason": "Request Android Health Connect hydration write access for guarded round-trip probes.",
+          "required": false
+        },
+        {
+          "id": "record-microphone",
+          "permission": "expo-audio",
+          "platform": "expo",
+          "reason": "Exercise the microphone recorder probe only after explicit user action.",
+          "required": false
+        },
         {
           "id": "create-calendar-event",
           "permission": "expo-calendar",
@@ -523,17 +814,10 @@
           "required": false
         },
         {
-          "id": "record-video",
-          "permission": "expo-image-picker:camera",
+          "id": "write-export-files",
+          "permission": "expo-file-system",
           "platform": "expo",
-          "reason": "Record local videos for playback.",
-          "required": false
-        },
-        {
-          "id": "pick-video",
-          "permission": "expo-image-picker:media-library",
-          "platform": "expo",
-          "reason": "Pick local videos for playback.",
+          "reason": "Create the local export artifact before the share/download path opens.",
           "required": false
         },
         {
@@ -581,6 +865,13 @@
       ],
       "intents": [
         {
+          "id": "future-background-task",
+          "kind": "background_task",
+          "platform": "expo",
+          "reason": "Track background execution without claiming an OS background receipt.",
+          "required": false
+        },
+        {
           "id": "open-capability-lab",
           "kind": "deep_link",
           "payload": {
@@ -590,9 +881,23 @@
           "platform": "expo",
           "reason": "Open the lab from release-smoke links.",
           "required": false
+        },
+        {
+          "id": "future-file-open",
+          "kind": "file_open",
+          "platform": "expo",
+          "reason": "Track planned inbound file-open support without injecting an OS event.",
+          "required": false
+        },
+        {
+          "id": "future-shortcut",
+          "kind": "shortcut",
+          "platform": "expo",
+          "reason": "Track planned native shortcut support without claiming shortcut publication.",
+          "required": false
         }
       ]
     },
-    "checksum": "sha256:5d64df8431f164d4ed6ec167770a859ba2ac252744e0b0dfee72b5cdad90c4aa"
+    "checksum": "sha256:3c9da0cd3b8115183dedc7cbcf4d2ca969b3604ae35dae8e96a288316a467656"
   }
 }

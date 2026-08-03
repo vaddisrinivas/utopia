@@ -1,0 +1,253 @@
+{
+  "collections": [
+    "inventory",
+    "inventory_lot",
+    "recipe",
+    "shopping_item",
+    "meal_plan",
+    "nutrition_observation"
+  ],
+  "components": [
+    {
+      "id": "food-overview-hero",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "badge": "Household",
+        "emoji": "home",
+        "minTapTarget": 44,
+        "stats": [
+          {
+            "label": "freshness risk",
+            "value": "4"
+          },
+          {
+            "label": "plan coverage",
+            "value": "82%"
+          },
+          {
+            "label": "open receipts",
+            "value": "3"
+          }
+        ]
+      },
+      "query": {
+        "collections": [
+          "inventory",
+          "meal_plan",
+          "purchase"
+        ],
+        "limit": 20
+      },
+      "subtitle": "Waste risk, plan coverage, and grocery pressure in one place.",
+      "title": "Kitchen status",
+      "tone": "moss",
+      "widget": "recordHeroSummary"
+    },
+    {
+      "id": "food-overview-shelves",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "groups": [
+          {
+            "items": [
+              {
+                "badge": "18",
+                "emoji": "snowflake",
+                "route": "/collection/inventory,inventory_lot?title=Fridge&match=fridge",
+                "subtitle": "Opened and chilled lots.",
+                "title": "Fridge"
+              },
+              {
+                "badge": "32",
+                "emoji": "box",
+                "route": "/collection/inventory,inventory_lot?title=Pantry&match=pantry",
+                "subtitle": "Staples, sauces, backups.",
+                "title": "Pantry"
+              },
+              {
+                "badge": "9",
+                "emoji": "cube",
+                "route": "/collection/inventory,inventory_lot?title=Freezer&match=freezer",
+                "subtitle": "Frozen batch meals and proteins.",
+                "title": "Freezer"
+              }
+            ],
+            "title": "Storage"
+          },
+          {
+            "items": [
+              {
+                "badge": "week",
+                "emoji": "calendar",
+                "route": "/plan",
+                "subtitle": "Meals and family preferences.",
+                "title": "Plan"
+              },
+              {
+                "badge": "7",
+                "emoji": "shopping-cart",
+                "route": "/shop",
+                "subtitle": "Missing items by reason.",
+                "title": "Shop"
+              },
+              {
+                "badge": "3",
+                "emoji": "receipt",
+                "route": "/capture?mode=receipt",
+                "subtitle": "Draft imports waiting for review.",
+                "title": "Receipts"
+              }
+            ],
+            "title": "Workflows"
+          }
+        ],
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "inventory",
+          "inventory_lot",
+          "shopping_item",
+          "purchase"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Each shelf opens live records.",
+      "title": "Kitchen map",
+      "tone": "moss",
+      "widget": "groupedRecordShelf"
+    },
+    {
+      "id": "food-overview-score",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "minTapTarget": 44,
+        "points": [
+          {
+            "label": "used first",
+            "value": 5
+          },
+          {
+            "label": "planned",
+            "value": 4
+          },
+          {
+            "label": "bought only gaps",
+            "value": 7
+          }
+        ],
+        "type": "bar"
+      },
+      "query": {
+        "collections": [
+          "inventory_movement",
+          "meal_log",
+          "shopping_item"
+        ],
+        "limit": 100
+      },
+      "subtitle": "A visible reason to keep using it.",
+      "title": "Waste rescue score",
+      "tone": "blue",
+      "widget": "chartBlock"
+    },
+    {
+      "id": "food-error-state",
+      "kind": "text",
+      "props": {
+        "minTapTarget": 44,
+        "role": "status",
+        "state": "error",
+        "visibleWhen": "error"
+      },
+      "subtitle": "Keep local data available and show the exact source that failed.",
+      "title": "Source needs attention",
+      "tone": "amber"
+    }
+  ],
+  "fields": [
+    "title",
+    "status",
+    "meta",
+    "body",
+    "updated_at"
+  ],
+  "icon": "layout-dashboard",
+  "label": "Overview",
+  "mode": "list",
+  "query": "all-food-records",
+  "shell": {
+    "accessibility": {
+      "announcements": true,
+      "focusOrder": "document",
+      "minimumTargetSize": 44,
+      "nonColorStatus": true
+    },
+    "activeTab": "overview",
+    "density": "balanced",
+    "layoutMode": "foodOverview",
+    "responsive": {
+      "breakpoint": 720,
+      "maxContentWidth": 1120,
+      "narrowPadding": 16,
+      "tracks": [
+        "primary",
+        "supporting"
+      ],
+      "widePadding": 32
+    },
+    "scrollable": true,
+    "tabs": [
+      {
+        "id": "home",
+        "label": "Today",
+        "screen": "home"
+      },
+      {
+        "id": "kitchen",
+        "label": "Kitchen",
+        "screen": "kitchen"
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "screen": "plan"
+      },
+      {
+        "id": "shop",
+        "label": "Shop",
+        "screen": "shop"
+      },
+      {
+        "id": "search",
+        "label": "Search",
+        "screen": "search"
+      }
+    ],
+    "theme": {
+      "accent": "#2F7448",
+      "accentContrast": "#FFFFFF",
+      "border": "#D7E2D4",
+      "canvas": "#F5F7EF",
+      "danger": "#B42318",
+      "ink": "#241C16",
+      "muted": "#607066",
+      "statusError": "#FCE4E1",
+      "statusInfo": "#DCECF5",
+      "statusSuccess": "#DDF4E4",
+      "statusWarning": "#FFF0C9",
+      "surface": "#FFFFFF",
+      "surfaceMuted": "#2F744814"
+    }
+  },
+  "subtitle": "Household food graph: inventory, plan, shopping, nutrition, and sources."
+}

@@ -48,6 +48,24 @@ export type A2UiAction = {
   payload?: Record<string, unknown>;
 };
 
+export type PresentationAggregate = 'count' | 'sum' | 'avg' | 'min' | 'max';
+
+export type PresentationDataBinding =
+  | {
+      source: 'query-records';
+      xField: string;
+      yField: string;
+    }
+  | {
+      source: 'query-aggregate';
+      aggregate: PresentationAggregate;
+      valueField?: string;
+      groupBy?: string;
+      labelField?: string;
+    };
+
+export type PresentationDataState = 'loading' | 'ready' | 'error';
+
 export type A2UiComponent = {
   kind: AppPackageUiComponentKind;
   id?: string;
@@ -64,20 +82,36 @@ export type A2UiComponent = {
     limit?: number;
   };
   action?: A2UiAction;
+  dataBinding?: PresentationDataBinding;
+  dataState?: PresentationDataState;
+  dataError?: string;
+};
+
+export type A2UiLocalization = {
+  defaultLocale: string;
+  fallbackLocale?: string;
+  appLocale?: string;
+  messages: Record<string, Record<string, string>>;
 };
 
 export type A2UiSurface = {
   schemaVersion?: 'a2ui.v0_9';
+  localization?: A2UiLocalization;
   openUrlAllowlist?: string[];
   navigation?: {
     items: Array<{
-      screen: 'home' | 'overview' | 'chat' | 'sources' | 'settings';
+      screen: string;
       label: string;
-      icon?: 'home' | 'food' | 'sparkles' | 'sync' | 'settings';
+      icon?: string;
     }>;
   };
   components?: A2UiComponent[];
-  screens?: Record<string, { title?: string; subtitle?: string; components?: A2UiComponent[] }>;
+  screens?: Record<string, {
+    title?: string;
+    subtitle?: string;
+    shell?: Record<string, unknown>;
+    components?: A2UiComponent[];
+  }>;
   defaultScreen?: string;
 };
 
@@ -217,6 +251,7 @@ export const PACKAGE_VALIDATION_CATEGORIES = {
   referenceViewId: 'reference.view.id',
   referenceViewQuery: 'reference.view.query',
   referenceUiCollection: 'reference.ui.collection',
+  uiLocalization: 'reference.ui.localization',
   v3DependencyPins: 'v3.dependencyPins',
   v3NativeCapabilities: 'v3.nativeCapabilities',
   v3NativeCapabilitySupport: 'v3.nativeCapabilities.support',
@@ -393,6 +428,7 @@ function collectPresentationCollectionIssues(
 
   const ui = presentation.ui;
   if (!isRecord(ui)) return;
+  collectUiLocalizationIssues(ui.localization, errors);
   collectUiComponentCollectionIssues(ui.components, 'presentation ui.components', collections, errors);
   if (!isRecord(ui.screens)) return;
   for (const [screenId, screenValue] of Object.entries(ui.screens)) {
@@ -403,6 +439,59 @@ function collectPresentationCollectionIssues(
       collections,
       errors,
     );
+  }
+}
+
+function collectUiLocalizationIssues(
+  value: unknown,
+  errors: PackageValidationIssue[],
+): void {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    errors.push({
+      category: PACKAGE_VALIDATION_CATEGORIES.uiLocalization,
+      message: 'presentation ui.localization must be an object',
+    });
+    return;
+  }
+  for (const key of ['defaultLocale', 'fallbackLocale', 'appLocale'] as const) {
+    const locale = value[key];
+    if (key === 'defaultLocale' && !isLocaleTag(locale)) {
+      errors.push({
+        category: PACKAGE_VALIDATION_CATEGORIES.uiLocalization,
+        message: 'presentation ui.localization.defaultLocale must be a locale tag',
+      });
+    } else if (key !== 'defaultLocale' && locale !== undefined && !isLocaleTag(locale)) {
+      errors.push({
+        category: PACKAGE_VALIDATION_CATEGORIES.uiLocalization,
+        message: `presentation ui.localization.${key} must be a locale tag`,
+      });
+    }
+  }
+  if (!isRecord(value.messages)) {
+    errors.push({
+      category: PACKAGE_VALIDATION_CATEGORIES.uiLocalization,
+      message: 'presentation ui.localization.messages must be an object',
+    });
+    return;
+  }
+  for (const [locale, messages] of Object.entries(value.messages)) {
+    if (!isLocaleTag(locale) || !isRecord(messages)) {
+      errors.push({
+        category: PACKAGE_VALIDATION_CATEGORIES.uiLocalization,
+        message: `presentation ui.localization.messages.${locale} must be a message object`,
+      });
+      continue;
+    }
+    for (const [key, message] of Object.entries(messages)) {
+      if (!isNonEmptyString(key) || !isNonEmptyString(message)) {
+        errors.push({
+          category: PACKAGE_VALIDATION_CATEGORIES.uiLocalization,
+          message: `presentation ui.localization.messages.${locale} must contain non-empty string entries`,
+        });
+        break;
+      }
+    }
   }
 }
 
@@ -489,6 +578,11 @@ function collectV3Issues(value: Partial<AppPackageV3>, errors: PackageValidation
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isLocaleTag(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(value.trim().replace(/_/g, '-'));
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

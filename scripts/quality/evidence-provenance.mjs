@@ -9,8 +9,7 @@ function git(root, args) {
 }
 
 export function currentGit(root) {
-  const dirtyStatus = git(root, ['status', '--porcelain=v1']) ?? '';
-  const dirtyDiffHash = currentDirtyDiffHash(root, dirtyStatus);
+  const { dirtyStatus, dirtyDiffHash } = currentStableDirtyState(root);
   return {
     branch: git(root, ['branch', '--show-current']),
     head: git(root, ['rev-parse', '--short', 'HEAD']),
@@ -21,6 +20,21 @@ export function currentGit(root) {
     dirtyDiffHash,
     dirty_diff_hash: dirtyDiffHash,
   };
+}
+
+function currentStableDirtyState(root) {
+  let dirtyStatus = '';
+  let dirtyDiffHash = '';
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    dirtyStatus = git(root, ['status', '--porcelain=v1']) ?? '';
+    dirtyDiffHash = currentDirtyDiffHash(root, dirtyStatus);
+    const nextStatus = git(root, ['status', '--porcelain=v1']) ?? '';
+    const nextHash = currentDirtyDiffHash(root, nextStatus);
+    if (nextStatus === dirtyStatus && nextHash === dirtyDiffHash) break;
+    dirtyStatus = nextStatus;
+    dirtyDiffHash = nextHash;
+  }
+  return { dirtyStatus, dirtyDiffHash };
 }
 
 export function currentDirtyDiffHash(root, dirtyStatus = git(root, ['status', '--porcelain=v1']) ?? '') {

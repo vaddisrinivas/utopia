@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export type NativeAudioPlayer = {
   currentStatus: {
     duration: number;
@@ -31,19 +33,55 @@ export type AudioLoopRecorderDriver = {
   stopRecording(): Promise<{ sourceUri?: string }>;
 };
 
-function asRecorderResult(sourceUri?: unknown) {
-  if (typeof sourceUri === 'string' && sourceUri.trim()) return { sourceUri: sourceUri.trim() };
-  return {};
+type ExpoAudioRecorder = {
+  readonly uri: string | null;
+  prepareToRecordAsync(): Promise<void>;
+  record(): void;
+  stop(): Promise<void>;
+};
+
+type ExpoAudioModule = {
+  readonly AudioModule?: {
+    readonly AudioRecorder?: new (options: unknown) => ExpoAudioRecorder;
+  };
+  readonly RecordingPresets?: {
+    readonly HIGH_QUALITY?: Record<string, unknown>;
+  };
+  requestRecordingPermissionsAsync?: () => Promise<{ granted?: boolean }>;
 }
 
-function resolveRecorderUri(input: unknown, fallbackUri: string): string {
-  if (typeof input === 'string' && input.trim()) return input.trim();
-  if (input && typeof input === 'object') {
-    const raw = input as Record<string, unknown>;
-    if (typeof raw.uri === 'string' && raw.uri.trim()) return raw.uri.trim();
-    if (typeof raw.sourceUri === 'string' && raw.sourceUri.trim()) return raw.sourceUri.trim();
+function asExpoAudioModule(input: unknown): ExpoAudioModule | null {
+  return input && typeof input === 'object' ? input as ExpoAudioModule : null;
+}
+
+function requireRecordingOptions(audio: ExpoAudioModule): Record<string, unknown> {
+  const preset = audio.RecordingPresets?.HIGH_QUALITY;
+  if (!preset) throw new Error('expo-audio recorder API is unavailable in this build.');
+
+  const platformOptions = Platform.OS === 'ios'
+    ? preset.ios
+    : Platform.OS === 'android'
+      ? preset.android
+      : preset.web;
+  if (!platformOptions || typeof platformOptions !== 'object') {
+    throw new Error('expo-audio recorder API is unavailable in this build.');
   }
-  return fallbackUri;
+
+  return {
+    extension: preset.extension,
+    sampleRate: preset.sampleRate,
+    numberOfChannels: preset.numberOfChannels,
+    bitRate: preset.bitRate,
+    isMeteringEnabled: false,
+    directory: 'document',
+    ...platformOptions,
+  };
+}
+
+function requireRecorderUri(recorder: ExpoAudioRecorder): string {
+  const uri = recorder.uri?.trim();
+  if (!uri) throw new Error('expo-audio recorder did not return a recording URI.');
+  return uri;
 }
 
 export async function loadExpoCamera(): Promise<NativeCameraModule> {
@@ -63,39 +101,31 @@ export async function loadExpoAudio(): Promise<any> {
 }
 
 export async function createAudioLoopRecorderDriver(audioModule?: unknown): Promise<AudioLoopRecorderDriver> {
-  const audio = audioModule ?? await loadExpoAudio();
-  if (!audio || typeof audio !== 'object') {
+  const audio = asExpoAudioModule(audioModule ?? await loadExpoAudio());
+  if (!audio) {
     throw new Error('Audio loop recorder module is not available.');
   }
-
-  if (typeof audio.createAudioRecorder === 'function') {
-    const recorder = await audio.createAudioRecorder();
-    let outputFile = '';
-    return {
-      startRecording: async (command) => {
-        outputFile = command.outputFile;
-        if (typeof recorder?.startAsync === 'function') await recorder.startAsync(command.outputFile);
-        else if (typeof recorder?.start === 'function') await recorder.start(command.outputFile);
-        else if (typeof recorder?.recordAsync === 'function') await recorder.recordAsync(command.outputFile);
-        else if (typeof recorder?.startRecording === 'function') await recorder.startRecording(command.outputFile);
-        else throw new Error('expo-audio recorder start API is unavailable in this build.');
-        return { sourceUri: command.outputFile };
-      },
-      stopRecording: async () => {
-        let result: unknown = null;
-        if (typeof recorder?.stopAsync === 'function') result = await recorder.stopAsync();
-        else if (typeof recorder?.stop === 'function') result = await recorder.stop();
-        else if (typeof recorder?.stopAndUnloadAsync === 'function') result = await recorder.stopAndUnloadAsync();
-        else throw new Error('expo-audio recorder stop API is unavailable in this build.');
-        if (typeof recorder?.getURI === 'function') {
-          return asRecorderResult(await recorder.getURI());
-        }
-        return asRecorderResult(resolveRecorderUri(result, outputFile));
-      },
-    };
+  if (typeof audio.AudioModule?.AudioRecorder !== 'function' || typeof audio.requestRecordingPermissionsAsync !== 'function') {
+    throw new Error('expo-audio recorder API is unavailable in this build.');
   }
 
-  throw new Error('expo-audio recorder API is unavailable in this build.');
+  const recorder = new audio.AudioModule.AudioRecorder(requireRecordingOptions(audio));
+  return {
+    startRecording: async (command) => {
+      if (command.isMuted) throw new Error('Audio loop recording cannot start muted.');
+      const permission = await audio.requestRecordingPermissionsAsync?.();
+      if (!permission?.granted) throw new Error('Microphone permission was not granted.');
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      // expo-audio web assigns its blob URI only after stop(); the caller uses this
+      // value as a started-session marker and saves only the stopped URI.
+      return { sourceUri: recorder.uri?.trim() || command.outputFile };
+    },
+    stopRecording: async () => {
+      await recorder.stop();
+      return { sourceUri: requireRecorderUri(recorder) };
+    },
+  };
 }
 
 export async function loadExpoDocumentPicker(): Promise<any> {

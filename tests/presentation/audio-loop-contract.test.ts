@@ -93,6 +93,11 @@ const audioLoopPlayer = audioLoopComponents.find((component) => (
 )) as AudioLoopWidgetContract | undefined;
 
 describe('audio loop contract helpers', () => {
+  it('keeps shared and numeric inputs at accessible touch-target height', () => {
+    expect(audioLoopRendererSource).toMatch(/forminput:\s*\{[\s\S]*?minheight:\s*48/);
+    expect(audioLoopRendererSource).toMatch(/audioloopnumberinput:\s*\{[\s\S]*?minheight:\s*44/);
+  });
+
   it('supports Android-only native package and required entry intents', () => {
     const contract = checkAudioLoopContractSupport({
       id: 'audio-loop-108',
@@ -146,10 +151,10 @@ describe('audio loop contract helpers', () => {
     expect(audioLoopContract.presentation?.surfaces?.map((surface) => surface.id)).toEqual(
       expect.arrayContaining(['home', 'history', 'library', 'playlist', 'record']),
     );
-    expect(audioLoopHomeSource.label).toBe('Loop');
+    expect(audioLoopHomeSource.label).toBe('Play');
     expect(audioLoopLibrarySource.label).toBe('Library');
-    expect(audioLoopPlaylistSource.label).toBe('Playlist');
-    expect(audioLoopRecordSource.label).toBe('Record');
+    expect(audioLoopPlaylistSource.label).toBe('Queue');
+    expect(audioLoopRecordSource.label).toBe('Capture');
     expect(audioLoopHomeSource.subtitle).toContain('infinite');
     expect(audioLoopHomeSource.subtitle).toContain('mode');
   });
@@ -176,7 +181,7 @@ describe('audio loop contract helpers', () => {
     expect(audioLoopComponents).toEqual(expect.arrayContaining([expect.objectContaining({
       widget: 'audioLoopPlayer',
       kind: 'widget',
-      title: 'Audio Loop',
+      title: 'Loop deck',
     } as AudioLoopWidgetContract)]));
   });
 
@@ -195,11 +200,11 @@ describe('audio loop contract helpers', () => {
     const runtimeText = `${contractText}\n${audioLoopStateSource}\n${audioLoopRendererSource}`;
     expect(contractText).toContain('audio loop');
     expect(contractText).toContain('choose');
-    expect(contractText).toContain('start');
-    expect(contractText).toContain('pause');
-    expect(contractText).toContain('resume');
-    expect(contractText).toContain('skip');
-    expect(contractText).toContain('stop');
+    expect(runtimeText).toContain('start');
+    expect(runtimeText).toContain('pause');
+    expect(runtimeText).toContain('resume');
+    expect(runtimeText).toContain('skip');
+    expect(runtimeText).toContain('stop');
     expect(contractText).toContain('recent sessions');
     expect(runtimeText).toContain('record');
     expect(runtimeText).toContain('playlist');
@@ -207,7 +212,25 @@ describe('audio loop contract helpers', () => {
     expect(audioLoopContract.presentation?.surfaces?.map((surface) => surface.id)).toEqual(
       expect.arrayContaining(['home', 'history', 'library', 'playlist', 'record']),
     );
-    expect(audioLoopHistorySource.label).toBe('History');
+    expect(audioLoopHistorySource.label).toBe('Sessions');
+  });
+
+  it('binds an early, reachable finite/infinite radio control to the reusable player', () => {
+    const controlSource = readFileSync(
+      path.join(fixtureRoot, 'src/presentation/widgets/audio-loop-player-controls.tsx'),
+      'utf8',
+    );
+    expect(controlSource).toContain('AudioLoopLoopModeControl');
+    expect(controlSource).toContain('accessibilityRole="radiogroup"');
+    expect(controlSource).toContain('accessibilityRole="radio"');
+    expect(controlSource).toContain('accessibilityLabel="Finite loop"');
+    expect(controlSource).toContain('accessibilityLabel="Infinite loop"');
+    expect(controlSource).toContain('selected: mode === \'finite\'');
+    expect(controlSource).toContain('selected: mode === \'infinite\'');
+    expect(audioLoopRendererSource).toContain('audiolooploopmodecontrol');
+    expect(audioLoopRendererSource.indexOf('audiolooploopmodecontrol')).toBeLessThan(
+      audioLoopRendererSource.indexOf('current asset'),
+    );
   });
 
   it('requires audio-recorder bridge grants for recording path', () => {
@@ -216,6 +239,8 @@ describe('audio loop contract helpers', () => {
       activePackage: {
         id: 'audio-loop-108',
         version: '1.0.0',
+        publisherId: 'utopia.audio-loop',
+        declaredPurpose: 'record local audio for Audio Loop',
         nativeCapabilities: audioLoopNativeCapabilities as never,
       },
       capabilityDecisionPort: { decide: () => 'allow' },
@@ -224,6 +249,8 @@ describe('audio loop contract helpers', () => {
       installationId: 'audio-loop-install',
       activePackage: {
         id: 'audio-loop-108',
+        publisherId: 'utopia.audio-loop',
+        declaredPurpose: 'record local audio for Audio Loop',
         nativeCapabilities: {
           ...audioLoopNativeCapabilities,
           packages: ['expo-document-picker'],
@@ -231,12 +258,20 @@ describe('audio loop contract helpers', () => {
       },
     };
 
-    expect(requestWidgetCapability(runtime, { kind: 'audio-recorder', action: 'record' }).ok).toBe(true);
+    expect(requestWidgetCapability(runtime, {
+      kind: 'audio-recorder',
+      action: 'record',
+      declaredPurpose: 'record local audio for Audio Loop',
+    }).ok).toBe(true);
     expect(audioLoopNativeCapabilities?.packages).toContain('expo-audio');
     expect(audioLoopNativeCapabilities?.permissions?.map((value) => (
       typeof value === 'string' ? value : value.permission
     ))).toContain('expo-audio');
-    expect(requestWidgetCapability(missingPackageRuntime, { kind: 'audio-recorder', action: 'record' }).ok).toBe(false);
+    expect(requestWidgetCapability(missingPackageRuntime, {
+      kind: 'audio-recorder',
+      action: 'record',
+      declaredPurpose: 'record local audio for Audio Loop',
+    }).ok).toBe(false);
   });
 
   it('retains history/playlist/restore contract vocabulary in runtime/source', () => {

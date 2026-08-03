@@ -1,6 +1,6 @@
 {
   "label": "Functions",
-  "subtitle": "Reference table for scientific calculator notation.",
+  "subtitle": "Supported formulas and explicit unsupported boundaries.",
   "collections": ["calculation"],
   "query": "history",
   "mode": "table",
@@ -10,7 +10,7 @@
       "kind": "widget",
       "widget": "dataTable",
       "title": "Function Reference",
-      "subtitle": "Accepted expression names",
+      "subtitle": "Accepted names in the local expression engine",
       "tone": "amber",
       "props": {
         "columns": [
@@ -19,12 +19,33 @@
           { "key": "example", "label": "Example" }
         ],
         "items": [
-          { "name": "Sine", "syntax": "sin(x)", "example": "sin(pi / 2)" },
-          { "name": "Cosine", "syntax": "cos(x)", "example": "cos(60 deg)" },
-          { "name": "Tangent", "syntax": "tan(x)", "example": "tan(45 deg)" },
+          { "name": "Sine", "syntax": "sin(x)", "example": "sin(pi / 2) in rad or sin(90) in deg" },
+          { "name": "Cosine", "syntax": "cos(x)", "example": "cos(pi / 3) in rad or cos(60) in deg" },
+          { "name": "Tangent", "syntax": "tan(x)", "example": "tan(pi / 4) in rad or tan(45) in deg" },
           { "name": "Natural log", "syntax": "ln(x)", "example": "ln(e)" },
           { "name": "Base-10 log", "syntax": "log10(x)", "example": "log10(1000)" },
-          { "name": "Square root", "syntax": "sqrt(x)", "example": "sqrt(144)" }
+          { "name": "Square root", "syntax": "sqrt(x)", "example": "sqrt(144)" },
+          { "name": "Absolute value", "syntax": "abs(x)", "example": "abs(-12)" },
+          { "name": "Factorial", "syntax": "x!", "example": "5!" }
+        ]
+      }
+    },
+    {
+      "kind": "widget",
+      "widget": "dataTable",
+      "title": "Unsupported Today",
+      "subtitle": "What the current workbench does not claim",
+      "tone": "moss",
+      "props": {
+        "columns": [
+          { "key": "topic", "label": "Topic" },
+          { "key": "boundary", "label": "Boundary" }
+        ],
+        "items": [
+          { "topic": "Inline units", "boundary": "Type plain numbers only; convert units before entry" },
+          { "topic": "Complex numbers", "boundary": "No imaginary number support" },
+          { "topic": "Symbolic algebra", "boundary": "No symbolic simplification or solve surface" },
+          { "topic": "Graphing", "boundary": "No plotted output" }
         ]
       }
     }

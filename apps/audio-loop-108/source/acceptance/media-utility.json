@@ -1,0 +1,9 @@
+{
+  "id": "media-utility",
+  "checks": [
+    "last-selected-audio-restores-without-reselection",
+    "finite-positive-loop-count-or-infinite-mode",
+    "pause-resume-stop-skip-and-queue-navigation",
+    "playlist-reorder-and-history-replay"
+  ]
+}

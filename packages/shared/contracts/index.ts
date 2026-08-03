@@ -35,3 +35,4 @@ export * from './rules';
 export * from './recurrence';
 export * from './receipts';
 export * from './workflow';
+export * from './expression';

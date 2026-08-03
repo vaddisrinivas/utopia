@@ -587,6 +587,7 @@ function expectedTransportCount(receipt) {
  *   path?: string;
  *   requiredSourceSurface?: string | null;
  *   requireTransport?: boolean;
+ *   expectedGit?: Record<string, unknown> | null;
  * }} [options]
  */
 export function validateShellProofReceipt(receipt, {
@@ -595,10 +596,11 @@ export function validateShellProofReceipt(receipt, {
   path = 'receipt',
   requiredSourceSurface = null,
   requireTransport = true,
+  expectedGit = null,
 } = {}) {
   const blockers = [];
 
-  const envelope = validateEvidenceEnvelope(root, path, receipt, currentGit(root));
+  const envelope = validateEvidenceEnvelope(root, path, receipt, expectedGit ?? currentGit(root));
   const envelopeIssues = (envelope.issues || []).filter((entry) => entry !== 'missing:branch');
   if (envelopeIssues.length) {
     blockers.push(...envelopeIssues.map((entry) => `invalid_envelope:${entry}`));

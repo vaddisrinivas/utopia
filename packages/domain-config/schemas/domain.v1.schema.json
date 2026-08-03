@@ -598,6 +598,7 @@
             "galleryGrid",
             "dataTable",
             "permissionCard",
+            "capabilityExerciser",
             "filePicker",
             "fileExport",
             "providerStatus",
@@ -609,12 +610,16 @@
             "audioLoopPlayer",
             "stepFlow",
             "durationTimer",
-            "foodHero",
-            "useFirstCarousel",
-            "mealTimeline",
-            "recipeCard",
-            "receiptReviewCard",
-            "pantryShelf",
+            "valueControl",
+            "operationHistory",
+            "quickAddList",
+            "structuredList",
+            "groupedRecordShelf",
+            "recordHeroSummary",
+            "horizontalRecordCarousel",
+            "recordTimeline",
+            "recordContentCard",
+            "recordReviewCard",
             "askFoodBar"
           ]
         },
@@ -672,6 +677,39 @@
           },
           "additionalProperties": false
         },
+        "dataBinding": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["source", "xField", "yField"],
+              "properties": {
+                "source": { "const": "query-records" },
+                "xField": { "type": "string", "minLength": 1 },
+                "yField": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["source", "aggregate"],
+              "properties": {
+                "source": { "const": "query-aggregate" },
+                "aggregate": { "enum": ["count", "sum", "avg", "min", "max"] },
+                "valueField": { "type": "string", "minLength": 1 },
+                "groupBy": { "type": "string", "minLength": 1 },
+                "labelField": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dataState": {
+          "enum": ["loading", "ready", "error"]
+        },
+        "dataError": {
+          "type": "string",
+          "minLength": 1
+        },
         "action": {
           "$ref": "#/$defs/package_ui_action"
         }
@@ -690,6 +728,9 @@
         "subtitle": {
           "type": "string"
         },
+        "shell": {
+          "type": "object"
+        },
         "components": {
           "type": "array",
           "minItems": 1,
@@ -705,6 +746,9 @@
       "properties": {
         "schemaVersion": {
           "const": "a2ui.v0_9"
+        },
+        "localization": {
+          "$ref": "#/$defs/package_ui_localization"
         },
         "openUrlAllowlist": {
           "type": "array",
@@ -730,26 +774,16 @@
                 ],
                 "properties": {
                   "screen": {
-                    "enum": [
-                      "home",
-                      "overview",
-                      "chat",
-                      "sources",
-                      "settings"
-                    ]
+                    "type": "string",
+                    "minLength": 1
                   },
                   "label": {
                     "type": "string",
                     "minLength": 1
                   },
                   "icon": {
-                    "enum": [
-                      "home",
-                      "food",
-                      "sparkles",
-                      "sync",
-                      "settings"
-                    ]
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "additionalProperties": false
@@ -773,6 +807,40 @@
         },
         "defaultScreen": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "package_ui_localization": {
+      "type": "object",
+      "required": [
+        "defaultLocale",
+        "messages"
+      ],
+      "properties": {
+        "defaultLocale": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+        },
+        "fallbackLocale": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+        },
+        "appLocale": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+        },
+        "messages": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       },
       "additionalProperties": false

@@ -1,0 +1,1389 @@
+{
+  "schemaVersion": "wonder.app-package.v2",
+  "id": "interval-timer",
+  "version": "2.0.0",
+  "collections": {
+    "interval_preset": {
+      "id": "interval_preset",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "total_seconds": {
+          "type": "number",
+          "required": true
+        },
+        "rounds": {
+          "type": "number",
+          "required": true
+        },
+        "alarm_profile": {
+          "type": "text",
+          "indexed": true
+        },
+        "speech_enabled": {
+          "type": "boolean"
+        },
+        "vibration_enabled": {
+          "type": "boolean"
+        },
+        "theme": {
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    },
+    "interval_phase": {
+      "id": "interval_phase",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "preset_id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "phase_order": {
+          "type": "number",
+          "required": true,
+          "indexed": true
+        },
+        "phase_type": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "duration_seconds": {
+          "type": "number",
+          "required": true
+        },
+        "alarm_mode": {
+          "type": "text"
+        },
+        "speech_cue": {
+          "type": "text"
+        },
+        "color": {
+          "type": "text"
+        }
+      }
+    },
+    "interval_session": {
+      "id": "interval_session",
+      "fields": {
+        "id": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "title": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "collection": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "indexed": true
+        },
+        "properties": {
+          "type": "json",
+          "required": true
+        },
+        "preset_id": {
+          "type": "text",
+          "indexed": true
+        },
+        "current_step": {
+          "type": "text",
+          "indexed": true
+        },
+        "started_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "finished_at": {
+          "type": "timestamp",
+          "indexed": true
+        },
+        "status": {
+          "type": "text",
+          "required": true,
+          "indexed": true
+        },
+        "elapsed_seconds": {
+          "type": "number"
+        },
+        "rounds_completed": {
+          "type": "number"
+        },
+        "recovery_confidence": {
+          "type": "text"
+        },
+        "notes": {
+          "type": "text"
+        }
+      }
+    }
+  },
+  "queries": {
+    "active-presets": {
+      "from": "interval_preset",
+      "where": {
+        "op": "eq",
+        "field": "status",
+        "value": "active"
+      },
+      "orderBy": [
+        {
+          "field": "title",
+          "direction": "asc"
+        }
+      ],
+      "limit": 50
+    },
+    "ordered-phases": {
+      "from": "interval_phase",
+      "orderBy": [
+        {
+          "field": "phase_order",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    },
+    "sessions": {
+      "from": "interval_session",
+      "orderBy": [
+        {
+          "field": "started_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 50
+    },
+    "completed-sessions": {
+      "from": "interval_session",
+      "where": {
+        "op": "eq",
+        "field": "status",
+        "value": "completed"
+      },
+      "orderBy": [
+        {
+          "field": "finished_at",
+          "direction": "desc"
+        }
+      ],
+      "limit": 100
+    }
+  },
+  "views": {
+    "presets": {
+      "id": "presets",
+      "query": "active-presets",
+      "mode": "list",
+      "fields": [
+        "title",
+        "total_seconds",
+        "rounds",
+        "alarm_profile",
+        "theme"
+      ]
+    },
+    "phases": {
+      "id": "phases",
+      "query": "ordered-phases",
+      "mode": "table",
+      "fields": [
+        "title",
+        "phase_type",
+        "duration_seconds",
+        "phase_order",
+        "alarm_mode",
+        "speech_cue"
+      ]
+    },
+    "sessions": {
+      "id": "sessions",
+      "query": "sessions",
+      "mode": "timeline",
+      "fields": [
+        "title",
+        "status",
+        "started_at",
+        "finished_at",
+        "current_step",
+        "elapsed_seconds"
+      ]
+    }
+  },
+  "rules": [],
+  "capabilities": [],
+  "acceptanceTests": [
+    "create-interval-preset",
+    "edit-interval-phases",
+    "repeat-interval-loops",
+    "reorder-intervals",
+    "duplicate-interval-preset",
+    "configure-phase-duration",
+    "view-timer-history",
+    "interval-session-oracle",
+    "restart-recovery-confirmed-elapsed",
+    "uncertain-elapsed-review-required",
+    "gold-from-scratch-presentation",
+    "generic-widget-only"
+  ],
+  "presentation": {
+    "label": "Interval Timer",
+    "homeSurface": "home",
+    "surfaces": [
+      {
+        "id": "home",
+        "label": "Home",
+        "icon": "play",
+        "collections": [
+          "interval_preset",
+          "interval_phase",
+          "interval_session"
+        ],
+        "views": [
+          "presets",
+          "phases",
+          "sessions"
+        ]
+      },
+      {
+        "id": "presets",
+        "label": "Presets",
+        "icon": "layers",
+        "collections": [
+          "interval_preset",
+          "interval_phase",
+          "interval_session"
+        ],
+        "views": [
+          "presets",
+          "phases",
+          "sessions"
+        ]
+      },
+      {
+        "id": "phases",
+        "label": "Phases",
+        "icon": "list",
+        "collections": [
+          "interval_preset",
+          "interval_phase",
+          "interval_session"
+        ],
+        "views": [
+          "presets",
+          "phases",
+          "sessions"
+        ]
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "icon": "history",
+        "collections": [
+          "interval_preset",
+          "interval_phase",
+          "interval_session"
+        ],
+        "views": [
+          "presets",
+          "phases",
+          "sessions"
+        ]
+      },
+      {
+        "id": "settings",
+        "label": "Settings",
+        "icon": "settings",
+        "collections": [
+          "interval_preset",
+          "interval_phase",
+          "interval_session"
+        ],
+        "views": [
+          "presets",
+          "phases",
+          "sessions"
+        ]
+      }
+    ],
+    "visualIdentity": {
+      "icon": "timer",
+      "tone": "Training clock",
+      "accent": "#FFCF56",
+      "canvas": "#101116",
+      "surface": "#20242C",
+      "ink": "#F7F5EA",
+      "muted": "#A8B1BD",
+      "responsive": {
+        "phone": "single-column, bottom primary action, minimum 44px targets",
+        "desktop": "multi-panel workspace with navigation tabs and dense data review"
+      },
+      "accessibility": {
+        "minimumTargetSize": 44,
+        "liveStatus": true,
+        "nonColorStatus": true,
+        "keyboardReachable": true
+      }
+    },
+    "ui": {
+      "schemaVersion": "a2ui.v0_9",
+      "defaultScreen": "home",
+      "navigation": {
+        "items": [
+          {
+            "screen": "home",
+            "label": "Run",
+            "icon": "play"
+          },
+          {
+            "screen": "presets",
+            "label": "Presets",
+            "icon": "layers"
+          },
+          {
+            "screen": "phases",
+            "label": "Phases",
+            "icon": "list-plus"
+          },
+          {
+            "screen": "history",
+            "label": "History",
+            "icon": "history"
+          },
+          {
+            "screen": "settings",
+            "label": "Settings",
+            "icon": "settings"
+          }
+        ]
+      },
+      "screens": {
+        "home": {
+          "title": "Run",
+          "subtitle": "Start the selected preset, watch the current phase, and recover if the clock becomes uncertain.",
+          "shell": {
+            "layoutMode": "focusedTool",
+            "appBarTitle": "Interval Timer",
+            "appBarSubtitle": "Build phases, run the set, recover the exact timer.",
+            "appBarEyebrow": "Training clock",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "home",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Run",
+                "icon": "play"
+              },
+              {
+                "id": "presets",
+                "screen": "presets",
+                "label": "Presets",
+                "icon": "table"
+              },
+              {
+                "id": "phases",
+                "screen": "phases",
+                "label": "Phases",
+                "icon": "list"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [
+              {
+                "id": "edit-preset",
+                "label": "Edit preset",
+                "icon": "edit-3",
+                "tone": "secondary",
+                "event": "open-interval-preset-editor"
+              },
+              {
+                "id": "start-interval",
+                "label": "Start",
+                "icon": "play",
+                "tone": "primary",
+                "event": "start-interval-session"
+              }
+            ],
+            "theme": {
+              "canvas": "#101116",
+              "surface": "#20242C",
+              "surfaceMuted": "#2E3540",
+              "ink": "#F7F5EA",
+              "muted": "#A8B1BD",
+              "accent": "#FFCF56",
+              "accentContrast": "#171307",
+              "border": "#3B4452",
+              "danger": "#FF6B6B",
+              "dangerContrast": "#180B0B",
+              "statusInfo": "#1D3B4D",
+              "statusSuccess": "#173B31",
+              "statusWarning": "#4A3B17",
+              "statusError": "#4B1E25"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 980,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-live-hero",
+              "kind": "widget",
+              "widget": "recordHeroSummary",
+              "title": "Current preset",
+              "query": {
+                "collections": [
+                  "interval_preset"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "title": "Advanced 4:00",
+                "subtitle": "Work 1:30, Rest 0:30, repeat the pair twice.",
+                "badge": "Ready",
+                "stats": [
+                  {
+                    "label": "total",
+                    "value": "4:00"
+                  },
+                  {
+                    "label": "sets",
+                    "value": "2"
+                  },
+                  {
+                    "label": "feedback",
+                    "value": "sound + speech"
+                  }
+                ],
+                "actions": [
+                  {
+                    "label": "Edit phases",
+                    "route": "/apps/interval-timer?screen=phases"
+                  },
+                  {
+                    "label": "History",
+                    "route": "/apps/interval-timer?screen=history"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interval-session-flow",
+              "kind": "widget",
+              "widget": "stepFlow",
+              "title": "Interval run",
+              "props": {
+                "runId": "interval-session",
+                "steps": [
+                  {
+                    "id": "work-1",
+                    "title": "Work",
+                    "durationSeconds": 90
+                  },
+                  {
+                    "id": "rest-1",
+                    "title": "Rest",
+                    "durationSeconds": 30
+                  },
+                  {
+                    "id": "work-2",
+                    "title": "Work",
+                    "durationSeconds": 90
+                  },
+                  {
+                    "id": "rest-2",
+                    "title": "Rest",
+                    "durationSeconds": 30
+                  }
+                ],
+                "completionRecord": {
+                  "collection": "interval_session",
+                  "title": "Advanced interval run",
+                  "properties": {
+                    "preset_id": "advanced",
+                    "current_step": "completed",
+                    "status": "completed",
+                    "elapsed_seconds": 240,
+                    "rounds_completed": 1,
+                    "recovery_confidence": "confirmed"
+                  }
+                },
+                "recovery": {
+                  "onRestart": "restore-active-session",
+                  "onUncertainElapsed": "require-confirmation"
+                }
+              }
+            },
+            {
+              "id": "interval-phase-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Phase stack",
+              "props": {
+                "title": "Phase stack",
+                "subtitle": "The visible order is the execution order; reordering changes the next run.",
+                "badge": "Execution order",
+                "items": [
+                  {
+                    "title": "Work 1",
+                    "detail": "1:30 high-intensity cue.",
+                    "status": "active"
+                  },
+                  {
+                    "title": "Rest 1",
+                    "detail": "0:30 recovery cue.",
+                    "status": "rest"
+                  },
+                  {
+                    "title": "Work 2",
+                    "detail": "1:30 repeated work cue.",
+                    "status": "active"
+                  },
+                  {
+                    "title": "Rest 2",
+                    "detail": "0:30 ending recovery cue.",
+                    "status": "finish"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interval-recent-runs",
+              "kind": "recordList",
+              "title": "Recent runs",
+              "query": {
+                "collections": [
+                  "interval_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "emptyText": "Completed runs appear here after the timer finishes.",
+                "subtitleFields": [
+                  "status",
+                  "elapsed_seconds",
+                  "recovery_confidence"
+                ]
+              }
+            },
+            {
+              "id": "interval-recovery-card",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Recovery",
+              "props": {
+                "title": "Recovery",
+                "subtitle": "Clock rollback needs confirmation",
+                "body": "Restart restores a running session from wall clock; rollback pauses for explicit elapsed confirmation.",
+                "chips": [
+                  {
+                    "label": "restart",
+                    "value": "restore"
+                  },
+                  {
+                    "label": "uncertain",
+                    "value": "review"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        },
+        "presets": {
+          "title": "Presets",
+          "subtitle": "Create, duplicate, rename, and archive timer presets without changing run history.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Timer",
+            "appBarSubtitle": "Build phases, run the set, recover the exact timer.",
+            "appBarEyebrow": "Training clock",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "presets",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Run",
+                "icon": "play"
+              },
+              {
+                "id": "presets",
+                "screen": "presets",
+                "label": "Presets",
+                "icon": "table"
+              },
+              {
+                "id": "phases",
+                "screen": "phases",
+                "label": "Phases",
+                "icon": "list"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#101116",
+              "surface": "#20242C",
+              "surfaceMuted": "#2E3540",
+              "ink": "#F7F5EA",
+              "muted": "#A8B1BD",
+              "accent": "#FFCF56",
+              "accentContrast": "#171307",
+              "border": "#3B4452",
+              "danger": "#FF6B6B",
+              "dangerContrast": "#180B0B",
+              "statusInfo": "#1D3B4D",
+              "statusSuccess": "#173B31",
+              "statusWarning": "#4A3B17",
+              "statusError": "#4B1E25"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-preset-form",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Preset editor",
+              "props": {
+                "fields": [
+                  {
+                    "id": "title",
+                    "label": "Preset name",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "id": "rounds",
+                    "label": "Sets",
+                    "type": "number",
+                    "required": true
+                  },
+                  {
+                    "id": "total_seconds",
+                    "label": "Total seconds",
+                    "type": "number",
+                    "required": true
+                  },
+                  {
+                    "id": "alarm_profile",
+                    "label": "Alarm profile",
+                    "type": "text"
+                  },
+                  {
+                    "id": "theme",
+                    "label": "Timer theme",
+                    "type": "text"
+                  }
+                ],
+                "autosave": "on-blur",
+                "errorState": "inline",
+                "submitLabel": "Save preset",
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": true,
+                  "failure": "inline-error"
+                }
+              }
+            },
+            {
+              "id": "interval-preset-list",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Saved presets",
+              "query": {
+                "collections": [
+                  "interval_preset"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "interval_preset",
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "metadataFields": [
+                  {
+                    "field": "rounds",
+                    "label": "Sets",
+                    "type": "number",
+                    "sortable": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "total_seconds",
+                    "label": "Total",
+                    "type": "number",
+                    "sortable": true
+                  },
+                  {
+                    "field": "alarm_profile",
+                    "label": "Alarm",
+                    "type": "text",
+                    "filterable": true
+                  },
+                  {
+                    "field": "status",
+                    "label": "Status",
+                    "type": "text",
+                    "filterable": true
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "recent",
+                  "alphabetic"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": true,
+                  "failure": "inline-error"
+                },
+                "emptyText": "Create the first repeatable timer preset."
+              }
+            },
+            {
+              "id": "interval-duplicate-review",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Duplicate safely",
+              "props": {
+                "title": "Duplicate safely",
+                "subtitle": "A copied preset is separate; original history and phases stay unchanged.",
+                "badge": "Copy",
+                "items": [
+                  {
+                    "title": "Original preset",
+                    "detail": "Keeps phase IDs and past runs.",
+                    "status": "locked"
+                  },
+                  {
+                    "title": "Duplicate preset",
+                    "detail": "Editable name, rounds, theme, feedback.",
+                    "status": "new"
+                  },
+                  {
+                    "title": "History",
+                    "detail": "Run records stay tied to their preset.",
+                    "status": "preserved"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "phases": {
+          "title": "Phases",
+          "subtitle": "Advanced editor for ordered work/rest blocks, duration, alarm, voice cue, and color.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Timer",
+            "appBarSubtitle": "Build phases, run the set, recover the exact timer.",
+            "appBarEyebrow": "Training clock",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "phases",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Run",
+                "icon": "play"
+              },
+              {
+                "id": "presets",
+                "screen": "presets",
+                "label": "Presets",
+                "icon": "table"
+              },
+              {
+                "id": "phases",
+                "screen": "phases",
+                "label": "Phases",
+                "icon": "list"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#101116",
+              "surface": "#20242C",
+              "surfaceMuted": "#2E3540",
+              "ink": "#F7F5EA",
+              "muted": "#A8B1BD",
+              "accent": "#FFCF56",
+              "accentContrast": "#171307",
+              "border": "#3B4452",
+              "danger": "#FF6B6B",
+              "dangerContrast": "#180B0B",
+              "statusInfo": "#1D3B4D",
+              "statusSuccess": "#173B31",
+              "statusWarning": "#4A3B17",
+              "statusError": "#4B1E25"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-phase-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Phase editor",
+              "query": {
+                "collections": [
+                  "interval_phase"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "collection": "interval_phase",
+                "editable": true,
+                "deletable": true,
+                "autoSaveEdits": true,
+                "metadataFields": [
+                  {
+                    "field": "preset_id",
+                    "label": "Preset",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "phase_order",
+                    "label": "Order",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "phase_type",
+                    "label": "Type",
+                    "type": "text",
+                    "required": true,
+                    "filterable": true
+                  },
+                  {
+                    "field": "duration_seconds",
+                    "label": "Seconds",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "alarm_mode",
+                    "label": "Alarm",
+                    "type": "text",
+                    "filterable": true
+                  },
+                  {
+                    "field": "speech_cue",
+                    "label": "Speech cue",
+                    "type": "text"
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "recent",
+                  "alphabetic"
+                ],
+                "commandPolicy": {
+                  "autosave": "change",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": true,
+                  "failure": "inline-error"
+                },
+                "positionField": "phase_order",
+                "reorderable": true,
+                "emptyText": "Add phases to make a runnable preset."
+              }
+            },
+            {
+              "id": "interval-phase-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Phase table",
+              "query": {
+                "collections": [
+                  "interval_phase"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "phase_order",
+                    "label": "Order"
+                  },
+                  {
+                    "key": "title",
+                    "label": "Phase"
+                  },
+                  {
+                    "key": "phase_type",
+                    "label": "Type"
+                  },
+                  {
+                    "key": "duration_seconds",
+                    "label": "Seconds"
+                  },
+                  {
+                    "key": "alarm_mode",
+                    "label": "Alarm"
+                  }
+                ],
+                "emptyText": "No phases yet."
+              }
+            },
+            {
+              "id": "interval-empty-state",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Empty preset",
+              "props": {
+                "title": "Empty preset",
+                "subtitle": "Start with work and rest",
+                "body": "A preset cannot run until at least one timed phase exists.",
+                "chips": [
+                  {
+                    "label": "state",
+                    "value": "empty"
+                  },
+                  {
+                    "label": "action",
+                    "value": "add phase"
+                  }
+                ],
+                "actions": []
+              }
+            },
+            {
+              "id": "interval-error-state",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Validation",
+              "props": {
+                "title": "Validation",
+                "subtitle": "Duration and order are required",
+                "body": "Invalid phase duration stays inline and does not overwrite the last saved phase.",
+                "chips": [
+                  {
+                    "label": "failure",
+                    "value": "inline"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        },
+        "history": {
+          "title": "History",
+          "subtitle": "Completed sessions, recovery confidence, elapsed seconds, and phase outcomes.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Timer",
+            "appBarSubtitle": "Build phases, run the set, recover the exact timer.",
+            "appBarEyebrow": "Training clock",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Run",
+                "icon": "play"
+              },
+              {
+                "id": "presets",
+                "screen": "presets",
+                "label": "Presets",
+                "icon": "table"
+              },
+              {
+                "id": "phases",
+                "screen": "phases",
+                "label": "Phases",
+                "icon": "list"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#101116",
+              "surface": "#20242C",
+              "surfaceMuted": "#2E3540",
+              "ink": "#F7F5EA",
+              "muted": "#A8B1BD",
+              "accent": "#FFCF56",
+              "accentContrast": "#171307",
+              "border": "#3B4452",
+              "danger": "#FF6B6B",
+              "dangerContrast": "#180B0B",
+              "statusInfo": "#1D3B4D",
+              "statusSuccess": "#173B31",
+              "statusWarning": "#4A3B17",
+              "statusError": "#4B1E25"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-session-timeline",
+              "kind": "widget",
+              "widget": "recordTimeline",
+              "title": "Run timeline",
+              "query": {
+                "collections": [
+                  "interval_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "subtitleFields": [
+                  "status",
+                  "elapsed_seconds",
+                  "rounds_completed",
+                  "recovery_confidence"
+                ]
+              }
+            },
+            {
+              "id": "interval-completed-metric",
+              "kind": "metric",
+              "title": "Completed runs",
+              "query": {
+                "collections": [
+                  "interval_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "emptyText": "Finish a run to see completed work.",
+                "valueField": "elapsed_seconds"
+              }
+            },
+            {
+              "id": "interval-history-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Elapsed by session",
+              "query": {
+                "collections": [
+                  "interval_session"
+                ],
+                "limit": 100
+              },
+              "props": {
+                "dataBinding": {
+                  "source": "query-aggregate",
+                  "aggregate": "sum",
+                  "valueField": "elapsed_seconds",
+                  "groupBy": "preset_id",
+                  "labelField": "preset_id"
+                },
+                "emptyText": "No elapsed time yet."
+              }
+            },
+            {
+              "id": "interval-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "Saved changes",
+              "props": {
+                "collection": "interval_session",
+                "limit": 50,
+                "emptyText": "No timer changes yet."
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Feedback modes, theme, density, offline posture, and recovery policy.",
+          "shell": {
+            "layoutMode": "collectionWorkspace",
+            "appBarTitle": "Interval Timer",
+            "appBarSubtitle": "Build phases, run the set, recover the exact timer.",
+            "appBarEyebrow": "Training clock",
+            "scrollable": true,
+            "density": "compact",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Run",
+                "icon": "play"
+              },
+              {
+                "id": "presets",
+                "screen": "presets",
+                "label": "Presets",
+                "icon": "table"
+              },
+              {
+                "id": "phases",
+                "screen": "phases",
+                "label": "Phases",
+                "icon": "list"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History",
+                "icon": "rotate-ccw"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Settings",
+                "icon": "settings"
+              }
+            ],
+            "bottomActions": [],
+            "theme": {
+              "canvas": "#101116",
+              "surface": "#20242C",
+              "surfaceMuted": "#2E3540",
+              "ink": "#F7F5EA",
+              "muted": "#A8B1BD",
+              "accent": "#FFCF56",
+              "accentContrast": "#171307",
+              "border": "#3B4452",
+              "danger": "#FF6B6B",
+              "dangerContrast": "#180B0B",
+              "statusInfo": "#1D3B4D",
+              "statusSuccess": "#173B31",
+              "statusWarning": "#4A3B17",
+              "statusError": "#4B1E25"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            }
+          },
+          "components": [
+            {
+              "id": "interval-feedback-settings",
+              "kind": "widget",
+              "widget": "formCard",
+              "title": "Feedback settings",
+              "props": {
+                "fields": [
+                  {
+                    "id": "alarm_profile",
+                    "label": "Alarm profile",
+                    "type": "text"
+                  },
+                  {
+                    "id": "speech_enabled",
+                    "label": "Text to speech enabled",
+                    "type": "boolean"
+                  },
+                  {
+                    "id": "vibration_enabled",
+                    "label": "Vibration enabled",
+                    "type": "boolean"
+                  },
+                  {
+                    "id": "theme",
+                    "label": "Timer theme",
+                    "type": "text"
+                  }
+                ],
+                "autosave": "on-blur",
+                "errorState": "inline",
+                "submitLabel": "Save feedback"
+              }
+            },
+            {
+              "id": "interval-provider-status",
+              "kind": "widget",
+              "widget": "providerStatus",
+              "title": "Offline status",
+              "props": {
+                "unavailableText": "Timers and preset edits stay local. Native feedback execution requires a separate device receipt."
+              }
+            },
+            {
+              "id": "interval-density",
+              "kind": "widget",
+              "widget": "themeDensitySelector",
+              "title": "Display density"
+            },
+            {
+              "id": "interval-offline-state",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Offline",
+              "props": {
+                "title": "Offline",
+                "subtitle": "Local timer state stays usable",
+                "body": "Preset edits and timer recovery work offline. Reconnect resumes sync when available.",
+                "chips": [
+                  {
+                    "label": "network",
+                    "value": "not required"
+                  },
+                  {
+                    "label": "reconnect",
+                    "value": "resume sync"
+                  }
+                ],
+                "actions": []
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

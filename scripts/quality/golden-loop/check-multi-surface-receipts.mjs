@@ -21,6 +21,7 @@ const webReceiptPath = process.env.UTOPIA_MULTI_SURFACE_WEB_RECEIPT_PATH ?? 'app
 const macosReceiptPath = process.env.UTOPIA_MULTI_SURFACE_MACOS_RECEIPT_PATH
   ?? 'app/build/evidence/golden-loop/macos-execution-receipt.json';
 const REQUIRED_ANDROID_COUNT = 2;
+const DEFAULT_MAX_RECEIPT_AGE_MS = 30 * 60 * 1000;
 
 const REQUIRED_SOURCE_SURFACES = {
   android: 'android',
@@ -92,6 +93,19 @@ function compareSurfaceSets(surfaceKey, blockers, records, selector) {
   }
 }
 
+export function receiptFreshnessBlocker(checkedAt, {
+  now = Date.now(),
+  maxAgeMs = DEFAULT_MAX_RECEIPT_AGE_MS,
+} = {}) {
+  if (typeof checkedAt !== 'string' || Number.isNaN(Date.parse(checkedAt))) {
+    return 'missing_or_invalid_checked_at';
+  }
+  const age = now - Date.parse(checkedAt);
+  if (age < -5 * 60 * 1000) return `receipt_checked_at_in_future:${checkedAt}`;
+  if (age > maxAgeMs) return `receipt_checked_at_too_old:${checkedAt}`;
+  return null;
+}
+
 function summarizeSurface(record) {
   return {
     run_id: record.run_id,
@@ -111,9 +125,18 @@ function summarizeSurface(record) {
 }
 
 function checkShellEvidence(blockers, records) {
+  const configuredMaxAgeMs = Number(process.env.UTOPIA_MULTI_SURFACE_MAX_RECEIPT_AGE_MS || DEFAULT_MAX_RECEIPT_AGE_MS);
+  const maxAgeMs = Number.isFinite(configuredMaxAgeMs) && configuredMaxAgeMs > 0
+    ? configuredMaxAgeMs
+    : DEFAULT_MAX_RECEIPT_AGE_MS;
   for (const record of records) {
     if (!record.run_id) {
       blockers.push(`missing_run_id:${record.requested_path}`);
+    }
+
+    const freshnessBlocker = receiptFreshnessBlocker(record.checked_at, { maxAgeMs });
+    if (freshnessBlocker) {
+      blockers.push(`${freshnessBlocker}:${record.requested_path}`);
     }
 
     if (!record.shell_proof || !record.shell_proof.pass) {

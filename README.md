@@ -203,7 +203,7 @@ Current generic/package-level widgets include:
 
 Known renderer debt:
 
-- Food still uses domain-shaped widgets: `foodHero`, `pantryShelf`, `useFirstCarousel`, `mealTimeline`, `recipeCard`, `receiptReviewCard`.
+- Food now uses shared `recordHeroSummary`, `groupedRecordShelf`, `horizontalRecordCarousel`, `recordTimeline`, `recordContentCard`, and `recordReviewCard` primitives; `askFoodBar` remains a separate assistant surface.
 - Calculator and Audio Loop prove non-Food apps, but each uses a specialized reusable runtime widget: `scientificCalculator`, `audioLoopPlayer`.
 - Habit Grid is the first package-only proof app: it uses existing `chartBlock`, `checklistCard`, `dataTable`, and `recordList` primitives.
 - Expense Splitter and Split Rent are package-only expression proofs using the

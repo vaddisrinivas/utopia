@@ -2,11 +2,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   type CapabilityConsentRecord,
+  type CapabilityConsentMigrationPolicy,
   buildCapabilityConsentRecordFingerprint,
   buildCapabilityConsentRecordId,
   canonicalCapabilityConsentRecord,
   createCapabilityDecisionPort,
   type CapabilityDecisionPort,
+  UTOPIA_CAPABILITY_CONSENT_LEGACY_PURPOSE,
+  UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION,
   validateCapabilityConsentRecord,
 } from '@/packages/shared/contracts/capability-consent-ledger';
 import { sha256Canonical } from '@/packages/shared/contracts/canonical-json';
@@ -19,8 +22,11 @@ type ConsentLedgerRow = {
   package_id: string;
   package_version: string;
   package_checksum: string;
+  publisher_id: string | null;
   capability: string;
   scope_json: string;
+  declared_purpose: string;
+  grant_schema_version: string;
   decision: 'allow' | 'deny';
   decided_by: string;
   decided_at: string;
@@ -77,8 +83,11 @@ export async function upsertCapabilityConsentLedgerRecord(
     package_id: normalizedRecord.packageId,
     package_version: normalizedRecord.packageVersion,
     package_checksum: normalizedRecord.packageChecksum,
+    publisher_id: normalizedRecord.publisherId ?? null,
     capability: normalizedRecord.capability,
     scope_json: JSON.stringify(scope),
+    declared_purpose: normalizedRecord.declaredPurpose ?? UTOPIA_CAPABILITY_CONSENT_LEGACY_PURPOSE,
+    grant_schema_version: normalizedRecord.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION,
     decision: normalizedRecord.decision,
     decided_by: normalizedRecord.decidedBy,
     decided_at: normalizedRecord.decidedAt,
@@ -97,8 +106,11 @@ export async function upsertCapabilityConsentLedgerRecord(
       package_id,
       package_version,
       package_checksum,
+      publisher_id,
       capability,
       scope_json,
+      declared_purpose,
+      grant_schema_version,
       decision,
       decided_by,
       decided_at,
@@ -115,8 +127,11 @@ export async function upsertCapabilityConsentLedgerRecord(
       $package_id,
       $package_version,
       $package_checksum,
+      $publisher_id,
       $capability,
       $scope_json,
+      $declared_purpose,
+      $grant_schema_version,
       $decision,
       $decided_by,
       $decided_at,
@@ -132,8 +147,11 @@ export async function upsertCapabilityConsentLedgerRecord(
       package_id = excluded.package_id,
       package_version = excluded.package_version,
       package_checksum = excluded.package_checksum,
+      publisher_id = excluded.publisher_id,
       capability = excluded.capability,
       scope_json = excluded.scope_json,
+      declared_purpose = excluded.declared_purpose,
+      grant_schema_version = excluded.grant_schema_version,
       decision = excluded.decision,
       decided_by = excluded.decided_by,
       decided_at = excluded.decided_at,
@@ -150,8 +168,11 @@ export async function upsertCapabilityConsentLedgerRecord(
       $package_id: row.package_id,
       $package_version: row.package_version,
       $package_checksum: row.package_checksum,
+      $publisher_id: row.publisher_id,
       $capability: row.capability,
       $scope_json: row.scope_json,
+      $declared_purpose: row.declared_purpose,
+      $grant_schema_version: row.grant_schema_version,
       $decision: row.decision,
       $decided_by: row.decided_by,
       $decided_at: row.decided_at,
@@ -178,16 +199,10 @@ export async function getCapabilityConsentLedgerRecord(
   const row = await db.getFirstAsync<ConsentLedgerRow>(
     `SELECT * FROM capability_consent_ledger
      WHERE id = $id
-       AND app_installation_id = $app_installation_id
-       AND package_id = $package_id
-       AND package_version = $package_version
-       AND package_checksum = $package_checksum`,
+       AND app_installation_id = $app_installation_id`,
     {
       $id: recordId,
       $app_installation_id: normalizedInstallationId,
-      $package_id: context.packageId,
-      $package_version: context.packageVersion,
-      $package_checksum: context.packageChecksum,
     },
   );
   return row ? hydrateLedgerRecord(row) : null;
@@ -203,15 +218,9 @@ export async function listCapabilityConsentLedgerRecordsForInstallation(
   const rows = await db.getAllAsync<ConsentLedgerRow>(
     `SELECT * FROM capability_consent_ledger
      WHERE app_installation_id = $app_installation_id
-       AND package_id = $package_id
-       AND package_version = $package_version
-       AND package_checksum = $package_checksum
      ORDER BY updated_at DESC`,
     {
       $app_installation_id: normalizedInstallationId,
-      $package_id: context.packageId,
-      $package_version: context.packageVersion,
-      $package_checksum: context.packageChecksum,
     },
   );
   return rows.map(hydrateLedgerRecord);
@@ -220,9 +229,10 @@ export async function listCapabilityConsentLedgerRecordsForInstallation(
 export async function loadCapabilityDecisionPort(
   db: SQLiteDatabase,
   installationId: string,
+  policy?: CapabilityConsentMigrationPolicy,
 ): Promise<CapabilityDecisionPort> {
   const records = await listCapabilityConsentLedgerRecordsForInstallation(db, installationId);
-  return createCapabilityDecisionPort(records);
+  return createCapabilityDecisionPort(records, policy);
 }
 
 export async function revokeCapabilityConsentLedgerRecord(
@@ -245,7 +255,46 @@ export async function revokeCapabilityConsentLedgerRecord(
       ...(input.revocationReason ? { revocationReason: input.revocationReason } : {}),
     },
   };
-  return upsertCapabilityConsentLedgerRecord(db, revoked);
+  const row = validateStoredLedgerRow({
+    app_installation_id: installationId,
+    schema_version: revoked.schemaVersion,
+    package_id: revoked.packageId,
+    package_version: revoked.packageVersion,
+    package_checksum: revoked.packageChecksum,
+    publisher_id: revoked.publisherId ?? null,
+    capability: revoked.capability,
+    scope_json: JSON.stringify(revoked.scope),
+    declared_purpose: revoked.declaredPurpose ?? UTOPIA_CAPABILITY_CONSENT_LEGACY_PURPOSE,
+    grant_schema_version: revoked.grantSchemaVersion ?? UTOPIA_CAPABILITY_GRANT_SCHEMA_VERSION,
+    decision: revoked.decision,
+    decided_by: revoked.decidedBy,
+    decided_at: revoked.decidedAt,
+    created_at: revoked.createdAt,
+    updated_at: revoked.updatedAt,
+    revoked_by: revoked.revocation?.revokedBy ?? null,
+    revoked_at: revoked.revocation?.revokedAt ?? null,
+    revocation_reason: revoked.revocation?.revocationReason ?? null,
+    fingerprint: buildCapabilityConsentRecordFingerprint(revoked),
+  });
+  await db.runAsync(
+    `UPDATE capability_consent_ledger
+     SET updated_at = $updated_at,
+         revoked_by = $revoked_by,
+         revoked_at = $revoked_at,
+         revocation_reason = $revocation_reason,
+         fingerprint = $fingerprint
+     WHERE id = $id AND app_installation_id = $app_installation_id`,
+    {
+      $id: input.recordId,
+      $app_installation_id: installationId,
+      $updated_at: row.updated_at,
+      $revoked_by: row.revoked_by,
+      $revoked_at: row.revoked_at,
+      $revocation_reason: row.revocation_reason,
+      $fingerprint: row.fingerprint,
+    },
+  );
+  return (await getCapabilityConsentLedgerRecord(db, installationId, input.recordId)) ?? revoked;
 }
 
 function hydrateLedgerRecord(row: ConsentLedgerRow): CapabilityConsentRecord {
@@ -256,8 +305,11 @@ function hydrateLedgerRecord(row: ConsentLedgerRow): CapabilityConsentRecord {
     packageId: row.package_id,
     packageVersion: row.package_version,
     packageChecksum: row.package_checksum,
+    ...(isText(row.publisher_id) ? { publisherId: row.publisher_id } : {}),
     capability: row.capability,
     scope: canonical,
+    declaredPurpose: row.declared_purpose,
+    grantSchemaVersion: row.grant_schema_version as CapabilityConsentRecord['grantSchemaVersion'],
     decision: row.decision,
     decidedBy: row.decided_by,
     decidedAt: row.decided_at,
@@ -284,6 +336,7 @@ function hydrateLedgerRecord(row: ConsentLedgerRow): CapabilityConsentRecord {
 function validateStoredLedgerRow(row: Omit<ConsentLedgerRow, 'id'>): Omit<ConsentLedgerRow, 'id'> {
   if (!isText(row.app_installation_id) || !isText(row.schema_version) || !isText(row.package_id)
     || !isText(row.package_version) || !isText(row.package_checksum) || !isText(row.capability)
+    || !isText(row.declared_purpose) || !isText(row.grant_schema_version)
     || !isText(row.decided_by) || !isText(row.decided_at) || !isText(row.created_at)
     || !isText(row.updated_at) || !isText(row.scope_json)
     || (row.decision !== 'allow' && row.decision !== 'deny')) {

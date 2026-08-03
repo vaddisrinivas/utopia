@@ -1,6 +1,48 @@
 {
-  "schemaVersion": "wonder.app-package-native-capabilities.v1",
-  "platform": "expo",
+  "intents": [
+    {
+      "id": "save-food-link",
+      "kind": "share",
+      "payload": {
+        "accepts": [
+          "url",
+          "text",
+          "image"
+        ],
+        "target": "food.capture"
+      },
+      "platform": "expo",
+      "reason": "Let users send recipes, YouTube cooking links, grocery pages, and receipts into the Food package.",
+      "required": false
+    },
+    {
+      "id": "open-recipe-url",
+      "kind": "url_open",
+      "payload": {
+        "allowlist": [
+          "https://www.youtube.com",
+          "https://youtu.be",
+          "https://docs.google.com",
+          "https://www.notion.so",
+          "https://app.notion.com"
+        ]
+      },
+      "platform": "expo",
+      "reason": "Open cited recipe, product, store, and video sources from rendered Food cards.",
+      "required": false
+    },
+    {
+      "id": "open-food-capture",
+      "kind": "deep_link",
+      "payload": {
+        "scheme": "utopia",
+        "target": "food.capture"
+      },
+      "platform": "expo",
+      "reason": "Open the Food capture surface through the app scheme.",
+      "required": false
+    }
+  ],
   "packages": [
     "expo-file-system",
     "expo-image-picker",
@@ -11,111 +53,69 @@
   "permissions": [
     {
       "id": "health-connect-read-nutrition",
-      "platform": "android",
       "permission": "android.permission.health.READ_NUTRITION",
+      "platform": "android",
+      "prompt": "Allow Utopia to read nutrition records for food context.",
       "reason": "Use nutrition and food-health context only when the user enables Health Connect.",
-      "required": false,
-      "prompt": "Allow Utopia to read nutrition records for food context."
+      "required": false
     },
     {
       "id": "health-connect-read-hydration",
-      "platform": "android",
       "permission": "android.permission.health.READ_HYDRATION",
+      "platform": "android",
+      "prompt": "Allow Utopia to read hydration records for food context.",
       "reason": "Use hydration records as optional food-health context after user approval.",
-      "required": false,
-      "prompt": "Allow Utopia to read hydration records for food context."
+      "required": false
     },
     {
       "id": "health-connect-read-steps",
-      "platform": "android",
       "permission": "android.permission.health.READ_STEPS",
+      "platform": "android",
+      "prompt": "Allow Utopia to read step records for food context.",
       "reason": "Use step trends as optional planning context after user approval.",
-      "required": false,
-      "prompt": "Allow Utopia to read step records for food context."
+      "required": false
     },
     {
       "id": "health-connect-read-active-calories",
-      "platform": "android",
       "permission": "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+      "platform": "android",
+      "prompt": "Allow Utopia to read active calorie records for food context.",
       "reason": "Use active calorie context only when the user enables Health Connect.",
-      "required": false,
-      "prompt": "Allow Utopia to read active calorie records for food context."
+      "required": false
     },
     {
       "id": "health-connect-read-weight",
-      "platform": "android",
       "permission": "android.permission.health.READ_WEIGHT",
+      "platform": "android",
+      "prompt": "Allow Utopia to read weight records for food context.",
       "reason": "Use weight context only when the user enables Health Connect.",
-      "required": false,
-      "prompt": "Allow Utopia to read weight records for food context."
+      "required": false
     },
     {
       "id": "health-connect-write-hydration-proof",
-      "platform": "android",
       "permission": "android.permission.health.WRITE_HYDRATION",
+      "platform": "android",
+      "prompt": "Allow Utopia to write a disposable hydration proof record.",
       "reason": "Run a user-approved disposable Health Connect write/read/delete proof.",
-      "required": false,
-      "prompt": "Allow Utopia to write a disposable hydration proof record."
+      "required": false
     },
     {
       "id": "camera-photo-library",
-      "platform": "expo",
       "permission": "expo-image-picker:media-library",
+      "platform": "expo",
+      "prompt": "Allow Utopia to choose photos for receipts and food capture.",
       "reason": "Attach receipts, pantry photos, food labels, and meal images to food records.",
-      "required": false,
-      "prompt": "Allow Utopia to choose photos for receipts and food capture."
+      "required": false
     },
     {
       "id": "share-intent",
-      "platform": "expo",
       "permission": "expo-sharing",
+      "platform": "expo",
+      "prompt": "Allow Utopia to use the share sheet for food capture.",
       "reason": "Save food links, recipes, videos, and shopping context into the active package.",
-      "required": false,
-      "prompt": "Allow Utopia to use the share sheet for food capture."
+      "required": false
     }
   ],
-  "intents": [
-    {
-      "id": "save-food-link",
-      "platform": "expo",
-      "kind": "share",
-      "reason": "Let users send recipes, YouTube cooking links, grocery pages, and receipts into the Food package.",
-      "required": false,
-      "payload": {
-        "accepts": [
-          "url",
-          "text",
-          "image"
-        ],
-        "target": "food.capture"
-      }
-    },
-    {
-      "id": "open-recipe-url",
-      "platform": "expo",
-      "kind": "url_open",
-      "reason": "Open cited recipe, product, store, and video sources from rendered Food cards.",
-      "required": false,
-      "payload": {
-        "allowlist": [
-          "https://www.youtube.com",
-          "https://youtu.be",
-          "https://docs.google.com",
-          "https://www.notion.so",
-          "https://app.notion.com"
-        ]
-      }
-    },
-    {
-      "id": "open-food-capture",
-      "platform": "expo",
-      "kind": "deep_link",
-      "reason": "Open the Food capture surface through the app scheme.",
-      "required": false,
-      "payload": {
-        "scheme": "utopia",
-        "target": "food.capture"
-      }
-    }
-  ]
+  "platform": "expo",
+  "schemaVersion": "wonder.app-package-native-capabilities.v1"
 }

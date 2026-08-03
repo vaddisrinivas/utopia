@@ -46,8 +46,60 @@
           "type": "timestamp"
         }
       }
+    },
+    "power_case": {
+      "id": "power_case",
+      "fields": {
+        "id": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "collection": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "title": {
+          "indexed": true,
+          "required": true,
+          "type": "text"
+        },
+        "base": {
+          "indexed": true,
+          "required": true,
+          "type": "number"
+        },
+        "exponent": {
+          "indexed": true,
+          "required": true,
+          "type": "number"
+        },
+        "updated_at": {
+          "indexed": true,
+          "required": true,
+          "type": "timestamp"
+        }
+      }
     }
   },
+  "computedFields": [
+    {
+      "id": "power_result",
+      "collection": "power_case",
+      "dependsOn": [],
+      "expression": {
+        "pow": [
+          {
+            "var": "record.base"
+          },
+          {
+            "var": "record.exponent"
+          }
+        ]
+      }
+    }
+  ],
   "queries": {
     "history": {
       "from": "records",
@@ -63,9 +115,35 @@
         }
       ],
       "limit": 50
+    },
+    "power-cases": {
+      "from": "power_case",
+      "orderBy": [
+        {
+          "direction": "asc",
+          "field": "title"
+        }
+      ],
+      "limit": 50
     }
   },
   "views": {
+    "home": {
+      "id": "home",
+      "query": "history",
+      "mode": "list",
+      "fields": [
+        "title",
+        "expression",
+        "result",
+        "mode",
+        "updated_at"
+      ],
+      "layout": {
+        "size": "feature",
+        "tone": "blue"
+      }
+    },
     "functions": {
       "id": "functions",
       "query": "history",
@@ -75,7 +153,26 @@
         "expression",
         "result",
         "mode"
-      ]
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "neutral"
+      }
+    },
+    "power": {
+      "id": "power",
+      "query": "power-cases",
+      "mode": "table",
+      "fields": [
+        "title",
+        "base",
+        "exponent",
+        "power_result"
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "blue"
+      }
     },
     "history": {
       "id": "history",
@@ -88,28 +185,60 @@
         "mode",
         "notes",
         "updated_at"
-      ]
+      ],
+      "layout": {
+        "size": "wide",
+        "tone": "neutral"
+      }
     },
-    "home": {
-      "id": "home",
+    "settings": {
+      "id": "settings",
       "query": "history",
       "mode": "list",
       "fields": [
         "title",
-        "expression",
-        "result",
         "mode",
         "updated_at"
-      ]
+      ],
+      "layout": {
+        "size": "standard",
+        "tone": "moss"
+      }
     }
   },
+  "rules": [],
+  "capabilities": [
+    "records.read",
+    "records.write",
+    "offline.local"
+  ],
+  "acceptanceTests": [
+    "schema-native",
+    "basic-precedence",
+    "trig-degrees",
+    "square-root",
+    "divide-by-zero",
+    "power-case-through-package"
+  ],
   "presentation": {
     "label": "Scientific Calculator",
     "homeSurface": "home",
     "surfaces": [
       {
+        "id": "home",
+        "label": "Workbench",
+        "icon": "calculator",
+        "collections": [
+          "calculation"
+        ],
+        "views": [
+          "home"
+        ]
+      },
+      {
         "id": "functions",
         "label": "Functions",
+        "icon": "function-square",
         "collections": [
           "calculation"
         ],
@@ -118,8 +247,20 @@
         ]
       },
       {
+        "id": "power",
+        "label": "Powers",
+        "icon": "superscript",
+        "collections": [
+          "power_case"
+        ],
+        "views": [
+          "power"
+        ]
+      },
+      {
         "id": "history",
         "label": "History",
+        "icon": "history",
         "collections": [
           "calculation"
         ],
@@ -128,32 +269,492 @@
         ]
       },
       {
-        "id": "home",
-        "label": "Calculator",
+        "id": "settings",
+        "label": "Modes",
+        "icon": "sliders-horizontal",
         "collections": [
           "calculation"
         ],
         "views": [
-          "home"
+          "settings"
         ]
       }
     ],
     "visualIdentity": {
-      "accent": "#1F6FEB",
-      "canvas": "#F7F9FC",
-      "icon": "calc",
-      "tone": "blue"
+      "identity": "A compact technical calculator: expression input first, proof surfaces second, no ad-shaped distractions.",
+      "firstViewportWorkflow": "Enter or edit an expression, evaluate it, and keep the result/history visible in the first viewport.",
+      "tone": "blue",
+      "accent": "#0F6B78",
+      "accentAlt": "#E06C4F",
+      "canvas": "#F4F8FA",
+      "audience": "students, engineers, finance users, and anyone checking precise expressions",
+      "accessibility": {
+        "minimumTargetSize": 44,
+        "keyboardFirstDesktop": true,
+        "visibleErrorText": true,
+        "nonColorStatus": true
+      }
+    },
+    "render": {
+      "schemaVersion": "utopia.gold-render-contract.v1",
+      "authoredPass": "gpt55-gold-wave2c-001",
+      "firstViewportWorkflow": "Enter or edit an expression, evaluate it, and keep the result/history visible in the first viewport.",
+      "responsiveTargets": [
+        "phone",
+        "desktop"
+      ],
+      "referenceScreenshots": [
+        "store-01",
+        "store-02",
+        "store-03",
+        "store-04",
+        "store-05"
+      ]
     },
     "ui": {
       "schemaVersion": "a2ui.v0_9",
-      "defaultScreen": "home",
+      "localization": {
+        "defaultLocale": "en-US",
+        "fallbackLocale": "en-US",
+        "messages": {
+          "en-US": {
+            "app.title": "Scientific Calculator"
+          }
+        }
+      },
+      "navigation": {
+        "items": [
+          {
+            "screen": "home",
+            "label": "Work",
+            "icon": "calculator"
+          },
+          {
+            "screen": "functions",
+            "label": "Keys",
+            "icon": "function-square"
+          },
+          {
+            "screen": "power",
+            "label": "Powers",
+            "icon": "superscript"
+          },
+          {
+            "screen": "history",
+            "label": "History",
+            "icon": "history"
+          },
+          {
+            "screen": "settings",
+            "label": "Mode",
+            "icon": "sliders-horizontal"
+          }
+        ]
+      },
       "screens": {
-        "functions": {
-          "title": "Functions",
-          "subtitle": "Reference table for scientific calculator notation.",
+        "home": {
+          "title": "Workbench",
+          "subtitle": "Expression first, keypad second, saved calculations nearby.",
+          "shell": {
+            "layoutMode": "calculatorWorkbench",
+            "appBarTitle": "Scientific Calculator",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "home",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Work"
+              },
+              {
+                "id": "functions",
+                "screen": "functions",
+                "label": "Keys"
+              },
+              {
+                "id": "power",
+                "screen": "power",
+                "label": "Powers"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Mode"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F1F4",
+              "ink": "#16252B",
+              "muted": "#5B6E74",
+              "accent": "#0F6B78",
+              "accentContrast": "#FFFFFF",
+              "border": "#BCD4DA",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DFF5F8",
+              "statusSuccess": "#E4F6E8",
+              "statusWarning": "#FFF4CC",
+              "statusError": "#FCE1DF",
+              "focusRing": "#E06C4F"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1100,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
           "components": [
             {
+              "id": "calc-workbench",
               "kind": "widget",
+              "widget": "scientificCalculator",
+              "title": "Scientific Workbench",
+              "subtitle": "Direct keyboard and touch entry for local arithmetic, trig, logs, powers, factorial, memory, and visible errors.",
+              "tone": "blue",
+              "props": {
+                "angleMode": "deg",
+                "initialExpression": "1 + 2 * 3",
+                "initialResult": "7"
+              }
+            },
+            {
+              "id": "calc-reference-strip",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Reference strip",
+              "subtitle": "Supported keys and how to use them truthfully.",
+              "tone": "moss",
+              "props": {
+                "columns": [
+                  {
+                    "key": "group",
+                    "label": "Group"
+                  },
+                  {
+                    "key": "keys",
+                    "label": "Keys"
+                  },
+                  {
+                    "key": "purpose",
+                    "label": "Purpose"
+                  }
+                ],
+                "emptyText": "No records yet.",
+                "items": [
+                  {
+                    "group": "Arithmetic",
+                    "keys": "+ - * / % ^",
+                    "purpose": "Precedence, modulo, powers"
+                  },
+                  {
+                    "group": "Trig",
+                    "keys": "sin cos tan asin acos atan",
+                    "purpose": "Switch the angle mode before you evaluate"
+                  },
+                  {
+                    "group": "Logs",
+                    "keys": "ln log log10 exp abs",
+                    "purpose": "Science, finance, and absolute-value checks"
+                  },
+                  {
+                    "group": "Memory",
+                    "keys": "MC MR M+ M-",
+                    "purpose": "Hold intermediate values"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "calc-history-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Saved calculations",
+              "subtitle": "Name the expression, keep the exact result, and note the angle mode you used.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "calculation"
+                ],
+                "limit": 12
+              },
+              "props": {
+                "collection": "calculation",
+                "placeholder": "Mortgage quick check",
+                "progressiveDisclosure": true,
+                "editable": true,
+                "deletable": true,
+                "emptyText": "Save the first calculation you want to reuse.",
+                "metadataFields": [
+                  {
+                    "field": "expression",
+                    "label": "Expression",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "field": "result",
+                    "label": "Result",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "field": "mode",
+                    "label": "Angle mode",
+                    "type": "select",
+                    "required": true,
+                    "options": [
+                      "deg",
+                      "rad",
+                      "n/a"
+                    ]
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "Compound growth",
+                    "values": {
+                      "expression": "(1 + 0.065 / 12) ^ 60",
+                      "result": "1.382955516",
+                      "mode": "n/a",
+                      "notes": "Five-year monthly compounding factor"
+                    }
+                  },
+                  {
+                    "title": "Trig 45 degrees",
+                    "values": {
+                      "expression": "sin(45)",
+                      "result": "0.707106781187",
+                      "mode": "deg",
+                      "notes": "Set the workbench to degrees before evaluating"
+                    }
+                  },
+                  {
+                    "title": "Radians identity",
+                    "values": {
+                      "expression": "cos(pi / 4)",
+                      "result": "0.707106781187",
+                      "mode": "rad",
+                      "notes": "Radians example using pi"
+                    }
+                  }
+                ],
+                "sorts": [
+                  "manual",
+                  "recent",
+                  "alphabetic",
+                  {
+                    "kind": "field",
+                    "field": "mode",
+                    "label": "Angle mode",
+                    "direction": "asc"
+                  }
+                ],
+                "filterFields": [
+                  "mode",
+                  "result"
+                ],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": {
+                    "enabled": true,
+                    "labels": {
+                      "pending": "Saving locally",
+                      "saved": "Saved locally",
+                      "error": "Fix this row",
+                      "queued": "Queued offline",
+                      "undone": "Undo applied",
+                      "cancelled": "Cancelled"
+                    }
+                  },
+                  "failure": "inline-error"
+                }
+              }
+            },
+            {
+              "id": "calc-recent-history",
+              "kind": "recordList",
+              "title": "Recent saved calculations",
+              "subtitle": "Saved rows you can reopen and edit on the History screen.",
+              "query": {
+                "collections": [
+                  "calculation"
+                ],
+                "limit": 8
+              },
+              "props": {
+                "emptyText": "No saved calculations yet. Evaluate locally, then save one in Saved calculations.",
+                "subtitleFields": [
+                  "expression",
+                  "result",
+                  "mode"
+                ]
+              }
+            },
+            {
+              "id": "calc-empty-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Empty state",
+              "subtitle": "The keypad and keyboard input are available immediately; history stays quiet until a calculation is saved.",
+              "tone": "neutral",
+              "props": {
+                "title": "Start from a blank expression",
+                "badge": "empty",
+                "items": [
+                  {
+                    "id": "calc-empty-state-focus",
+                    "title": "Start from a blank expression",
+                    "status": "empty",
+                    "detail": "The keypad and keyboard input are available immediately; history stays quiet until a calculation is saved."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "calc-error-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Error state",
+              "subtitle": "Invalid syntax, missing parentheses, and non-finite results remain visible beside the input.",
+              "tone": "amber",
+              "props": {
+                "title": "Expression needs attention",
+                "badge": "error",
+                "items": [
+                  {
+                    "id": "calc-error-state-focus",
+                    "title": "Expression needs attention",
+                    "status": "error",
+                    "detail": "Invalid syntax, missing parentheses, and non-finite results remain visible beside the input."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "functions": {
+          "title": "Function Map",
+          "subtitle": "Scientific, memory, and advanced-mode coverage.",
+          "shell": {
+            "layoutMode": "calculatorFunctionReference",
+            "appBarTitle": "Scientific Calculator",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "functions",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Work"
+              },
+              {
+                "id": "functions",
+                "screen": "functions",
+                "label": "Keys"
+              },
+              {
+                "id": "power",
+                "screen": "power",
+                "label": "Powers"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Mode"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F1F4",
+              "ink": "#16252B",
+              "muted": "#5B6E74",
+              "accent": "#0F6B78",
+              "accentContrast": "#FFFFFF",
+              "border": "#BCD4DA",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DFF5F8",
+              "statusSuccess": "#E4F6E8",
+              "statusWarning": "#FFF4CC",
+              "statusError": "#FCE1DF",
+              "focusRing": "#E06C4F"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "scientific-calculator-functions-screen-title",
+              "kind": "text",
+              "title": "Function Map",
+              "subtitle": "Supported formulas plus the current boundaries.",
+              "tone": "neutral"
+            },
+            {
+              "id": "calc-function-reference",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Functions",
+              "subtitle": "Executable names accepted by the local calculator engine.",
+              "tone": "blue",
               "props": {
                 "columns": [
                   {
@@ -167,219 +768,863 @@
                   {
                     "key": "example",
                     "label": "Example"
+                  },
+                  {
+                    "key": "oracle",
+                    "label": "Expected"
                   }
                 ],
+                "emptyText": "No records yet.",
                 "items": [
                   {
-                    "example": "sin(pi / 2)",
-                    "name": "Sine",
-                    "syntax": "sin(x)"
+                    "name": "Precedence",
+                    "syntax": "1 + 2 * 3",
+                    "example": "1 + 2 * 3",
+                    "oracle": "7"
                   },
                   {
-                    "example": "cos(60 deg)",
-                    "name": "Cosine",
-                    "syntax": "cos(x)"
+                    "name": "Sine degrees",
+                    "syntax": "sin(x)",
+                    "example": "sin(90)",
+                    "oracle": "1"
                   },
                   {
-                    "example": "tan(45 deg)",
-                    "name": "Tangent",
-                    "syntax": "tan(x)"
-                  },
-                  {
-                    "example": "ln(e)",
-                    "name": "Natural log",
-                    "syntax": "ln(x)"
-                  },
-                  {
-                    "example": "log10(1000)",
-                    "name": "Base-10 log",
-                    "syntax": "log10(x)"
-                  },
-                  {
-                    "example": "sqrt(144)",
                     "name": "Square root",
-                    "syntax": "sqrt(x)"
+                    "syntax": "sqrt(x)",
+                    "example": "sqrt(144)",
+                    "oracle": "12"
+                  },
+                  {
+                    "name": "Power",
+                    "syntax": "x ^ y",
+                    "example": "2 ^ 3",
+                    "oracle": "8"
+                  },
+                  {
+                    "name": "Natural log",
+                    "syntax": "ln(x)",
+                    "example": "ln(e)",
+                    "oracle": "1"
+                  },
+                  {
+                    "name": "Absolute value",
+                    "syntax": "abs(x)",
+                    "example": "abs(-12)",
+                    "oracle": "12"
+                  },
+                  {
+                    "name": "Factorial",
+                    "syntax": "x!",
+                    "example": "5!",
+                    "oracle": "120"
                   }
                 ]
-              },
-              "subtitle": "Accepted expression names",
-              "title": "Function Reference",
+              }
+            },
+            {
+              "id": "calc-advanced-reference",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Explicit boundaries",
+              "subtitle": "Capabilities the current workbench does not claim.",
               "tone": "amber",
-              "widget": "dataTable"
+              "props": {
+                "columns": [
+                  {
+                    "key": "topic",
+                    "label": "Topic"
+                  },
+                  {
+                    "key": "current",
+                    "label": "Current behavior"
+                  },
+                  {
+                    "key": "surface",
+                    "label": "Where to handle it"
+                  }
+                ],
+                "emptyText": "No records yet.",
+                "items": [
+                  {
+                    "topic": "Inline units",
+                    "current": "Convert units before entry; strings such as cm, kg, or deg are not parsed",
+                    "surface": "Workbench"
+                  },
+                  {
+                    "topic": "Complex numbers",
+                    "current": "Imaginary values and complex operators are unsupported",
+                    "surface": "Workbench"
+                  },
+                  {
+                    "topic": "Statistics",
+                    "current": "Use explicit formulas such as (a+b+c)/n rather than a dedicated stats mode",
+                    "surface": "Workbench + History"
+                  },
+                  {
+                    "topic": "Graphing",
+                    "current": "No plotted output or graph screen",
+                    "surface": "Not available"
+                  },
+                  {
+                    "topic": "Saved history",
+                    "current": "History rows are entered manually; evaluation does not auto-capture",
+                    "surface": "Saved calculations + History"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "calc-review-response",
+              "kind": "widget",
+              "widget": "recordContentCard",
+              "title": "Interaction notes",
+              "subtitle": "What stays true while you work.",
+              "tone": "moss",
+              "props": {
+                "title": "Editable input, no hidden detours",
+                "subtitle": "The expression field stays editable before and after evaluation.",
+                "body": "All calculator controls stay on-screen. There is no modal save step, no ad interstitial, and no hidden mode switch outside the workbench.",
+                "actions": []
+              }
+            },
+            {
+              "id": "calc-loading-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Loading state",
+              "subtitle": "If local records are hydrating, the workbench still renders and history fills in when ready.",
+              "tone": "neutral",
+              "props": {
+                "title": "Calculator loading",
+                "badge": "loading",
+                "items": [
+                  {
+                    "id": "calc-loading-state-focus",
+                    "title": "Calculator loading",
+                    "status": "loading",
+                    "detail": "If local records are hydrating, the workbench still renders and history fills in when ready."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "power": {
+          "title": "Power Cases",
+          "subtitle": "Decimal powers with exact saved results.",
+          "shell": {
+            "layoutMode": "calculatorPowerLab",
+            "appBarTitle": "Scientific Calculator",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "power",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Work"
+              },
+              {
+                "id": "functions",
+                "screen": "functions",
+                "label": "Keys"
+              },
+              {
+                "id": "power",
+                "screen": "power",
+                "label": "Powers"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Mode"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F1F4",
+              "ink": "#16252B",
+              "muted": "#5B6E74",
+              "accent": "#0F6B78",
+              "accentContrast": "#FFFFFF",
+              "border": "#BCD4DA",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DFF5F8",
+              "statusSuccess": "#E4F6E8",
+              "statusWarning": "#FFF4CC",
+              "statusError": "#FCE1DF",
+              "focusRing": "#E06C4F"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "scientific-calculator-power-screen-title",
+              "kind": "text",
+              "title": "Power Cases",
+              "subtitle": "Decimal powers with exact saved results.",
+              "tone": "neutral"
+            },
+            {
+              "id": "calc-power-editor",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Power case editor",
+              "subtitle": "Create, edit, and replay base/exponent cases with local validation.",
+              "tone": "moss",
+              "query": {
+                "collections": [
+                  "power_case"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "collection": "power_case",
+                "positionField": "position",
+                "placeholder": "2 cubed",
+                "appearance": "plain",
+                "progressiveDisclosure": true,
+                "emptyText": "Add a base and exponent case.",
+                "commandPolicy": {
+                  "autosave": "manual",
+                  "optimistic": true,
+                  "undo": {
+                    "enabled": true,
+                    "windowMs": 10000
+                  },
+                  "confirmation": {
+                    "required": false,
+                    "message": "Save this local change?"
+                  },
+                  "offline": "local",
+                  "validation": {
+                    "mode": "submit",
+                    "requiredFields": [
+                      "title",
+                      "base",
+                      "exponent"
+                    ]
+                  },
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "restartRecovery": {
+                    "enabled": true,
+                    "maxAgeMs": 604800000
+                  },
+                  "accessibleStatus": {
+                    "enabled": true,
+                    "labels": {
+                      "pending": "Saving locally",
+                      "saved": "Saved locally",
+                      "error": "Needs attention",
+                      "queued": "Queued offline",
+                      "undone": "Undo applied",
+                      "cancelled": "Cancelled"
+                    }
+                  }
+                },
+                "metadataFields": [
+                  {
+                    "field": "base",
+                    "label": "Base",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "exponent",
+                    "label": "Exponent",
+                    "type": "number",
+                    "required": true,
+                    "sortable": true
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text"
+                  }
+                ],
+                "suggestions": [
+                  {
+                    "title": "2 cubed",
+                    "values": {
+                      "base": 2,
+                      "exponent": 3
+                    }
+                  },
+                  {
+                    "title": "2 inverse-square",
+                    "values": {
+                      "base": 2,
+                      "exponent": -2
+                    }
+                  }
+                ],
+                "filterFields": [
+                  "base",
+                  "exponent"
+                ],
+                "sorts": [
+                  "manual",
+                  "alphabetic",
+                  {
+                    "kind": "field",
+                    "field": "exponent",
+                    "label": "Exponent",
+                    "direction": "asc"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "calc-power-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Power results",
+              "subtitle": "Rows show each saved base, exponent, and power result.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "power_case"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "columns": [
+                  {
+                    "key": "title",
+                    "label": "Case"
+                  },
+                  {
+                    "key": "base",
+                    "label": "Base"
+                  },
+                  {
+                    "key": "exponent",
+                    "label": "Exponent"
+                  },
+                  {
+                    "key": "power_result",
+                    "label": "Result"
+                  }
+                ],
+                "emptyText": "Power cases appear after you add one."
+              }
+            },
+            {
+              "id": "calc-power-chart",
+              "kind": "widget",
+              "widget": "chartBlock",
+              "title": "Exponent comparison",
+              "subtitle": "A compact analytic view for saved cases.",
+              "tone": "amber",
+              "query": {
+                "collections": [
+                  "power_case"
+                ],
+                "limit": 50
+              },
+              "props": {
+                "chartType": "line",
+                "xField": "title",
+                "yField": "power_result",
+                "emptyText": "Add cases to see a comparison."
+              }
+            },
+            {
+              "id": "calc-editing-state",
+              "kind": "widget",
+              "widget": "recordReviewCard",
+              "title": "Editing state",
+              "subtitle": "Power rows keep base, exponent, and result visible while the editor is open.",
+              "tone": "moss",
+              "props": {
+                "title": "Edit without losing context",
+                "badge": "editing",
+                "items": [
+                  {
+                    "id": "calc-editing-state-focus",
+                    "title": "Edit without losing context",
+                    "status": "editing",
+                    "detail": "Power rows keep base, exponent, and result visible while the editor is open."
+                  }
+                ]
+              }
             }
           ]
         },
         "history": {
           "title": "History",
-          "subtitle": "Saved calculation records.",
+          "subtitle": "Saved calculations, recovery, and local audit trail.",
+          "shell": {
+            "layoutMode": "calculatorHistory",
+            "appBarTitle": "Scientific Calculator",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "history",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Work"
+              },
+              {
+                "id": "functions",
+                "screen": "functions",
+                "label": "Keys"
+              },
+              {
+                "id": "power",
+                "screen": "power",
+                "label": "Powers"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Mode"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F1F4",
+              "ink": "#16252B",
+              "muted": "#5B6E74",
+              "accent": "#0F6B78",
+              "accentContrast": "#FFFFFF",
+              "border": "#BCD4DA",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DFF5F8",
+              "statusSuccess": "#E4F6E8",
+              "statusWarning": "#FFF4CC",
+              "statusError": "#FCE1DF",
+              "focusRing": "#E06C4F"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
           "components": [
             {
-              "kind": "recordList",
-              "props": {
-                "emptyText": "No saved calculations yet.",
-                "subtitleFields": [
-                  "expression",
-                  "result",
-                  "mode",
-                  "notes"
-                ]
-              },
+              "id": "scientific-calculator-history-screen-title",
+              "kind": "text",
+              "title": "History",
+              "subtitle": "Manual saved calculations plus local change history.",
+              "tone": "neutral"
+            },
+            {
+              "id": "calc-history-editor-full",
+              "kind": "widget",
+              "widget": "structuredList",
+              "title": "Save or edit calculations",
+              "subtitle": "Keep named expressions, exact results, angle mode, and notes.",
+              "tone": "moss",
               "query": {
                 "collections": [
                   "calculation"
                 ],
                 "limit": 50
               },
-              "subtitle": "Newest first",
-              "title": "Saved Calculations"
-            }
-          ]
-        },
-        "home": {
-          "title": "Calculator",
-          "subtitle": "Scientific calculator package: expression entry, constants, functions, and saved calculation history.",
-          "components": [
-            {
-              "kind": "widget",
               "props": {
-                "angleMode": "deg",
-                "initialExpression": "",
-                "initialResult": "0"
-              },
-              "subtitle": "Local tap calculator with trig, logs, powers, constants, factorial, memory, degrees, and radians.",
-              "title": "Scientific Calculator",
-              "tone": "blue",
-              "widget": "scientificCalculator"
-            },
-            {
-              "kind": "text",
-              "subtitle": "Supported notation: +, -, *, /, %, ^, parentheses, sin, cos, tan, asin, acos, atan, ln, log/log10, sqrt, abs, exp, factorial, pi, e, M.",
-              "title": "Expression Support",
-              "tone": "neutral"
-            },
-            {
-              "kind": "widget",
-              "props": {
-                "columns": [
+                "collection": "calculation",
+                "placeholder": "Mortgage check",
+                "progressiveDisclosure": true,
+                "editable": true,
+                "deletable": true,
+                "emptyText": "Save the first calculation you want to reuse.",
+                "metadataFields": [
                   {
-                    "key": "group",
-                    "label": "Group"
+                    "field": "expression",
+                    "label": "Expression",
+                    "type": "text",
+                    "required": true
                   },
                   {
-                    "key": "keys",
-                    "label": "Keys"
+                    "field": "result",
+                    "label": "Result",
+                    "type": "text",
+                    "required": true
                   },
                   {
-                    "key": "notes",
-                    "label": "Notes"
+                    "field": "mode",
+                    "label": "Angle mode",
+                    "type": "select",
+                    "required": true,
+                    "options": [
+                      "deg",
+                      "rad",
+                      "n/a"
+                    ]
+                  },
+                  {
+                    "field": "notes",
+                    "label": "Notes",
+                    "type": "text"
                   }
                 ],
-                "items": [
+                "sorts": [
+                  "manual",
+                  "recent",
+                  "alphabetic",
                   {
-                    "group": "Arithmetic",
-                    "keys": "+ - * / % ^",
-                    "notes": "Order of operations with parentheses"
-                  },
-                  {
-                    "group": "Trig",
-                    "keys": "sin cos tan asin acos atan",
-                    "notes": "Declare degrees or radians"
-                  },
-                  {
-                    "group": "Logs",
-                    "keys": "ln log10 exp",
-                    "notes": "Natural log, base-10 log, e^x"
-                  },
-                  {
-                    "group": "Powers",
-                    "keys": "sqrt x^2 x^y factorial",
-                    "notes": "Roots, exponents, n!"
-                  },
-                  {
-                    "group": "Constants",
-                    "keys": "pi e",
-                    "notes": "High precision constants"
+                    "kind": "field",
+                    "field": "mode",
+                    "label": "Angle mode",
+                    "direction": "asc"
                   }
-                ]
-              },
-              "subtitle": "Core keypad map",
-              "title": "Scientific Keys",
-              "tone": "blue",
-              "widget": "dataTable"
+                ],
+                "filterFields": [
+                  "mode",
+                  "result"
+                ],
+                "commandPolicy": {
+                  "autosave": "blur",
+                  "optimistic": true,
+                  "offline": "local",
+                  "draftPersistence": {
+                    "enabled": true,
+                    "scope": "local"
+                  },
+                  "accessibleStatus": {
+                    "enabled": true,
+                    "labels": {
+                      "pending": "Saving locally",
+                      "saved": "Saved locally",
+                      "error": "Fix this row",
+                      "queued": "Queued offline",
+                      "undone": "Undo applied",
+                      "cancelled": "Cancelled"
+                    }
+                  },
+                  "failure": "inline-error"
+                }
+              }
             },
             {
+              "id": "calc-history-table",
               "kind": "widget",
+              "widget": "dataTable",
+              "title": "Calculation history",
+              "subtitle": "Newest saved rows with expression, result, mode, and notes.",
+              "tone": "blue",
+              "query": {
+                "collections": [
+                  "calculation"
+                ],
+                "limit": 50
+              },
               "props": {
                 "columns": [
                   {
-                    "key": "label",
-                    "label": "Example"
+                    "key": "title",
+                    "label": "Name"
                   },
                   {
                     "key": "expression",
                     "label": "Expression"
                   },
                   {
+                    "key": "result",
+                    "label": "Result"
+                  },
+                  {
                     "key": "mode",
                     "label": "Mode"
+                  },
+                  {
+                    "key": "notes",
+                    "label": "Notes"
+                  }
+                ],
+                "emptyText": "No saved calculations yet."
+              }
+            },
+            {
+              "id": "calc-operation-history",
+              "kind": "widget",
+              "widget": "operationHistory",
+              "title": "History changes",
+              "subtitle": "Create, edit, archive, restore, and recover changes.",
+              "tone": "neutral",
+              "props": {
+                "collection": "calculation",
+                "limit": 40,
+                "emptyText": "Calculation changes appear here."
+              }
+            },
+            {
+              "id": "calc-history-boundaries",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "History boundaries",
+              "subtitle": "What the saved-history workflow does and does not do.",
+              "tone": "blue",
+              "props": {
+                "columns": [
+                  {
+                    "key": "area",
+                    "label": "Area"
+                  },
+                  {
+                    "key": "behavior",
+                    "label": "Current behavior"
                   }
                 ],
                 "items": [
                   {
-                    "expression": "(1 + 0.065 / 12) ^ 60",
-                    "label": "Compound",
-                    "mode": "Exact numeric"
+                    "area": "Capture",
+                    "behavior": "Saved rows are entered manually from the values you want to keep."
                   },
                   {
-                    "expression": "sin(45 deg) + cos(pi / 4)",
-                    "label": "Trig",
-                    "mode": "Mixed units stated"
+                    "area": "Recovery",
+                    "behavior": "Edits and archives are visible in local operation history."
                   },
                   {
-                    "expression": "ln(e ^ 3) + log10(1000)",
-                    "label": "Log",
-                    "mode": "Symbolic constants"
+                    "area": "Restart",
+                    "behavior": "Saved rows stay available after relaunch because they are stored as records."
                   },
                   {
-                    "expression": "sqrt(2) ^ 2",
-                    "label": "Root",
-                    "mode": "Precision check"
+                    "area": "Boundary",
+                    "behavior": "The live calculator does not auto-write a history row when you press equals."
                   }
                 ]
+              }
+            }
+          ]
+        },
+        "settings": {
+          "title": "Modes & Boundaries",
+          "subtitle": "Angle mode, local behavior, accessibility, and unsupported claims.",
+          "shell": {
+            "layoutMode": "calculatorSettings",
+            "appBarTitle": "Scientific Calculator",
+            "scrollable": true,
+            "density": "comfortable",
+            "activeTab": "settings",
+            "tabs": [
+              {
+                "id": "home",
+                "screen": "home",
+                "label": "Work"
               },
-              "subtitle": "Paste one into Ask",
-              "title": "Examples",
-              "tone": "moss",
-              "widget": "dataTable"
+              {
+                "id": "functions",
+                "screen": "functions",
+                "label": "Keys"
+              },
+              {
+                "id": "power",
+                "screen": "power",
+                "label": "Powers"
+              },
+              {
+                "id": "history",
+                "screen": "history",
+                "label": "History"
+              },
+              {
+                "id": "settings",
+                "screen": "settings",
+                "label": "Mode"
+              }
+            ],
+            "theme": {
+              "canvas": "#F4F8FA",
+              "surface": "#FFFFFF",
+              "surfaceMuted": "#E6F1F4",
+              "ink": "#16252B",
+              "muted": "#5B6E74",
+              "accent": "#0F6B78",
+              "accentContrast": "#FFFFFF",
+              "border": "#BCD4DA",
+              "danger": "#B42318",
+              "dangerContrast": "#FFFFFF",
+              "statusInfo": "#DFF5F8",
+              "statusSuccess": "#E4F6E8",
+              "statusWarning": "#FFF4CC",
+              "statusError": "#FCE1DF",
+              "focusRing": "#E06C4F"
+            },
+            "responsive": {
+              "breakpoint": 760,
+              "maxContentWidth": 1180,
+              "narrowPadding": 16,
+              "widePadding": 32
+            },
+            "accessibility": {
+              "minimumTargetSize": 44,
+              "focusOrder": "workflow-first",
+              "dynamicType": true,
+              "nonColorStatus": true
+            },
+            "states": [
+              "empty",
+              "loading",
+              "ready",
+              "error",
+              "offline",
+              "recovery"
+            ]
+          },
+          "components": [
+            {
+              "id": "scientific-calculator-settings-screen-title",
+              "kind": "text",
+              "title": "Modes & Boundaries",
+              "subtitle": "Angle mode, local behavior, accessibility, and unsupported claims.",
+              "tone": "neutral"
             },
             {
-              "kind": "recordList",
+              "id": "calc-settings-boundary",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Current behavior",
+              "subtitle": "The workbench is explicit about what happens locally and what does not.",
+              "tone": "blue",
               "props": {
-                "emptyText": "No saved calculations yet.",
-                "subtitleFields": [
-                  "expression",
-                  "result",
-                  "mode"
-                ]
-              },
-              "query": {
-                "collections": [
-                  "calculation"
+                "columns": [
+                  {
+                    "key": "area",
+                    "label": "Area"
+                  },
+                  {
+                    "key": "behavior",
+                    "label": "Current behavior"
+                  }
                 ],
-                "limit": 8
-              },
-              "subtitle": "Saved calculations appear here.",
-              "title": "History"
+                "items": [
+                  {
+                    "area": "Degrees / radians",
+                    "behavior": "The segmented control on the workbench sets the angle mode before evaluation."
+                  },
+                  {
+                    "area": "Memory register",
+                    "behavior": "MC, MR, M+, and M- are in-session only and reset when the widget resets."
+                  },
+                  {
+                    "area": "Saved history",
+                    "behavior": "Records are named and saved manually; equals does not auto-capture a row."
+                  },
+                  {
+                    "area": "Units",
+                    "behavior": "Convert units before entry; inline unit text is unsupported."
+                  },
+                  {
+                    "area": "Clipboard",
+                    "behavior": "There are no copy or paste helpers in this workbench."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "calc-accessibility-table",
+              "kind": "widget",
+              "widget": "dataTable",
+              "title": "Accessibility contract",
+              "subtitle": "Responsive target sizes, visible focus, and dynamic error text.",
+              "tone": "moss",
+              "props": {
+                "columns": [
+                  {
+                    "key": "area",
+                    "label": "Area"
+                  },
+                  {
+                    "key": "behavior",
+                    "label": "Current behavior"
+                  },
+                  {
+                    "key": "boundary",
+                    "label": "Boundary"
+                  }
+                ],
+                "emptyText": "No records yet.",
+                "items": [
+                  {
+                    "area": "Touch",
+                    "behavior": "Calculator keys and segmented controls expose 44 px targets",
+                    "boundary": "Dense key layout remains tap-first rather than gesture-only"
+                  },
+                  {
+                    "area": "Keyboard",
+                    "behavior": "The expression field accepts direct typing and post-evaluation edits",
+                    "boundary": "No dedicated desktop shortcut map is exposed"
+                  },
+                  {
+                    "area": "Error text",
+                    "behavior": "Invalid syntax and non-finite results stay visible and screen-reader reachable",
+                    "boundary": "The app does not rewrite the expression for you"
+                  },
+                  {
+                    "area": "Responsive",
+                    "behavior": "Phone keeps the keypad primary; wider shells keep the reference and history nearby",
+                    "boundary": "There is no separate desktop-only calculation mode"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "calc-offline-state",
+              "kind": "text",
+              "title": "Offline state",
+              "subtitle": "Expression evaluation and saved rows stay local-first. This package makes no sync or cloud-history claim.",
+              "tone": "moss"
             }
           ]
         }
-      }
-    },
-    "sourceSchemaVersion": "wonder.package-source.v1"
-  },
-  "rules": [],
-  "capabilities": [],
-  "acceptanceTests": [
-    "schema-native"
-  ]
+      },
+      "defaultScreen": "home"
+    }
+  }
 }

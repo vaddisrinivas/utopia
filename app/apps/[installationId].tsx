@@ -1,6 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { createElement, useEffect, useMemo, useState, type ComponentProps } from 'react';
+import {
+  AccessibilityRole,
+  ActivityIndicator,
+  Pressable,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { AppInstallation } from '@/packages/shared/contracts/app-installation';
 import type { AppPackage } from '@/packages/shared/contracts/package';
@@ -33,15 +45,38 @@ import { JsonRenderRoute } from '@/src/presentation/json-render-route';
 import { confirmLifecycleAction } from '@/src/presentation/lifecycle-confirmation';
 import { colors } from '@/src/theme';
 import { useUtopiaSettingsSnapshot } from '@/src/settings/utopia-settings';
+import { resolveDeclaredScreenId } from '@/src/presentation/screen-navigation';
+
+type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
 export default function InstalledAppRoute() {
   const router = useRouter();
   const db = useUtopiaDatabase();
-  const params = useLocalSearchParams<{ installationId?: string | string[] }>();
+  const params = useLocalSearchParams<{ installationId?: string | string[]; view?: string | string[]; screen?: string | string[] }>();
   const installationId = typeof params.installationId === 'string' ? params.installationId.trim() : '';
+  const view = typeof params.view === 'string' ? params.view.trim() : '';
+  const requestedScreen = typeof params.screen === 'string' ? params.screen.trim() : '';
   const [installation, setInstallation] = useState<AppInstallation | null>(null);
   const [activePackage, setActivePackage] = useState<AppPackage | null>(null);
   const [loading, setLoading] = useState(true);
+  const installationLabel = installation?.label ?? '';
+  const effectiveMode = view === 'manage' ? 'manage' : 'run';
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const previousTitle = document.title;
+    const safeLabel = installationLabel || 'App';
+    document.title = loading
+      ? 'Loading app — Utopia'
+      : !installation
+        ? 'App unavailable — Utopia'
+        : effectiveMode === 'manage'
+          ? `Manage ${safeLabel} — Utopia`
+          : `${safeLabel} — Utopia`;
+    return () => {
+      document.title = previousTitle || 'Utopia';
+    };
+  }, [effectiveMode, installation, installationLabel, loading]);
 
   useEffect(() => {
     if (!db || !installationId) {
@@ -73,7 +108,8 @@ export default function InstalledAppRoute() {
 
   if (loading) {
     return (
-      <View style={styles.state}>
+      <View {...mainAccessibilityRoleProps()} style={styles.state}>
+        <ScreenHeading label="Loading app" />
         <ActivityIndicator />
         <Text style={styles.stateText}>Loading app</Text>
       </View>
@@ -82,7 +118,8 @@ export default function InstalledAppRoute() {
 
   if (!db || !installationId || !installation) {
     return (
-      <View style={styles.state}>
+      <View {...mainAccessibilityRoleProps()} style={styles.state}>
+        <ScreenHeading label="App not found" />
         <Text style={styles.title}>App not found</Text>
         <Text style={styles.stateText}>This installation is missing or unavailable.</Text>
         <Pressable style={styles.button} onPress={() => router.replace('/install')}>
@@ -99,20 +136,32 @@ export default function InstalledAppRoute() {
       initialInstallation={installation}
       initialPackage={activePackage}
     >
-      <InstalledAppSurface />
+      <InstalledAppSurface mode={view === 'manage' ? 'manage' : 'run'} requestedScreen={requestedScreen} />
     </AppRuntimeProvider>
   );
 }
 
-function InstalledAppSurface() {
+function InstalledAppSurface({ mode, requestedScreen }: { mode: 'run' | 'manage'; requestedScreen: string }) {
   const router = useRouter();
   const db = useUtopiaDatabase();
   const { activePackage, installation, refreshRuntime, activeManifest } = useAppRuntime();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [selectedScreen, setSelectedScreen] = useState(requestedScreen || 'home');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataHomeState, setDataHomeState] = useState<DataHomeAdapter | null>(null);
   const [dataHomeBusy, setDataHomeBusy] = useState(false);
   const [dataHomeError, setDataHomeError] = useState<string | null>(null);
+  const [manageTooltipVisible, setManageTooltipVisible] = useState(false);
+
+  useEffect(() => {
+    const resolved = resolveDeclaredScreenId(activeManifest?.ui, requestedScreen) ?? 'home';
+    setSelectedScreen(resolved);
+    if (requestedScreen !== resolved) {
+      router.setParams({ screen: resolved });
+    }
+  }, [activeManifest?.ui, requestedScreen, router]);
   const [selectedDataHomeAdapterId, setSelectedDataHomeAdapterId] = useState<string>(DEFAULT_DATA_HOME_ADAPTER_ID);
   const settings = useUtopiaSettingsSnapshot();
   const declaredDataHomes = useMemo(() => extractDeclaredDataHomeAdapterIds(activeManifest), [activeManifest]);
@@ -163,6 +212,56 @@ function InstalledAppSurface() {
     );
   }
   const currentInstallation = installation;
+
+  if (mode === 'run' && currentInstallation.status === 'active' && activePackage) {
+    const isPhone = width < 600;
+    const manageLabel = isPhone
+      ? `More options for ${currentInstallation.label}`
+      : `Manage ${currentInstallation.label}`;
+  return (
+    <View accessibilityLabel={`${currentInstallation.label} app`} {...mainAccessibilityRoleProps()} style={styles.appScreen}>
+        <ScreenHeading label={currentInstallation.label} />
+        <Pressable
+          accessibilityLabel={manageLabel}
+          accessibilityHint={`Opens App Library settings for ${currentInstallation.label}`}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.manageButton,
+            { top: Math.max(insets.top + 8, 14) },
+            isPhone ? styles.manageButtonPhone : styles.manageButtonDesktop,
+            pressed ? styles.manageButtonPressed : null,
+          ]}
+          onBlur={() => setManageTooltipVisible(false)}
+          onFocus={() => setManageTooltipVisible(true)}
+          onHoverIn={() => setManageTooltipVisible(true)}
+          onHoverOut={() => setManageTooltipVisible(false)}
+          onPress={() => router.push({
+            pathname: '/apps/[installationId]',
+            params: { installationId: currentInstallation.id, view: 'manage' },
+          })}
+        >
+          <SymbolView
+            accessible={false}
+            accessibilityElementsHidden
+            fallback={<View style={styles.manageIconFallback} />}
+            importantForAccessibility="no"
+            name={manageIconName(isPhone)}
+            size={isPhone ? 20 : 19}
+            tintColor={colors.ink}
+          />
+          {isPhone ? null : <Text style={styles.manageButtonText}>Manage</Text>}
+          {!isPhone && manageTooltipVisible ? (
+            <Text pointerEvents="none" style={styles.manageTooltip}>App Library settings</Text>
+          ) : null}
+        </Pressable>
+        <JsonRenderRoute
+          screen={selectedScreen}
+          screenRouteBase={`/apps/${encodeURIComponent(currentInstallation.id)}`}
+        />
+      </View>
+    );
+  }
+
   const lifecycle = buildAppInstallationLifecycleViewModel(currentInstallation);
 
   const currentSelection = resolveDataHomeSelection({
@@ -323,10 +422,18 @@ function InstalledAppSurface() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView
+      accessibilityLabel={`${currentInstallation.label} app details`}
+      {...mainAccessibilityRoleProps()}
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+    >
+      <ScreenHeading label={currentInstallation.label} />
+      <Text accessibilityRole="header" style={styles.title} accessibilityLabel={`${currentInstallation.label} details`}>
+        {currentInstallation.label}
+      </Text>
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>App Library</Text>
-        <Text style={styles.title}>{currentInstallation.label}</Text>
         <Text style={styles.subtitle}>{currentInstallation.id}</Text>
         <View style={styles.badgeRow}>
           <StatusBadge tone={lifecycle.statusTone} label={lifecycle.statusLabel} />
@@ -483,6 +590,34 @@ function InstalledAppSurface() {
   );
 }
 
+function ScreenHeading({ label }: { label: string }) {
+  if (Platform.OS === 'web') {
+    return createElement('h1', {
+      'aria-label': `App ${label}`,
+      style: {
+        position: 'absolute',
+        left: '-10000px',
+        top: 0,
+        width: '1px',
+        height: '1px',
+        margin: '-1px',
+        padding: 0,
+        overflow: 'hidden',
+      },
+    }, label);
+  }
+  return (
+    <Text
+      accessibilityRole="header"
+      accessible
+      style={styles.srOnly}
+      accessibilityLabel={`App ${label}`}
+    >
+      {label}
+    </Text>
+  );
+}
+
 function StatusBadge({ tone, label }: { tone: 'verified' | 'unknown' | 'blocked'; label: string }) {
   const badgeStyle = tone === 'verified'
     ? styles.verifiedBadge
@@ -509,6 +644,18 @@ function currentDataHomeLabelFromId(adapterId: string): string {
   return adapterId === 'notion' ? 'Notion' : adapterId === 'google_sheets' ? 'Google Sheets' : 'Local SQLite';
 }
 
+function mainAccessibilityRoleProps() {
+  return Platform.OS === 'web'
+    ? { accessible: true, accessibilityRole: 'main' as AccessibilityRole }
+    : {};
+}
+
+function manageIconName(isPhone: boolean): SymbolName {
+  return isPhone
+    ? { ios: 'ellipsis', android: 'more_horiz', web: 'more_horiz' }
+    : { ios: 'gearshape', android: 'settings', web: 'settings' };
+}
+
 function notionDataHomeAdapterDescriptor(settings: ReturnType<typeof useUtopiaSettingsSnapshot>): DataHomeAdapterDescriptor {
   return {
     id: 'notion',
@@ -528,6 +675,60 @@ function googleSheetsDataHomeAdapterDescriptor(settings: ReturnType<typeof useUt
 }
 
 const styles = StyleSheet.create({
+  appScreen: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+  },
+  manageButton: {
+    position: 'absolute',
+    right: 14,
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: colors.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  manageButtonDesktop: {
+    flexDirection: 'row',
+    gap: 7,
+    minHeight: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  manageButtonPhone: {
+    height: 40,
+    width: 40,
+  },
+  manageButtonPressed: {
+    opacity: 0.72,
+  },
+  manageIconFallback: {
+    height: 20,
+    width: 20,
+  },
+  manageTooltip: {
+    position: 'absolute',
+    right: 0,
+    top: 46,
+    borderRadius: 8,
+    backgroundColor: colors.ink,
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  manageButtonText: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   state: {
     flex: 1,
     alignItems: 'center',
@@ -588,4 +789,14 @@ const styles = StyleSheet.create({
   loading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   error: { color: colors.red, fontWeight: '700' },
   dataHomeOptionRow: { gap: 6 },
+  srOnly: {
+    position: 'absolute',
+    left: -10000,
+    top: 0,
+    width: 1,
+    height: 1,
+    margin: -1,
+    padding: 0,
+    overflow: 'hidden',
+  },
 });

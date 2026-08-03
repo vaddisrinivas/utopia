@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 import { currentGit } from '../evidence-provenance.mjs';
 import { validateShellProofReceipt } from '../golden-loop/shell-proof-protocol.mjs';
@@ -13,12 +13,15 @@ const BUILD_RECEIPT_PATH = resolve(ROOT, process.env.UTOPIA_MACOS_BUILD_RECEIPT_
 const LANE_RECEIPT_PATH = resolve(ROOT, process.env.UTOPIA_MACOS_LANE_C_RECEIPT_PATH || 'app/build/evidence/golden-loop/macos-lane-c-receipt.json');
 const BRIDGE_RECEIPT_PATH = resolve(ROOT, process.env.UTOPIA_MACOS_RUNTIME_BRIDGE_RECEIPT_PATH || 'app/build/evidence/golden-loop/macos-debug-bridge-receipt.json');
 const BRIDGE_OBSERVATIONS_PATH = resolve(ROOT, process.env.UTOPIA_MACOS_RUNTIME_BRIDGE_RAW_OBSERVATION_PATH || 'app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl');
+const BRIDGE_DISPATCH_OBSERVATIONS_PATH = resolve(ROOT, process.env.UTOPIA_MACOS_RUNTIME_BRIDGE_DISPATCH_OBSERVATION_PATH || `${BRIDGE_OBSERVATIONS_PATH}.dispatch.jsonl`);
 const WORKSPACE_PATH = resolve(ROOT, 'macos/macos/UtopiaMac.xcworkspace');
 const SCHEME = process.env.UTOPIA_MACOS_SCHEME || 'UtopiaMac-macOS';
 const CONFIGURATION = process.env.UTOPIA_MACOS_CONFIGURATION || 'Debug';
 const TARGET_PACKAGE_ID = process.env.UTOPIA_MACOS_TARGET_PACKAGE_ID || 'shared-household-board';
 const BUILDER = resolve(ROOT, 'scripts/quality/macos/build-macos-app.mjs');
 const BRIDGE = resolve(ROOT, 'scripts/quality/macos/run-golden-loop-debug-bridge.mjs');
+const METRO_STATUS_URL = 'http://127.0.0.1:8081/status';
+let metroProcess = null;
 
 const laneStatus = {
   blockers: [],
@@ -33,6 +36,7 @@ const laneStatus = {
     command: `node ${relative(ROOT, BRIDGE)}`,
     receipt: null,
     observations: null,
+    dispatch_observations: null,
     exit_code: null,
     output_bytes: 0,
     invoked: false,
@@ -108,6 +112,44 @@ function runNodeScript(scriptPath, args = [], env = process.env) {
   });
 }
 
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+async function isMetroReady() {
+  try {
+    const response = await fetch(METRO_STATUS_URL, { signal: AbortSignal.timeout(1000) });
+    const text = await response.text();
+    return response.ok && text.includes('packager-status:running');
+  } catch {
+    return false;
+  }
+}
+
+async function ensureMetro() {
+  if (await isMetroReady()) return null;
+  metroProcess = spawn('npm', ['--prefix', 'macos', 'run', 'start', '--', '--port', '8081'], {
+    cwd: ROOT,
+    env: process.env,
+    stdio: ['ignore', 'ignore', 'ignore'],
+    detached: false,
+  });
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    if (await isMetroReady()) return metroProcess;
+    sleep(500);
+  }
+  return metroProcess;
+}
+
+function stopMetroIfOwned() {
+  if (!metroProcess) return;
+  try {
+    metroProcess.kill('SIGTERM');
+  } catch {}
+  metroProcess = null;
+}
+
 function runBuild(blockers) {
   if (!existsSync(WORKSPACE_PATH)) {
     blockers.push('missing_macos_workspace');
@@ -174,6 +216,10 @@ function runBridge(buildReceipt, blockers) {
     BRIDGE_RECEIPT_PATH,
     '--raw-observations-path',
     BRIDGE_OBSERVATIONS_PATH,
+    '--dispatch-observations-path',
+    BRIDGE_DISPATCH_OBSERVATIONS_PATH,
+    '--run-id',
+    process.env.UTOPIA_GOLDEN_LOOP_RUN_ID || `macos-${Date.now()}`,
   ];
   if (appArtifactChecksum) commandArgs.push('--app-artifact-checksum', appArtifactChecksum);
 
@@ -204,6 +250,12 @@ function runBridge(buildReceipt, blockers) {
     return null;
   }
 
+  const dispatchArtifact = artifactFor(BRIDGE_DISPATCH_OBSERVATIONS_PATH);
+  laneStatus.bridge.dispatch_observations = dispatchArtifact;
+  if (!dispatchArtifact) {
+    blockers.push('bridge_dispatch_observations_missing');
+  }
+
   const bridgeReceipt = readJson(BRIDGE_RECEIPT_PATH);
   if (!bridgeReceipt) {
     blockers.push('bridge_receipt_unreadable');
@@ -232,6 +284,7 @@ function writeReceipt(status, blockers) {
     proof: 'utopia_macos_golden_loop_lane_c_receipt',
     status,
     checked_at: new Date().toISOString(),
+    run_id: process.env.UTOPIA_GOLDEN_LOOP_RUN_ID || null,
     git: currentGit(ROOT),
     lane: 'C',
     source_surface: 'macos',
@@ -272,6 +325,7 @@ function writeReceipt(status, blockers) {
       command_output_tail: laneStatus.bridge.output_tail,
       receipt: laneStatus.bridge.receipt ? { ...laneStatus.bridge.receipt, proof: 'utopia.shell-proof-protocol.v1' } : null,
       observations: laneStatus.bridge.observations ? laneStatus.bridge.observations : null,
+      dispatch_observations: laneStatus.bridge.dispatch_observations ? laneStatus.bridge.dispatch_observations : null,
       transport: laneStatus.bridge.validation?.transport ?? null,
       convergence: laneStatus.bridge.validation?.convergence ?? null,
       scenario_id: laneStatus.bridge.validation?.scenario_id ?? null,
@@ -283,6 +337,9 @@ function writeReceipt(status, blockers) {
   if (proof.lifecycle_driver.receipt) proof.artifacts.push({ type: 'bridge-receipt', ...proof.lifecycle_driver.receipt });
   if (proof.lifecycle_driver.observations) {
     proof.artifacts.push({ type: 'bridge-observations', ...proof.lifecycle_driver.observations });
+  }
+  if (proof.lifecycle_driver.dispatch_observations) {
+    proof.artifacts.push({ type: 'bridge-dispatch-observations', ...proof.lifecycle_driver.dispatch_observations });
   }
   writeFileSync(LANE_RECEIPT_PATH, `${JSON.stringify(proof, null, 2)}\n`, 'utf8');
 }
@@ -315,7 +372,52 @@ function main() {
   const buildReceipt = runBuild(blockers);
   const appReceipt = buildReceipt && buildReceipt.status === 'passed' ? buildReceipt : null;
   if (appReceipt && laneStatus.build.exit_code === 0) {
-    runBridge(appReceipt, blockers);
+    try {
+      const ready = spawnSync(process.execPath, ['-e', `
+        const deadline = Date.now() + 45000;
+        const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+        const check = async () => {
+          while (Date.now() < deadline) {
+            try {
+              const response = await fetch('${METRO_STATUS_URL}', { signal: AbortSignal.timeout(1000) });
+              const text = await response.text();
+              if (response.ok && text.includes('packager-status:running')) process.exit(0);
+            } catch {}
+            sleep(500);
+          }
+          process.exit(1);
+        };
+        check();
+      `], { encoding: 'utf8' });
+      if (ready.status !== 0) {
+        const metro = spawn('npm', ['--prefix', 'macos', 'run', 'start', '--', '--port', '8081'], {
+          cwd: ROOT,
+          env: process.env,
+          stdio: ['ignore', 'ignore', 'ignore'],
+        });
+        metroProcess = metro;
+        const postStart = spawnSync(process.execPath, ['-e', `
+          const deadline = Date.now() + 45000;
+          const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+          const check = async () => {
+            while (Date.now() < deadline) {
+              try {
+                const response = await fetch('${METRO_STATUS_URL}', { signal: AbortSignal.timeout(1000) });
+                const text = await response.text();
+                if (response.ok && text.includes('packager-status:running')) process.exit(0);
+              } catch {}
+              sleep(500);
+            }
+            process.exit(1);
+          };
+          check();
+        `], { encoding: 'utf8' });
+        if (postStart.status !== 0) blockers.push('missing_macos_metro_server');
+      }
+      if (!blockers.includes('missing_macos_metro_server')) runBridge(appReceipt, blockers);
+    } finally {
+      stopMetroIfOwned();
+    }
   }
 
   const status = blockers.length === 0 ? 'PASS' : 'BLOCKED';

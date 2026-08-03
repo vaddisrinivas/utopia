@@ -60,15 +60,9 @@ These are mostly app-control widgets. They differ by side effects, but the shell
 
 ### 3. Food domain surface
 
-- `foodHero`
-- `useFirstCarousel`
-- `mealTimeline`
-- `recipeCard`
-- `receiptReviewCard`
-- `pantryShelf`
 - `askFoodBar`
 
-These are the most domain-specific widgets in the file. They should move out first if the goal is a reusable non-food widget set.
+This is the remaining assistant-specific surface. Record presentation primitives are now shared and proven outside Food.
 
 ### 4. Record / workflow widgets
 
@@ -97,10 +91,6 @@ Highest value first:
 
 1. `foodHero`
 1. `useFirstCarousel`
-1. `mealTimeline`
-1. `recipeCard`
-1. `receiptReviewCard`
-1. `pantryShelf`
 1. `askFoodBar`
 1. `smartCapture`
 1. `assistantChat`
@@ -218,12 +208,6 @@ Why these first:
 ### Phase 4
 
 - Split food widgets into their own family module:
-  - `foodHero`
-  - `useFirstCarousel`
-  - `mealTimeline`
-  - `recipeCard`
-  - `receiptReviewCard`
-  - `pantryShelf`
   - `askFoodBar`
   - `smartCapture`
 - This removes the most domain-branded copy from the shared renderer.

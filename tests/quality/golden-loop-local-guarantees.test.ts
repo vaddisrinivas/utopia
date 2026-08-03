@@ -25,7 +25,10 @@ import {
 import { getRecordForInstallation } from '@/src/db/records';
 import { createPackageInstallFetcher, fetchPackageInstallCandidate } from '@/src/domain/package-install';
 import { loadAppPackage } from '@/src/domain/package-loader';
-import { requestWidgetCapability } from '@/src/presentation/widgets/package-capability-broker';
+import {
+  requestWidgetCapability,
+  type WidgetCapabilityRuntime,
+} from '@/src/presentation/widgets/package-capability-broker';
 import { applyOperation } from '@/src/ops/apply';
 import { normalizeModelSource } from '@/scripts/factory/generate-app-from-prompt';
 import { NodeSqliteDb } from '@/tests/helpers/node-sqlite-db';
@@ -240,12 +243,16 @@ describe('golden loop local guarantees', () => {
 
     const deniedRuntime = {
       installationId,
-      activePackage: loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
+      activePackage: withCapabilityMetadata(
+        loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
+        sha256Canonical(deniedPackage),
+      ),
     };
     expect(
       requestWidgetCapability(deniedRuntime, {
         kind: 'audio-recorder',
         action: 'record',
+        declaredPurpose: CAPABILITY_PURPOSE,
       }),
     ).toMatchObject({
       ok: false,
@@ -272,17 +279,22 @@ describe('golden loop local guarantees', () => {
 
     const grantRuntime = {
       installationId,
-      activePackage: loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
+      activePackage: withCapabilityMetadata(
+        loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
+        sha256Canonical(grantedPackage),
+      ),
     };
-    const grantedPackageChecksum = sha256Canonical(grantRuntime.activePackage);
+    const grantedPackageChecksum = sha256Canonical(grantedPackage);
     await upsertCapabilityConsentLedgerRecord(db as any, {
       schemaVersion: 'utopia.capability-consent-ledger.v1',
       installationId,
       packageId: grantRuntime.activePackage.id,
-      packageVersion: grantRuntime.activePackage.version,
+      packageVersion: grantRuntime.activePackage.version ?? grantedPackage.version,
       packageChecksum: grantedPackageChecksum,
       capability: 'native.audio-recorder',
       scope: ['record'],
+      publisherId: CAPABILITY_PUBLISHER,
+      declaredPurpose: CAPABILITY_PURPOSE,
       decision: 'allow',
       decidedBy: 'golden-loop-test',
       decidedAt: '2026-07-30T00:01:02.000Z',
@@ -297,6 +309,7 @@ describe('golden loop local guarantees', () => {
       requestWidgetCapability(grantRuntimeWithConsent, {
         kind: 'audio-recorder',
         action: 'record',
+        declaredPurpose: CAPABILITY_PURPOSE,
       }),
     ).toEqual({
       ok: true,
@@ -328,12 +341,16 @@ describe('golden loop local guarantees', () => {
 
     const revokedRuntime = {
       installationId,
-      activePackage: loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
+      activePackage: withCapabilityMetadata(
+        loadAppPackage(await getActiveAppPackage(db as any, installationId) as never).activePackage,
+        sha256Canonical(revokedPackage),
+      ),
     };
     expect(
       requestWidgetCapability(revokedRuntime, {
         kind: 'audio-recorder',
         action: 'record',
+        declaredPurpose: CAPABILITY_PURPOSE,
       }),
     ).toMatchObject({
       ok: false,
@@ -341,6 +358,21 @@ describe('golden loop local guarantees', () => {
     });
   });
 });
+
+const CAPABILITY_PUBLISHER = 'golden-loop.publisher';
+const CAPABILITY_PURPOSE = 'record local audio for the installed package';
+
+function withCapabilityMetadata(
+  appPackage: NonNullable<WidgetCapabilityRuntime['activePackage']>,
+  checksum: string,
+): NonNullable<WidgetCapabilityRuntime['activePackage']> {
+  return {
+    ...appPackage,
+    checksum,
+    publisherId: CAPABILITY_PUBLISHER,
+    declaredPurpose: CAPABILITY_PURPOSE,
+  };
+}
 
 function makeV3CapabilityPackage(
   packages: string[],

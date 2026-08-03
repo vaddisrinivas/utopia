@@ -1,0 +1,230 @@
+{
+  "collections": [
+    "meal_plan",
+    "meal_log",
+    "meal_consumption",
+    "recipe",
+    "recipe_revision",
+    "recipe_step",
+    "nutrition_goal",
+    "nutrition_profile"
+  ],
+  "components": [
+    {
+      "id": "food-plan-calendar",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "events": [
+          {
+            "route": "/record/meal-salmon-bowl",
+            "subtitle": "Salmon rice bowls",
+            "title": "Tonight"
+          },
+          {
+            "route": "/record/meal-chickpea-wraps",
+            "subtitle": "Chickpea spinach wraps",
+            "title": "Tomorrow lunch"
+          },
+          {
+            "route": "/chat?prompt=Prepare%20lentil%20soup%20base%20from%20pantry%20items.&run=1",
+            "subtitle": "Lentil soup base",
+            "title": "Prep"
+          }
+        ],
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "meal_plan"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Meals, prep, leftovers, and shopping gaps.",
+      "title": "7-day plan",
+      "tone": "blue",
+      "widget": "calendarBlock"
+    },
+    {
+      "id": "food-plan-builder",
+      "kind": "widget",
+      "props": {
+        "accessibleLabel": "Weekly food planning checklist",
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "items": [
+          {
+            "done": true,
+            "subtitle": "Rank by freshness risk.",
+            "title": "Use expiring food first"
+          },
+          {
+            "done": true,
+            "subtitle": "Family likes, diets, time.",
+            "title": "Respect preferences"
+          },
+          {
+            "done": false,
+            "subtitle": "Only missing items by reason.",
+            "title": "Create shopping gaps"
+          },
+          {
+            "done": false,
+            "subtitle": "No silent data writes.",
+            "title": "Save after review"
+          }
+        ],
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "meal_plan",
+          "preference"
+        ],
+        "limit": 100
+      },
+      "subtitle": "Review before creating plans and shopping demand.",
+      "title": "Build the week",
+      "tone": "moss",
+      "widget": "checklistCard"
+    },
+    {
+      "id": "food-plan-recipe-card",
+      "kind": "widget",
+      "props": {
+        "accessibleStatus": {
+          "enabled": true
+        },
+        "actions": [
+          {
+            "route": "/chat?prompt=Start%20guided%20cook%20mode%20for%20this%20meal.&run=1",
+            "title": "Cook mode"
+          },
+          {
+            "route": "/shop",
+            "title": "Add gaps"
+          }
+        ],
+        "badge": "92% pantry match",
+        "body": "Recipe cards show coverage, missing ingredients, first step, and source record.",
+        "chips": [
+          {
+            "label": "24 min"
+          },
+          {
+            "label": "high protein"
+          },
+          {
+            "label": "1 gap"
+          }
+        ],
+        "emoji": "meal",
+        "minTapTarget": 44
+      },
+      "query": {
+        "collections": [
+          "recipe",
+          "recipe_step",
+          "ingredient"
+        ],
+        "limit": 100
+      },
+      "subtitle": "One meal, one shop gap, clear steps.",
+      "title": "Pantry-first dinner",
+      "tone": "amber",
+      "widget": "recordContentCard"
+    },
+    {
+      "id": "food-editing-state",
+      "kind": "text",
+      "props": {
+        "minTapTarget": 44,
+        "role": "status",
+        "state": "editing",
+        "visibleWhen": "editing"
+      },
+      "subtitle": "Meal plans and generated shopping rows require explicit approval.",
+      "title": "Review before saving",
+      "tone": "neutral"
+    }
+  ],
+  "fields": [
+    "title",
+    "status",
+    "meta",
+    "body",
+    "updated_at"
+  ],
+  "icon": "calendar",
+  "label": "Plan",
+  "mode": "list",
+  "query": "all-food-records",
+  "shell": {
+    "accessibility": {
+      "announcements": true,
+      "focusOrder": "document",
+      "minimumTargetSize": 44,
+      "nonColorStatus": true
+    },
+    "activeTab": "plan",
+    "density": "comfortable",
+    "layoutMode": "mealPlanningWorkspace",
+    "responsive": {
+      "breakpoint": 720,
+      "maxContentWidth": 1120,
+      "narrowPadding": 16,
+      "tracks": [
+        "primary",
+        "supporting"
+      ],
+      "widePadding": 32
+    },
+    "scrollable": true,
+    "tabs": [
+      {
+        "id": "home",
+        "label": "Today",
+        "screen": "home"
+      },
+      {
+        "id": "kitchen",
+        "label": "Kitchen",
+        "screen": "kitchen"
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "screen": "plan"
+      },
+      {
+        "id": "shop",
+        "label": "Shop",
+        "screen": "shop"
+      },
+      {
+        "id": "search",
+        "label": "Search",
+        "screen": "search"
+      }
+    ],
+    "theme": {
+      "accent": "#2F7448",
+      "accentContrast": "#FFFFFF",
+      "border": "#D7E2D4",
+      "canvas": "#F5F7EF",
+      "danger": "#B42318",
+      "ink": "#241C16",
+      "muted": "#607066",
+      "statusError": "#FCE4E1",
+      "statusInfo": "#DCECF5",
+      "statusSuccess": "#DDF4E4",
+      "statusWarning": "#FFF0C9",
+      "surface": "#FFFFFF",
+      "surfaceMuted": "#2F744814"
+    }
+  },
+  "subtitle": "Meals, recipe coverage, family preferences, and shopping gaps."
+}

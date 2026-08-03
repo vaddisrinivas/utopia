@@ -63,6 +63,7 @@ export type AppPackageSourceScreen = {
   imageUrl?: string;
   groupBy?: string;
   layout?: Record<string, unknown>;
+  shell?: Record<string, unknown>;
   components?: A2UiComponent[];
 };
 
@@ -676,6 +677,7 @@ function buildCompiledPackage(source: NormalizedAppPackageSource): AppPackage {
     {
       title: screen.label,
       ...(screen.subtitle ? { subtitle: screen.subtitle } : {}),
+      ...(screen.shell ? { shell: sortObjectDeep(screen.shell) as Record<string, unknown> } : {}),
       ...(screen.components ? { components: normalizeComponents(screen.components) } : {}),
     },
   ]));
@@ -880,6 +882,7 @@ function normalizeScreenSource(id: string, value: AppPackageSourceScreen): AppPa
     ...normalizeSourceEntry(id, value),
     collections: uniqueStrings(value.collections).sort(localeSort),
     fields: [...value.fields],
+    ...(value.shell ? { shell: sortObjectDeep(value.shell) as Record<string, unknown> } : {}),
     ...(value.components ? { components: normalizeComponents(value.components) } : {}),
   };
 }

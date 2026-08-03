@@ -1,8 +1,10 @@
 {
   "answer_label": "Food",
-  "empty_intro": "No matching local Food records were loaded. Connect Notion/Sheets or add records, then ask again.",
-  "default_title": "Local Food answer",
-  "default_intro": "I found {count} local Food record{plural} tied to this question.",
+  "card_bullets": [
+    "nutrition",
+    "available_ingredients",
+    "first_instruction"
+  ],
   "default_columns": [
     "Record",
     "Available",
@@ -13,23 +15,26 @@
     "available_ingredients",
     "missing_ingredients"
   ],
-  "card_bullets": [
-    "nutrition",
-    "available_ingredients",
-    "first_instruction"
-  ],
-  "source_quote_fields": [
-    "body",
-    "meta",
-    "ingredients",
-    "first_instruction"
-  ],
-  "source_exclude_fields": [
-    "tone",
-    "food_detail"
-  ],
+  "default_intro": "I found {count} local Food record{plural} tied to this question.",
+  "default_title": "Local Food answer",
+  "empty_intro": "No matching local Food records were loaded. Connect Notion/Sheets or add records, then ask again.",
   "intents": {
     "inventory": {
+      "boost_collections": [
+        "inventory",
+        "inventory_lot"
+      ],
+      "columns": [
+        "Item",
+        "Status",
+        "Details"
+      ],
+      "fields": [
+        "title",
+        "status",
+        "meta"
+      ],
+      "intro": "I found {count} current inventory record{plural}.",
       "terms": [
         "inventory",
         "pantry",
@@ -41,33 +46,16 @@
         "on hand",
         "available"
       ],
-      "title": "Current food inventory",
-      "intro": "I found {count} current inventory record{plural}.",
-      "columns": [
-        "Item",
-        "Status",
-        "Details"
-      ],
-      "fields": [
-        "title",
-        "status",
-        "meta"
-      ],
-      "boost_collections": [
-        "inventory",
-        "inventory_lot"
-      ]
+      "title": "Current food inventory"
     },
-    "shopping": {
-      "terms": [
-        "shop",
-        "buy",
-        "grocery",
-        "missing",
-        "cart"
+    "planning": {
+      "boost_collections": [
+        "recipe",
+        "meal_plan",
+        "meal_log",
+        "nutrition_profile",
+        "nutrition_observation"
       ],
-      "title": "Local shopping answer",
-      "intro": "I found {count} local Food record{plural} that explain what to buy and why.",
       "columns": [
         "Record",
         "Available",
@@ -78,14 +66,7 @@
         "available_ingredients",
         "missing_ingredients"
       ],
-      "boost_collections": [
-        "shopping_item",
-        "shopping_list",
-        "shopping_demand",
-        "purchase"
-      ]
-    },
-    "planning": {
+      "intro": "I found {count} local Food record{plural} with ingredients, availability, and next cooking steps.",
       "terms": [
         "recipe",
         "cook",
@@ -94,8 +75,15 @@
         "ingredient",
         "nutrition"
       ],
-      "title": "Local food planning answer",
-      "intro": "I found {count} local Food record{plural} with ingredients, availability, and next cooking steps.",
+      "title": "Local food planning answer"
+    },
+    "shopping": {
+      "boost_collections": [
+        "shopping_item",
+        "shopping_list",
+        "shopping_demand",
+        "purchase"
+      ],
       "columns": [
         "Record",
         "Available",
@@ -106,13 +94,25 @@
         "available_ingredients",
         "missing_ingredients"
       ],
-      "boost_collections": [
-        "recipe",
-        "meal_plan",
-        "meal_log",
-        "nutrition_profile",
-        "nutrition_observation"
-      ]
+      "intro": "I found {count} local Food record{plural} that explain what to buy and why.",
+      "terms": [
+        "shop",
+        "buy",
+        "grocery",
+        "missing",
+        "cart"
+      ],
+      "title": "Local shopping answer"
     }
-  }
+  },
+  "source_exclude_fields": [
+    "tone",
+    "food_detail"
+  ],
+  "source_quote_fields": [
+    "body",
+    "meta",
+    "ingredients",
+    "first_instruction"
+  ]
 }

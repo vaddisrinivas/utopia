@@ -1,120 +1,120 @@
 {
-  "source": "apps/food/food.v1.json",
-  "strategy": "top-level-key split",
   "chunks": [
     {
-      "key": "$schema",
+      "entries": 0,
       "file": "chunks/00-schema.json",
-      "kind": "string",
-      "entries": 0
+      "key": "$schema",
+      "kind": "string"
     },
     {
-      "key": "schema_version",
+      "entries": 0,
       "file": "chunks/01-schema-version.json",
-      "kind": "string",
-      "entries": 0
+      "key": "schema_version",
+      "kind": "string"
     },
     {
-      "key": "id",
+      "entries": 0,
       "file": "chunks/02-id.json",
-      "kind": "string",
-      "entries": 0
+      "key": "id",
+      "kind": "string"
     },
     {
-      "key": "label",
+      "entries": 0,
       "file": "chunks/03-label.json",
-      "kind": "string",
-      "entries": 0
+      "key": "label",
+      "kind": "string"
     },
     {
-      "key": "home_surface",
+      "entries": 0,
       "file": "chunks/04-home-surface.json",
-      "kind": "string",
-      "entries": 0
+      "key": "home_surface",
+      "kind": "string"
     },
     {
-      "key": "surfaces",
+      "entries": 4,
       "file": "chunks/05-surfaces.json",
-      "kind": "array",
-      "entries": 4
+      "key": "surfaces",
+      "kind": "array"
     },
     {
-      "key": "collections",
+      "entries": 29,
       "file": "chunks/06-collections.json",
-      "kind": "array",
-      "entries": 29
+      "key": "collections",
+      "kind": "array"
     },
     {
-      "key": "rich_detail_schema",
+      "entries": 0,
       "file": "chunks/07-rich-detail-schema.json",
-      "kind": "string",
-      "entries": 0
+      "key": "rich_detail_schema",
+      "kind": "string"
     },
     {
-      "key": "provider_template_fields",
+      "entries": 3,
       "file": "chunks/08-provider-template-fields.json",
-      "kind": "object",
-      "entries": 3
+      "key": "provider_template_fields",
+      "kind": "object"
     },
     {
-      "key": "visual_identity",
+      "entries": 8,
       "file": "chunks/09-visual-identity.json",
-      "kind": "object",
-      "entries": 8
+      "key": "visual_identity",
+      "kind": "object"
     },
     {
-      "key": "ui",
+      "entries": 4,
       "file": "chunks/10-ui.json",
-      "kind": "object",
-      "entries": 4
+      "key": "ui",
+      "kind": "object"
     },
     {
-      "key": "relations",
+      "entries": 43,
       "file": "chunks/11-relations.json",
-      "kind": "array",
-      "entries": 43
+      "key": "relations",
+      "kind": "array"
     },
     {
-      "key": "skills",
+      "entries": 1,
       "file": "chunks/12-skills.json",
-      "kind": "array",
-      "entries": 1
+      "key": "skills",
+      "kind": "array"
     },
     {
-      "key": "workflows",
+      "entries": 5,
       "file": "chunks/13-workflows.json",
-      "kind": "array",
-      "entries": 5
+      "key": "workflows",
+      "kind": "array"
     },
     {
-      "key": "data_homes",
+      "entries": 4,
       "file": "chunks/14-data-homes.json",
-      "kind": "array",
-      "entries": 4
+      "key": "data_homes",
+      "kind": "array"
     },
     {
-      "key": "dependency_pins",
+      "entries": 5,
       "file": "chunks/15-dependency-pins.json",
-      "kind": "array",
-      "entries": 4
+      "key": "dependency_pins",
+      "kind": "array"
     },
     {
-      "key": "native_capabilities",
+      "entries": 5,
       "file": "chunks/16-native-capabilities.json",
-      "kind": "object",
-      "entries": 5
+      "key": "native_capabilities",
+      "kind": "object"
     },
     {
-      "key": "render",
+      "entries": 10,
       "file": "chunks/17-render.json",
-      "kind": "object",
-      "entries": 10
+      "key": "render",
+      "kind": "object"
     },
     {
-      "key": "mcp",
+      "entries": 2,
       "file": "chunks/18-mcp.json",
-      "kind": "object",
-      "entries": 2
+      "key": "mcp",
+      "kind": "object"
     }
-  ]
+  ],
+  "source": "apps/food/food.v1.json",
+  "strategy": "top-level-key split"
 }

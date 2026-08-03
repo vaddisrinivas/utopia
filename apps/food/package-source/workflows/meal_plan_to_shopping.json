@@ -1,0 +1,5 @@
+{
+  "id": "meal_plan_to_shopping",
+  "legacyWorkflowId": "meal_plan_to_shopping",
+  "preservedFrom": "apps/food/food.v1.json"
+}
