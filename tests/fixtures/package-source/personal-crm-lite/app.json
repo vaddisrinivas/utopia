@@ -1,7 +1,0 @@
-{
-  "schemaVersion": "wonder.package-source.v1",
-  "id": "personal-crm-lite",
-  "version": "1.0.0",
-  "label": "Personal CRM Lite",
-  "homeSurface": "contacts"
-}

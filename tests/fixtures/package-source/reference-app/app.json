@@ -1,7 +1,0 @@
-{
-  "schemaVersion": "wonder.package-source.v1",
-  "id": "reference-app",
-  "version": "1.0.0",
-  "label": "Reference App",
-  "homeSurface": "today"
-}

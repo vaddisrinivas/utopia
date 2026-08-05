@@ -9,7 +9,7 @@
       "android",
       "ios"
     ],
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "utopia",
     "userInterfaceStyle": "light",
@@ -59,6 +59,7 @@
     },
     "plugins": [
       "expo-router",
+      "@kingstinct/react-native-healthkit",
       [
         "expo-image-picker",
         {

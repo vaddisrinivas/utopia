@@ -1,7 +1,0 @@
-{
-  "label": "Today",
-  "collections": ["chore"],
-  "query": "today",
-  "mode": "list",
-  "fields": ["title", "status", "updated_at"]
-}

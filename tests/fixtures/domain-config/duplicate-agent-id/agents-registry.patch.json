@@ -1,7 +1,0 @@
-[
-  {
-    "op": "replace",
-    "path": "/agents/1/id",
-    "value": "orchestrator"
-  }
-]

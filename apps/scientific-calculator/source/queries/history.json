@@ -1,6 +1,0 @@
-{
-  "from": "records",
-  "where": { "op": "eq", "field": "collection", "value": "calculation" },
-  "orderBy": [{ "field": "updated_at", "direction": "desc" }],
-  "limit": 50
-}

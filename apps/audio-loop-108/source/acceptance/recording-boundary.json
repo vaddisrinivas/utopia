@@ -1,8 +1,0 @@
-{
-  "id": "recording-boundary",
-  "checks": [
-    "recording-requires-explicit-user-action",
-    "recorded-clip-is-auto-named-and-saved-before-playback",
-    "missing-recorder-bridge-fails-closed"
-  ]
-}

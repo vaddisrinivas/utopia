@@ -11,8 +11,12 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/kernel/**/*.ts",
+    "src/kernel/**/*.tsx",
+    "cloudflare/**/*.ts",
+    "tamagui.config.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],

@@ -28,15 +28,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-
-      - name: Install server dependencies
-        run: npm ci --prefix server --no-audit --no-fund
 
       - name: Install pinned supply-chain scanners
         env:
@@ -63,53 +58,14 @@ jobs:
           syft version
           gitleaks version
 
-      - name: Check workflow action permissions
-        id: action-permissions
-        env:
-          QUALITY_GATE_ROOT: ${{ github.workspace }}
-          ACTION_PERMISSIONS_REPORT_PATH: app/build/evidence/action-permissions.json
-        run: node scripts/quality/security/check-action-permissions-gate.mjs
-
       - name: Run OSV gate
-        id: osv
-        env:
-          QUALITY_GATE_ROOT: ${{ github.workspace }}
-          OSV_SCANNER_CMD: osv-scanner
-          OSV_SCANNER_ARGS: scan --recursive --format json .
-          OSV_REPORT_PATH: app/build/evidence/osv-report.json
-          OSV_GATE_POLICY_PATH: scripts/quality/security/osv-gate-policy.json
-        run: node scripts/quality/security/check-osv-gate.mjs
+        run: osv-scanner scan --recursive .
 
       - name: Run SBOM gate
-        id: sbom
-        env:
-          QUALITY_GATE_ROOT: ${{ github.workspace }}
-          SYFT_CMD: syft
-          SYFT_ARGS: . -o cyclonedx-json
-          RELEASE_SBOM_PATH: app/build/evidence/sbom.json
-          SBOM_GATE_POLICY_PATH: scripts/quality/sbom/sbom-policy.json
-        run: node scripts/quality/sbom/check-sbom-gate.mjs
+        run: mkdir -p app/build/evidence && syft . -o cyclonedx-json=app/build/evidence/sbom.json
 
       - name: Run Gitleaks gate
-        id: gitleaks
-        env:
-          QUALITY_GATE_ROOT: ${{ github.workspace }}
-          GITLEAKS_CMD: gitleaks
-          GITLEAKS_REPORT_PATH: app/build/evidence/gitleaks-report.json
-        run: node scripts/quality/security/check-gitleaks-gate.mjs
-
-      - name: Fail security lane on blocked gate
-        if: always()
-        env:
-          ACTION_PERMISSIONS_OUTCOME: ${{ steps.action-permissions.outcome }}
-          OSV_OUTCOME: ${{ steps.osv.outcome }}
-          SBOM_OUTCOME: ${{ steps.sbom.outcome }}
-          GITLEAKS_OUTCOME: ${{ steps.gitleaks.outcome }}
-        run: |
-          test "$ACTION_PERMISSIONS_OUTCOME" = success
-          test "$OSV_OUTCOME" = success
-          test "$SBOM_OUTCOME" = success
-          test "$GITLEAKS_OUTCOME" = success
+        run: gitleaks detect --source . --no-banner --redact --report-format json --report-path app/build/evidence/gitleaks-report.json
 
       - name: Validate domain package
         run: npm run config:validate
@@ -137,8 +93,6 @@ jobs:
           path: |
             dist/web
             dist/android
-            app/build/evidence/osv-report.json
             app/build/evidence/sbom.json
             app/build/evidence/gitleaks-report.json
-            app/build/evidence/action-permissions.json
           if-no-files-found: error

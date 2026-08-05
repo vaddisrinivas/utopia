@@ -1,4 +1,0 @@
-{
-  "from": "records",
-  "where": { "op": "eq", "field": "collection", "value": "completion" }
-}

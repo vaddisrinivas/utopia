@@ -1,7 +1,0 @@
-[
-  {
-    "op": "add",
-    "path": "/unexpected_top_level",
-    "value": true
-  }
-]

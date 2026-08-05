@@ -23,15 +23,22 @@ dist/
 web-build/
 .metro-health-check*
 coverage/
+artifacts/
+test-results/
+research/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.ipa
+ios/build-simulator/
+macos/build-v3/
+macos/release-build/
 
 # Build artifacts
 **/build/
 build/
+src/generated/catalog.ts
 captures/
 outputs/
 work/

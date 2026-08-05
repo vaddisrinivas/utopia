@@ -1,7 +1,0 @@
-{
-  "schemaVersion": "wonder.package-source.v1",
-  "id": "capability-lab",
-  "version": "0.1.0",
-  "label": "Capability Lab",
-  "homeSurface": "matrix"
-}

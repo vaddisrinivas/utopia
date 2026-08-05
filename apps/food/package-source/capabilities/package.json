@@ -1,7 +1,0 @@
-[
-  "records.read",
-  "records.write",
-  "food.plan",
-  "food.capture",
-  "health.read.optional"
-]

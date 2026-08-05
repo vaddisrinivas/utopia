@@ -1,145 +1,89 @@
-# Utopia Production-Hardening Plan
+# Utopia Kernel V2 Migration
 
 ## Goal
 
-Deliver a closed Android beta for local-first package apps with private/unlisted
-hosted installation. Sharing, web/macOS parity, public marketplace publishing,
-and ten-minute self-service creation remain experimental.
+Migrate proven Utopia behavior into a small JSON-native platform. Prefer mature
+libraries over owned implementations. Preserve the old checkout as reference
+and rollback; cut over only after behavioral and four-shell parity.
 
-No item is complete unless reflected in appropriate evidence.
+## Architecture
 
-## Critical path
+- Zod owns TypeScript runtime contracts and emits JSON Schema where possible.
+- AJV validates external JSON Schema packages.
+- JSON Render interprets package screens.
+- Tamagui owns layout, controls, themes, sheets, dialogs, and responsive UI.
+- Victory, SVG, and Skia own charts, vectors, gauges, canvas, and rich graphics.
+- XState owns workflows and resumable state machines.
+- Expo SQLite owns local persistence.
+- Expo modules own native capabilities.
+- RRule, JSON Logic, JSON Patch, canonicalize, and SHA libraries remain the
+  canonical engines for their domains.
+- Utopia owns only schemas, adapters, policy, persistence mapping, and package
+  loading. Apps contain JSON and assets, never runtime branches.
 
-1. Verify the integrated hardening set.
-2. Wire publisher/purpose metadata into live capability requests.
-3. Wire staged recovery activation to Android Expo SQLite/filesystem.
-4. Pin release-gate tooling and remove mutable downloads from blocking gates.
-5. Build a release Android bundle and prove the debug bridge is absent. **Done locally with throwaway release signing; not Play signing proof.**
-6. Prove Audio Loop record/save/rename/restart/replay, or remove that beta claim.
-7. Run one signed Android Golden Loop with actual SQLite state and private
-   registry receipts.
+## Migration Rules
 
-Do not make sync, web, macOS, public publishers, or human creator evidence block
-this narrower beta.
+1. Migrate tests before implementation.
+2. Classify each test: retained behavior, compatibility, proof, or research-only.
+3. Copy proven code only when a retained test requires it.
+4. Replace custom equivalents with libraries before copying them.
+5. Preserve observable behavior with old/new differential oracles.
+6. No app-specific runtime code.
+7. Count reachable owned production LOC; generated or relocated code still counts.
 
-## Evidence status (current)
+## Phases
 
-- Golden Loop: **BLOCKED** (`npm run proof:golden-loop`).
-- Blockers in the current proof summary: `clean_checkout`, `multi_surface_receipts`, and fresh same-run Android x2 aggregation.
-- Local platform checks and local guarantees remain healthy: `npm test` (152 files, 753 tests), `npm run gate:fast`, core schema/recovery/security gates, and focused chat/creator/registry checks pass in repository evidence.
-- Web shell receipt is now real local browser execution.
-- macOS shell receipt is now real local native app execution through Launch Services and a native URL handler.
-- Android x2 emulator receipts exist from the earlier run, but are stale against the current package checksum and must be rerun before the strict aggregate receipt can pass.
-- Synthetic/virtual-lab receipts are explicitly non-final for launch claims.
-- Review artifacts now referenced directly from local files:
-  - `docs/CODEBASE_DEEP_REVIEW_2026-07-30.md`
-  - `docs/CODEBASE_FILE_SCOPE_INDEX_2026-07-30.md`
+### 1. Contract
 
-## Canonical all-surfaces workflow (truth-only)
+- Inventory and classify existing tests.
+- Define Zod package contract and JSON Schema export.
+- Add lossless adapters for supported legacy package versions.
+- Differentially validate canonical packages against the old runtime.
 
-### A. Local preflight (single run, non-equivalent to real parity)
+### 2. Runtime
 
-```bash
-npm run config:validate
-npm run typecheck
-npm run doctor
-npm run export:web
-npm run export:android
-npm run phase3:check:chat-send
-npm run phase3:check:chat-rollback-idempotency
-npm run check:clean-checkout
-npm run check:multi-surface-sync
-npm run check:golden-loop
-npm run proof:golden-loop
-```
+- Migrate SQLite record and installation behavior.
+- Migrate workflows to XState.
+- Migrate expressions, recurrence, timing, undo, recovery, and offline behavior.
+- Keep only capability adapters referenced by packages.
 
-### B. Real multi-surface proof (preferred for launch)
+### 3. Presentation
 
-```bash
-gh workflow run golden-loop-all-surfaces.yml
-RUN_ID=$(gh run list --workflow golden-loop-all-surfaces.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-gh run watch "$RUN_ID" --exit-status
-gh run download "$RUN_ID" --name golden-loop-multi-surface -D app/build/evidence/golden-loop
-node scripts/quality/golden-loop/check-multi-surface-receipts.mjs
-node scripts/quality/check-multi-surface-sync-proof.mjs
-node scripts/quality/run-clean-checkout-proof.mjs
-```
+- Build a small JSON Render registry.
+- Back primitives with Tamagui.
+- Back charts/vectors/canvas with Victory, SVG, and Skia.
+- Replace shell administration screens with shell settings and a direct app launcher.
 
-### C. Targeted surface lanes (same commit surface)
+### 4. Gold Apps
 
-```bash
-gh workflow run golden-loop-clean-checkout.yml
-gh workflow run golden-loop-web.yml
-gh workflow run golden-loop-android-emulators.yml
-gh workflow run golden-loop-macos.yml
-```
+- Prove 15 apps with non-overlapping capability coverage.
+- Require arbitrary user data, navigation, restart, offline/error states,
+  accessibility, and executable workflow oracles.
+- Require zero app-specific runtime code.
 
-Evidence must be consumed from:
-- `app/build/evidence/golden-loop/golden-loop-proof.json`
-- `app/build/evidence/golden-loop/clean-checkout/utopia_golden_loop_clean_checkout.json`
-- `app/build/evidence/golden-loop/multi-surface/`
-- `app/build/evidence/golden-loop/multi-surface-receipts.json`
+### 5. Bulk Compatibility
 
-## Architecture constraints (current target)
+- Compile every canonical package through legacy adapters.
+- Classify failures by generic capability gap.
+- Add only reusable adapters that unlock multiple packages.
 
-- JSON Schema remains authority for contracts.
-- AJV remains shared schema execution engine.
-- Capability enforcement remains brokered and user-consent-gated.
-- Trust states remain separated: checksum, signature, publisher identity, and policy validity.
-- Core remains headless; shell adapters own React/Expo/native/file/db implementation.
-- Packages remain schema+runtime contract artifacts; no raw native or shell-specific code in package payloads.
+### 6. Cutover
 
-## Stop-doing rules
+- Pass web, Android emulator, iOS simulator, and macOS shell checks.
+- Pass required repository checks and differential tests.
+- Require reachable owned production LOC below 20k; target 10k.
+- Merge once, with the old platform retained as rollback history.
 
-- No new core architecture claims without evidence-backed gates.
-- No live/synthetic parity substitute.
-- No producer-side source-assertions as proof.
-- No public-registry writes in automation until trust-signing policy is approved.
+## Stop Conditions
 
-## Wave posture (non-duplicative)
+- A library migration changes observable behavior without an accepted contract change.
+- A proposed adapter is app-specific.
+- A package requires private data, secrets, or fabricated provider/device evidence.
+- LOC rises without unlocking a measured capability.
 
-### Wave 0 (blocked)
-- Preserve current review + deep-file index as immutable evidence artifacts.
-- Mark stale archive artifacts as stale in repo truth tables.
-- Keep all red-gate regressions that document current threat surfaces.
+## Checkpoints
 
-### Wave 1 (in progress)
-- Trust + capability gates are accepted if consent, signature, and TUF policies remain enforceable from live receipts.
-
-### Wave 2 (in progress)
-- Migration/recovery and secret-handling gates remain accepted only when evidence is generated from fresh checkpoints.
-
-### Wave 3 (in progress)
-- Portable Core and contract authority accepted only with enforced boundaries and dependency-owner proofs.
-
-### Wave 4+ (active)
-- Registry atomicity, sync transport, and shell execution are open only in three tracks:
-  - registry/publication policy and write controls
-  - reference-sync transport readiness and networked proof
-  - Android x2 / web / macOS real receipts + aggregate receipt check
-
-## External blockers (must fix before launch readiness)
-
-- Dirty tree blocks `clean-checkout` evidence.
-- Google Sheets live proof needs OAuth + disposable workbook/account binding (existing Notion disposable proof is complete).
-- Real web + macOS shell execution receipts pass locally; Android x2 must be rerun for the current package checksum/run id before aggregate parity is launch-grade.
-- Unaided human creator proof under 10 minutes is still external evidence.
-
-## Required final verification (launch gate)
-
-- `npm run config:validate`
-- `npm run typecheck`
-- `npm run doctor`
-- `npm run export:web`
-- `npm run export:android`
-- `npm run phase3:check:chat-send`
-- `npm run phase3:check:chat-rollback-idempotency`
-- `npm run check:golden-loop`
-- `npm run check:clean-checkout`
-- `npm run check:multi-surface-sync`
-- `npm run proof:golden-loop`
-- `node scripts/quality/check-live-provider-readiness.mjs`
-- `node scripts/quality/check-release-readiness.mjs`
-- `npm run check:shared-state-sync`
-- `node scripts/quality/golden-loop/check-multi-surface-receipts.mjs`
-- `git diff --check`
+- Contract: all selected contract tests pass.
+- Runtime: persistence/workflow/recovery tests pass.
+- Presentation: 15 gold apps render and operate across four shells.
+- Cutover: old/new oracle parity, required checks, LOC gate, and rollback plan pass.

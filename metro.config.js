@@ -1,7 +1,17 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
+
+const externalAppsDir = process.env.UTOPIA_APPS_DIR
+  ? path.resolve(process.cwd(), process.env.UTOPIA_APPS_DIR)
+  : path.resolve(__dirname, '../utopia-apps/packages');
+const canonicalExternalAppsDir = path.normalize(externalAppsDir);
+
+if (fs.existsSync(canonicalExternalAppsDir)) {
+  config.watchFolders = [...(config.watchFolders || []), canonicalExternalAppsDir];
+}
 
 if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');

@@ -1,7 +1,0 @@
-{
-  "label": "Plants",
-  "collections": ["plant"],
-  "query": "plants",
-  "mode": "table",
-  "fields": ["title", "watered_at", "updated_at"]
-}

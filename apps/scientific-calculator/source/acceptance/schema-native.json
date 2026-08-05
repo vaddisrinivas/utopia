@@ -1,4 +1,0 @@
-{
-  "id": "schema-native",
-  "summary": "Package compiles with app-package schema and uses only schema-declared UI components."
-}

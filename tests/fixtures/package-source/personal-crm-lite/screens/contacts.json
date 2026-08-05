@@ -1,8 +1,0 @@
-{
-  "label": "Contacts",
-  "subtitle": "People to follow up with.",
-  "collections": ["contact"],
-  "query": "contacts",
-  "mode": "list",
-  "fields": ["title", "company", "last_contacted_at", "next_step"]
-}

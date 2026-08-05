@@ -1,7 +1,0 @@
-[
-  {
-    "op": "replace",
-    "path": "/agents/4/capabilities/0/ops/0",
-    "value": "rewrite"
-  }
-]

@@ -1,5 +1,6 @@
-import { JsonRenderRoute } from '@/src/presentation/json-render-route';
+import { Link } from 'expo-router';
+import { Button, H1, YStack } from 'tamagui';
 
-export default function NotFoundScreen() {
-  return <JsonRenderRoute screen="notFound" />;
+export default function NotFound() {
+  return <YStack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} gap="$4"><H1>Not found</H1><Link href="/" asChild><Button>Apps</Button></Link></YStack>;
 }
