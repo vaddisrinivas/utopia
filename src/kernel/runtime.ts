@@ -27,7 +27,14 @@ export const AppStateSchema = z.object({
   receipts: z.array(ReceiptSchema).optional(),
   tombstones: z.array(JsonRecordSchema).optional(),
   applied: z.array(z.string()).optional(),
-  workflows: z.record(z.string(), z.object({ state: z.string(), revision: z.number().int().nonnegative(), updatedAt: z.string() })).optional(),
+  workflows: z.record(z.string(), z.object({
+    schemaVersion: z.literal('workflow.snapshot.v3'),
+    state: z.string(),
+    control: z.enum(['running', 'paused', 'completed', 'failed', 'cancelled', 'compensating', 'compensated']),
+    revision: z.number().int().nonnegative(),
+    updatedAt: z.string(),
+    checkpoint: z.record(z.string(), z.unknown()),
+  })).optional(),
   timers: z.record(z.string(), z.object({
     durationMs: z.number().nonnegative(), elapsedMs: z.number().nonnegative(),
     status: z.enum(['idle', 'running', 'paused', 'completed', 'review']), updatedAt: z.string(),

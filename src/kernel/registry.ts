@@ -79,7 +79,7 @@ export async function revokePublisherKey(publisher: string, publicKey: string) {
   await storage.setItem(storageKey, JSON.stringify(trust));
 }
 
-export async function install(entry: RegistryEntry): Promise<AppPackage> {
+export async function reviewPackageForInstall(entry: RegistryEntry): Promise<AppPackage> {
   entry = Entry.parse(entry);
   const value = await json(entry.url);
   if (await checksum(value) !== entry.checksum) throw new Error('Package checksum mismatch');
@@ -108,6 +108,11 @@ export async function install(entry: RegistryEntry): Promise<AppPackage> {
   ];
   const denied = requested.filter((item) => !trust.capabilities.includes(item));
   if (denied.length) throw new Error(`Capability approval required: ${denied.join(', ')}`);
+  return pkg;
+}
+
+export async function install(entry: RegistryEntry): Promise<AppPackage> {
+  const pkg = await reviewPackageForInstall(entry);
   const key = `utopia:package:${pkg.id}`;
   const previous = await storage.getItem(key);
   if (previous) await storage.setItem(`${key}:previous`, previous);

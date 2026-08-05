@@ -214,22 +214,83 @@ export type WorkflowDefinition = {
   initial: string;
   states: Record<string, { on?: Record<string, string> }>;
 };
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type WorkflowCheckpoint = Record<string, JsonValue>;
+export type WorkflowControlState = 'running' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'compensating' | 'compensated';
+export type WorkflowControlEvent = 'PAUSE' | 'RESUME' | 'COMPLETE' | 'FAIL' | 'CANCEL' | 'COMPENSATE' | 'COMPENSATED';
+const controlMachine = createMachine({
+  id: 'workflow-control',
+  initial: 'running',
+  states: {
+    running: { on: { PAUSE: 'paused', COMPLETE: 'completed', FAIL: 'failed', CANCEL: 'cancelled' } },
+    paused: { on: { RESUME: 'running', CANCEL: 'cancelled' } },
+    completed: {},
+    failed: { on: { COMPENSATE: 'compensating', COMPLETE: 'completed' } },
+    cancelled: {},
+    compensating: { on: { COMPENSATED: 'compensated', FAIL: 'failed' } },
+    compensated: {},
+  },
+} as const);
+const controlStateTransition = (state: WorkflowControlState, event: WorkflowControlEvent): WorkflowControlState => {
+  const next = getNextSnapshot(controlMachine, controlMachine.resolveState({ value: state, context: {} }), { type: event });
+  return typeof next.value === 'string' ? next.value as WorkflowControlState : state;
+};
+const enforceControlTransition = (state: WorkflowControlState, event: WorkflowControlEvent): WorkflowControlState => {
+  const next = controlStateTransition(state, event);
+  if (next === state) throw new Error(`workflow_control_illegal:${state}:${event}`);
+  return next;
+};
 
-export function workflow(definition: WorkflowDefinition) {
+export function workflow<TCheckpoint extends WorkflowCheckpoint = WorkflowCheckpoint>(definition: WorkflowDefinition) {
   const machine = createMachine(definition);
+  const nextMachineState = (state: string, event: string): string =>
+    String(getNextSnapshot(machine, machine.resolveState({ value: state, context: {} }), { type: event }).value);
+  const nextCheckpoint = (snapshot: WorkflowSnapshot<TCheckpoint> | undefined): TCheckpoint =>
+    (snapshot?.checkpoint ?? {}) as TCheckpoint;
+
   return {
     initial: () => getInitialSnapshot(machine).value,
     transition: (state: string, event: string) =>
-      getNextSnapshot(machine, machine.resolveState({ value: state, context: {} }), { type: event }).value,
-    advance: (snapshot: WorkflowSnapshot | undefined, event: string, at = new Date().toISOString()): WorkflowSnapshot => ({
-      state: String(getNextSnapshot(machine, machine.resolveState({ value: snapshot?.state ?? definition.initial, context: {} }), { type: event }).value),
-      revision: (snapshot?.revision ?? 0) + 1,
-      updatedAt: at,
-    }),
+      getNextSnapshot(machine, machine.resolveState({ value: state, context: {} }), { type: event }).value as string,
+    transitionControl: (state: WorkflowControlState, event: WorkflowControlEvent) =>
+      controlStateTransition(state, event),
+    control: (snapshot: WorkflowSnapshot<TCheckpoint> | undefined, event: WorkflowControlEvent, at = new Date().toISOString(), checkpoint?: TCheckpoint): WorkflowSnapshot<TCheckpoint> => {
+      const current = snapshot?.control ?? 'running';
+      return {
+        schemaVersion: 'workflow.snapshot.v3',
+        state: snapshot?.state ?? definition.initial,
+        control: enforceControlTransition(current, event),
+        revision: (snapshot?.revision ?? 0) + 1,
+        updatedAt: at,
+        checkpoint: checkpoint ?? nextCheckpoint(snapshot),
+      };
+    },
+    advance: (snapshot: WorkflowSnapshot<TCheckpoint> | undefined, event: string, at = new Date().toISOString(), checkpoint?: TCheckpoint): WorkflowSnapshot<TCheckpoint> => {
+      const currentControl = snapshot?.control ?? 'running';
+      if (currentControl !== 'running') {
+        throw new Error(`workflow_control_blocked:${currentControl}`);
+      }
+      const nextState = nextMachineState(snapshot?.state ?? definition.initial, event);
+      return {
+        schemaVersion: 'workflow.snapshot.v3',
+        state: nextState,
+        control: currentControl,
+        revision: (snapshot?.revision ?? 0) + 1,
+        updatedAt: at,
+        checkpoint: checkpoint ?? nextCheckpoint(snapshot),
+      };
+    },
   };
 }
 
-export type WorkflowSnapshot = { state: string; revision: number; updatedAt: string };
+export type WorkflowSnapshot<TCheckpoint extends WorkflowCheckpoint = WorkflowCheckpoint> = {
+  schemaVersion: 'workflow.snapshot.v3';
+  state: string;
+  control: WorkflowControlState;
+  revision: number;
+  updatedAt: string;
+  checkpoint: TCheckpoint;
+};
 export type TimerSnapshot = { durationMs: number; elapsedMs: number; status: 'idle' | 'running' | 'paused' | 'completed' | 'review'; updatedAt: string };
 
 export function reconcileTimer(timer: TimerSnapshot, now = Date.now()): TimerSnapshot {
