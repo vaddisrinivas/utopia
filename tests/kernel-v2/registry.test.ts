@@ -4,7 +4,17 @@ import * as ed from '@noble/ed25519';
 import { canonicalize } from 'json-canonicalize';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { checksum, contractChecksum, install, installedPackage, restorePackage, revokePublisherKey, trustPublisher, uninstallPackage } from '@/src/kernel/registry';
+import {
+  checksum,
+  contractChecksum,
+  install,
+  installedPackage,
+  restorePackage,
+  reviewPackageForInstall,
+  revokePublisherKey,
+  trustPublisher,
+  uninstallPackage,
+} from '@/src/kernel/registry';
 
 import { fixtureActivePackage } from './v3-fixtures';
 
@@ -96,15 +106,20 @@ describe('signed remote registry trust', () => {
     await expect(install(entry)).resolves.toStrictEqual(value);
   });
 
-  it('updates, restores, and uninstalls without losing the previous package', async () => {
+  it('preview validates without persisting install state', async () => {
     const value = fixtureActivePackage();
     const next = { ...value, version: '2.0.0' };
-    for (const candidate of [value, next]) {
-      const entry = await signedEntry(candidate);
-      await trust(candidate, entry.publicKey as string);
-      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(candidate), { status: 200 })));
-      await install(entry);
-    }
+    const key = `utopia:package:${value.id}:previous`;
+    const first = await signedEntry(value);
+    await trust(value, first.publicKey as string);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(value), { status: 200 })));
+    await install(first);
+    const nextEntry = await signedEntry(next);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(next), { status: 200 })));
+    await reviewPackageForInstall(nextEntry);
+    expect((await installedPackage(value.id))?.version).toBe(value.version);
+    expect(storage.has(key)).toBe(false);
+    await install(nextEntry);
     expect((await installedPackage(value.id))?.version).toBe('2.0.0');
     expect((await restorePackage(value.id))?.version).toBe(value.version);
     await uninstallPackage(value.id);

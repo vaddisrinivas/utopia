@@ -16,7 +16,11 @@ export default function AppRoute() {
   const [pkg, setPackage] = useState<AppPackage>();
   const [ready, setReady] = useState(false);
   useEffect(() => { let active = true; void findPackage(id).then((value) => active && setPackage(value)).finally(() => active && setReady(true)); return () => { active = false; }; }, [id]);
-  if (!ready) return <YStack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Spinner /></YStack>;
-  if (!pkg) return <YStack gap="$3" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><H2>Unavailable</H2><Paragraph>Unknown app.</Paragraph><Button onPress={() => router.replace('/')}>Apps</Button></YStack>;
-  return <AppStore appId={pkg.id}><PackageApp pkg={pkg} initialScreen={screen} /></AppStore>;
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.title = !ready ? 'Loading app — Utopia' : pkg ? `${pkg.presentation?.label ?? 'App'} — Utopia` : 'App unavailable — Utopia';
+  }, [pkg, ready]);
+  if (!ready) return <YStack role="main" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><H2 accessibilityRole="header">Loading app</H2><Paragraph>Preparing app.</Paragraph><Spinner /></YStack>;
+  if (!pkg) return <YStack role="main" gap="$3" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><H2 accessibilityRole="header">App unavailable</H2><Paragraph>Unknown app.</Paragraph><Button accessibilityRole="button" accessibilityLabel="Open app list" onPress={() => router.replace('/')} >Apps</Button></YStack>;
+  return <YStack role="main"><AppStore appId={pkg.id}><PackageApp pkg={pkg} initialScreen={screen} /></AppStore></YStack>;
 }

@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Plus, RotateCcw, Search, SortAsc, SortDesc, Trash2, Undo2 } from 'lucide-react-native';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from 'react';
 import type { AppPackage, AppComponent } from './schema';
 import { queryRecords, type JsonRecord } from './runtime';
 import { computedRecords } from './engine';
@@ -32,6 +32,13 @@ type RecordField = {
   defaultValue?: unknown;
 };
 const textLike = (value: unknown) => normalizeValue(value);
+const iconButtonProps = ({ testID, label, ...props }: { testID: string; label: string } & Omit<ComponentProps<typeof Button>, 'testID' | 'accessibilityLabel' | 'accessibilityRole'>) => ({
+  ...props,
+  accessibilityRole: 'button' as const,
+  accessibilityLabel: label,
+  testID,
+});
+const iconButton = (key: string) => `record-${key}`;
 export const bulkRows = (value: string, field: string, defaults: Values = {}) => value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean).slice(0, 100).map((item) => ({ ...defaults, [field]: item }));
 export const matchesPreset = (record: JsonRecord, preset?: Values) => !preset || !toText(preset.field) || textLike(record.values[toText(preset.field)]).toLowerCase() === textLike(preset.value).toLowerCase();
 const asTextField = (value: unknown, fallback: string) => toText(value, fallback) || fallback;
@@ -257,10 +264,10 @@ function ListSurface({ component, collection, pkg, records, state, dispatch, que
 
   return <Panel title={component.title}>
     <XStack gap="$2" style={{ alignItems: 'center' }}>
-      <Search size={18} />
-      <Input flex={1} placeholder="Search" value={search} onChangeText={setSearch} />
-      <Button size="$2" icon={Plus} onPress={() => setForm('new')}>New</Button>
-      <Button size="$2" icon={sortDirection === 'asc' ? SortAsc : SortDesc} onPress={() => setSortDirection((value) => value === 'asc' ? 'desc' : 'asc')}>Sort</Button>
+      <Search size={18} accessibilityLabel="Search records" />
+      <Input flex={1} placeholder="Search" accessibilityLabel="Search records" value={search} onChangeText={setSearch} />
+      <Button size="$2" icon={Plus} {...iconButtonProps({ testID: iconButton('new'), label: 'Create new record' })} onPress={() => setForm('new')}>New</Button>
+      <Button size="$2" icon={sortDirection === 'asc' ? SortAsc : SortDesc} {...iconButtonProps({ testID: iconButton('sort'), label: 'Toggle sort direction' })} onPress={() => setSortDirection((value) => value === 'asc' ? 'desc' : 'asc')}>Sort</Button>
     </XStack>
     {presets.length ? <XStack gap="$2" flexWrap="wrap"><Button size="$2" theme={activePreset < 0 ? 'green' : undefined} onPress={() => setActivePreset(-1)}>All</Button>{presets.map((preset, index) => <Button key={toText(preset.label)} size="$2" theme={activePreset === index ? 'green' : undefined} onPress={() => setActivePreset(index)}>{toText(preset.label)}</Button>)}</XStack> : null}
     <XStack gap="$2" style={{ flexWrap: 'wrap', paddingTop: 8, paddingBottom: 8 }}>{fields.slice(0, 8).map((field) => <Button key={field.id} size="$2" theme={sortField === field.id ? 'green' : undefined} onPress={() => setSortField(field.id)}>{field.id}</Button>)}</XStack>
@@ -275,10 +282,13 @@ function ListSurface({ component, collection, pkg, records, state, dispatch, que
         <Text color="$color10">{toSubtitle(record, component)}</Text>
       </YStack>
     </Button>
-      {manualField ? <><Button circular chromeless icon={ArrowUp} disabled={!index} onPress={() => void move(record, -1)} aria-label="Move up" /><Button circular chromeless icon={ArrowDown} disabled={index === rows.length - 1} onPress={() => void move(record, 1)} aria-label="Move down" /></> : null}
+      {manualField ? <>
+        <Button circular chromeless icon={ArrowUp} disabled={!index} {...iconButtonProps({ testID: `${iconButton('move-up')}-${record.id}`, label: 'Move up' })} onPress={() => void move(record, -1)} />
+        <Button circular chromeless icon={ArrowDown} disabled={index === rows.length - 1} {...iconButtonProps({ testID: `${iconButton('move-down')}-${record.id}`, label: 'Move down' })} onPress={() => void move(record, 1)} />
+      </> : null}
       {component.props?.confirmDelete ? pendingDelete === record.id
         ? <><Button size="$2" theme="red" onPress={() => { void dispatch({ kind: 'delete', recordId: record.id }); setPendingDelete(''); }}>Delete</Button><Button size="$2" onPress={() => setPendingDelete('')}>Cancel</Button></>
-        : <Button circular chromeless icon={Trash2} onPress={() => setPendingDelete(record.id)} aria-label={`Delete ${toRowLabel(record, component)}`} /> : null}
+        : <Button circular chromeless icon={Trash2} {...iconButtonProps({ testID: `${iconButton('delete')}-${record.id}`, label: 'Delete' })} onPress={() => setPendingDelete(record.id)} /> : null}
     </XStack>) : <Paragraph color="$color10">No rows</Paragraph>}
   </Panel>;
 }
@@ -331,7 +341,7 @@ function TimelineSurface({ component, records, state, dispatch }: { component: A
   const selected = sorted[index];
 
   return <Panel title={component.title}>
-    {state.undo?.length ? <Button size="$2" icon={Undo2} onPress={() => void dispatch({ kind: 'undo' })}>Undo</Button> : null}
+    {state.undo?.length ? <Button size="$2" icon={Undo2} {...iconButtonProps({ testID: iconButton('undo'), label: 'Undo last action' })} onPress={() => void dispatch({ kind: 'undo' })}>Undo</Button> : null}
     {selected ? <YStack gap="$2">
       <Text fontWeight="700">{toRowLabel(selected, component)}</Text>
       <Text color="$color10">{toDateValue(selected.values[dateField] ?? selected.updatedAt)}</Text>
