@@ -1,11 +1,26 @@
-import { CameraView, type BarcodeScanningResult, useCameraPermissions } from 'expo-camera';
+import {
+  CameraView,
+  type BarcodeScanningResult,
+  useCameraPermissions,
+} from 'expo-camera';
+import * as CameraRuntime from 'expo-camera';
 import { Accelerometer, Gyroscope, Magnetometer } from 'expo-sensors';
+import * as ExpoCalendar from 'expo-calendar';
+import * as ExpoContacts from 'expo-contacts';
+import * as ExpoLocation from 'expo-location';
+import * as ExpoNotifications from 'expo-notifications';
 import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { Button, H2, Paragraph, Text, XStack, YStack } from 'tamagui';
 
-import type { AppComponent } from './schema';
-import { assertCapability, recordConsent } from './policy';
+import type { AppComponent, AppPackage } from './schema';
+import {
+  assertCapability,
+  readCapabilityDecision,
+  recordConsent,
+  resolveCapability,
+  resolvePermissionCapabilityForDeclaration,
+} from './policy';
 import { useAppStore, type Store } from './store';
 import {
   CapabilityStateError,
@@ -40,6 +55,163 @@ const actionWidgets = new Set<NativeActionWidget>([
   'healthKitStatus',
 ]);
 
+const DECISION_GRANTED = 'granted' as const;
+const DECISION_DENIED = 'denied' as const;
+type ConsentState = typeof DECISION_GRANTED | typeof DECISION_DENIED;
+
+type PermissionDeclaration = { id: string; reason?: string; prompt?: string };
+export type PermissionRequest = { permission: PermissionDeclaration; capability: string; unsupported: boolean };
+
+type PermissionDescriptor = {
+  id: string;
+  reason?: string;
+  prompt?: string;
+  capability: string;
+  getStatus: () => Promise<NativePermissionResult>;
+  request: () => Promise<NativePermissionResult>;
+};
+
+type PermissionRuntime = {
+  request: () => Promise<NativePermissionResult>;
+  getStatus: () => Promise<NativePermissionResult>;
+};
+
+type NativeResultValueType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'array'
+  | 'object'
+  | 'null'
+  | 'unknown';
+export type NativeResultRecord = {
+  schema: 'utopia.native.result.v1';
+  source: 'native';
+  widget: string;
+  appId: string;
+  capability: string;
+  resultField: string;
+  valueType: NativeResultValueType;
+  timestamp: string;
+  value: unknown;
+};
+
+const cameraPermissions = CameraRuntime as unknown as {
+  requestCameraPermissionsAsync: () => Promise<NativePermissionResult>;
+  getCameraPermissionsAsync: () => Promise<NativePermissionResult>;
+};
+
+const permissionRuntimeByCapability = {
+  cameraScanner: {
+    request: () => cameraPermissions.requestCameraPermissionsAsync(),
+    getStatus: () => cameraPermissions.getCameraPermissionsAsync(),
+  },
+  locationMap: {
+    request: () => ExpoLocation.requestForegroundPermissionsAsync(),
+    getStatus: () => ExpoLocation.getForegroundPermissionsAsync(),
+  },
+  notificationScheduler: {
+    request: () => ExpoNotifications.requestPermissionsAsync(),
+    getStatus: () => ExpoNotifications.getPermissionsAsync(),
+  },
+  contactPicker: {
+    request: () => ExpoContacts.requestPermissionsAsync(),
+    getStatus: () => ExpoContacts.getPermissionsAsync(),
+  },
+  calendarEvent: {
+    request: () => ExpoCalendar.requestCalendarPermissionsAsync(),
+    getStatus: () => ExpoCalendar.getCalendarPermissionsAsync(),
+  },
+} as const;
+
+function toPermissionId(permission: unknown): string | undefined {
+  if (typeof permission === 'string') return permission.trim().toLowerCase();
+  if (!permission || typeof permission !== 'object') return undefined;
+  if ('id' in permission && typeof (permission as { id?: unknown }).id === 'string') return String((permission as { id?: unknown }).id).trim().toLowerCase();
+  if ('permission' in permission && typeof (permission as { permission?: unknown }).permission === 'string') {
+    return String((permission as { permission?: unknown }).permission).trim().toLowerCase();
+  }
+  return undefined;
+}
+
+function permissionDeclaration(permission: unknown): PermissionDeclaration | undefined {
+  const id = toPermissionId(permission);
+  if (!id) return undefined;
+  const raw = permission && typeof permission === 'object' ? permission as Record<string, unknown> : {};
+  const reason = typeof raw.reason === 'string' ? raw.reason.trim() : undefined;
+  const prompt = typeof raw.prompt === 'string' ? raw.prompt.trim() : undefined;
+  return { id, reason: reason && reason.length ? reason : undefined, prompt: prompt && prompt.length ? prompt : undefined };
+}
+
+function permissionMap(permissionId: string): PermissionRuntime | undefined {
+  if (Platform.OS === 'web') return;
+  const capability = resolvePermissionCapabilityForDeclaration(permissionId);
+  return capability && capability in permissionRuntimeByCapability
+    ? permissionRuntimeByCapability[capability as keyof typeof permissionRuntimeByCapability]
+    : undefined;
+}
+
+export async function collectRuntimePermissions(pkg: AppPackage): Promise<PermissionRequest[]> {
+  const requested: PermissionRequest[] = [];
+  const seen = new Set<string>();
+  for (const raw of pkg.nativeCapabilities?.permissions ?? []) {
+    const declaration = permissionDeclaration(raw);
+    if (!declaration || seen.has(declaration.id)) continue;
+    const descriptor = permissionDescriptor(declaration);
+    const capability = resolvePermissionCapabilityForDeclaration(declaration.id) ?? declaration.id;
+    requested.push({
+      permission: declaration,
+      capability: capability ?? declaration.id,
+      unsupported: !descriptor,
+    });
+    seen.add(declaration.id);
+  }
+  return requested;
+}
+
+export async function collectPendingRuntimePermissions(appId: string, pkg: AppPackage): Promise<PermissionRequest[]> {
+  const supported: PermissionRequest[] = [];
+  const unsupported: PermissionRequest[] = [];
+  for (const request of await collectRuntimePermissions(pkg)) {
+    if (request.unsupported) {
+      unsupported.push(request);
+      continue;
+    }
+    const decision = await readCapabilityDecision(appId, request.capability);
+    if (!decision) supported.push(request);
+  }
+  return [...supported, ...unsupported];
+}
+
+export async function requestBootPermission(appId: string, permission: PermissionRequest): Promise<null> {
+  const descriptor = permissionDescriptor(permission.permission);
+  if (!descriptor) throw new CapabilityStateError('unavailable', false, `Permission unsupported on this platform: ${permission.permission.id}`);
+  const status = await descriptor.getStatus();
+  if (status.granted) {
+    await recordConsent(appId, permission.capability, DECISION_GRANTED);
+    return null;
+  }
+  const response = await descriptor.request();
+  const state = response.granted ? DECISION_GRANTED : DECISION_DENIED;
+  await recordConsent(appId, permission.capability, state);
+  return null;
+}
+
+export function unsupportedPermission(permission: PermissionDeclaration): boolean {
+  return !permissionDescriptor(permission);
+}
+
+export function toBootPermissionLabel(permission: PermissionRequest) {
+  return permission.permission.id;
+}
+
+function permissionDescriptor(permission: PermissionDeclaration): PermissionDescriptor | undefined {
+  const capability = resolvePermissionCapabilityForDeclaration(permission.id);
+  const runtime = permissionMap(permission.id);
+  if (!runtime) return;
+  return { ...runtime, ...permission, capability: capability! };
+}
+
 function widgetLabel(component: AppComponent) {
   return component.title || String(component.props?.title || component.widget || 'Capability');
 }
@@ -53,11 +225,22 @@ function stateFromResult(
   state: CapabilityExecutionState,
   message?: string,
   fallback?: string,
+  retryable?: boolean,
 ): CapabilityActionState {
   if (state === 'idle' || state === 'running') {
     return { ...states[state], state, message: message || fallback || capabilityMessage(state) };
   }
-  return { state, message: message || fallback || capabilityMessage(state) };
+  return { state, retryable, message: message || fallback || capabilityMessage(state) };
+}
+
+async function withRuntimePermission<T>(
+  appId: string,
+  widget: string,
+  permission: { request: () => Promise<{ granted: boolean; canAskAgain?: boolean }>; getStatus: () => Promise<{ granted: boolean; canAskAgain?: boolean }> },
+  run: () => Promise<T>,
+): Promise<T> {
+  await ensurePermissionGranted(appId, widget, () => permission.request(), () => permission.getStatus());
+  return run();
 }
 
 async function runFilePicker(props: Record<string, unknown>) {
@@ -101,67 +284,70 @@ async function runFileExport(appId: string, component: AppComponent) {
 
 async function runLocation(appId: string, component: AppComponent) {
   const location = await import('expo-location');
-  const permission = await location.requestForegroundPermissionsAsync();
-  await recordConsent(appId, 'location', permission.granted ? 'granted' : 'denied');
-  if (!permission.granted) throw new CapabilityStateError('denied', true, 'Permission denied');
-  const current = await location.getCurrentPositionAsync({});
-  return { latitude: current.coords.latitude, longitude: current.coords.longitude };
+  return withRuntimePermission(appId, 'locationMap', {
+    request: () => location.requestForegroundPermissionsAsync(),
+    getStatus: () => location.getForegroundPermissionsAsync(),
+  }, async () => {
+    const current = await location.getCurrentPositionAsync({});
+    return { latitude: current.coords.latitude, longitude: current.coords.longitude };
+  });
 }
 
 async function runNotification(appId: string, component: AppComponent) {
   const notifications = await import('expo-notifications');
-  const permission = await notifications.requestPermissionsAsync();
-  await recordConsent(appId, 'notifications', permission.granted ? 'granted' : 'denied');
-  if (!permission.granted) throw new CapabilityStateError('denied', true, 'Permission denied');
-  const props = component.props ?? {};
-  const seconds = Number(props.seconds ?? 10);
-  if (!Number.isFinite(seconds) || seconds < 1) {
-    throw new CapabilityStateError('retry', true, 'Invalid notification timer');
-  }
-
-  const id = await notifications.scheduleNotificationAsync({
-    content: {
-      title: widgetLabel(component),
-      body: String(props.body ?? ''),
-    },
-    trigger: {
-      type: notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds,
-    },
+  return withRuntimePermission(appId, 'notificationScheduler', {
+    request: () => notifications.requestPermissionsAsync(),
+    getStatus: () => notifications.getPermissionsAsync(),
+  }, async () => {
+    const props = component.props ?? {};
+    const seconds = Number(props.seconds ?? 10);
+    if (!Number.isFinite(seconds) || seconds < 1) throw new CapabilityStateError('retry', true, 'Invalid notification timer');
+    const id = await notifications.scheduleNotificationAsync({
+      content: {
+        title: widgetLabel(component),
+        body: String(props.body ?? ''),
+      },
+      trigger: {
+        type: notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds,
+      },
+    });
+    return { id, scheduled: true };
   });
-  return { id, scheduled: true };
 }
 
 async function runContactPicker(appId: string, component: AppComponent) {
   const contacts = await import('expo-contacts');
-  const permission = await contacts.requestPermissionsAsync();
-  await recordConsent(appId, 'contacts', permission.granted ? 'granted' : 'denied');
-  if (!permission.granted) throw new CapabilityStateError('denied', true, 'Permission denied');
-  const result = await contacts.presentContactPickerAsync();
-  if (!result) throw new CapabilityStateError('cancelled', false, 'Contact picker cancelled');
-  return { id: result.id, name: result.name ?? 'Unknown' };
+  return withRuntimePermission(appId, 'contactPicker', {
+    request: () => contacts.requestPermissionsAsync(),
+    getStatus: () => contacts.getPermissionsAsync(),
+  }, async () => {
+    const result = await contacts.presentContactPickerAsync();
+    if (!result) throw new CapabilityStateError('cancelled', false, 'Contact picker cancelled');
+    return { id: result.id, name: result.name ?? 'Unknown' };
+  });
 }
 
 async function runCalendar(appId: string, component: AppComponent) {
   const calendar = await import('expo-calendar');
-  const permission = await calendar.requestCalendarPermissionsAsync();
-  await recordConsent(appId, 'calendar', permission.granted ? 'granted' : 'denied');
-  if (!permission.granted) throw new CapabilityStateError('denied', true, 'Permission denied');
-
-  const startOffsetMinutes = Number((component.props ?? {}).startOffsetMinutes ?? 10);
-  const durationMinutes = Number((component.props ?? {}).durationMinutes ?? 30);
-  const startDate = new Date(Date.now() + startOffsetMinutes * 60_000);
-  const endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
-
-  const target = await calendar.getDefaultCalendarAsync();
-  if (!target?.id) throw new CapabilityStateError('unavailable', false, 'No default calendar available');
-
-  await calendar.createEventAsync(target.id, {
-    title: String((component.props ?? {}).eventTitle ?? widgetLabel(component)),
-    startDate,
-    endDate,
+  return withRuntimePermission(appId, 'calendarEvent', {
+    request: () => calendar.requestCalendarPermissionsAsync(),
+    getStatus: () => calendar.getCalendarPermissionsAsync(),
+  }, async () => {
+    const props = component.props ?? {};
+    const startOffsetMinutes = Number(props.startOffsetMinutes ?? 10);
+    const durationMinutes = Number(props.durationMinutes ?? 30);
+    const startDate = new Date(Date.now() + startOffsetMinutes * 60_000);
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
+    const target = await calendar.getDefaultCalendarAsync();
+    if (!target?.id) throw new CapabilityStateError('unavailable', false, 'No default calendar available');
+    await calendar.createEventAsync(target.id, {
+      title: String(props.eventTitle ?? widgetLabel(component)),
+      startDate,
+      endDate,
+    });
+    return 'Calendar event created';
   });
-  return 'Calendar event created';
 }
 
 async function runBiometrics(component: AppComponent) {
@@ -198,30 +384,124 @@ async function runHealthKit() {
 }
 
 function ActionResult({ state, message, onRetry }: { state: CapabilityActionState; message: string; onRetry: () => void }) {
-  const showRetry = ['denied', 'unavailable', 'retry', 'cancelled'].includes(state.state);
+  const canRetry = state.retryable ?? ['retry', 'cancelled'].includes(state.state);
+  const isDenied = state.state === 'denied';
   const textColor = state.state === 'success' ? '$green10' : state.state === 'running' ? '$blue10' : '$color10';
+
+  const openSettings = async () => {
+    if (Platform.OS === 'web') return;
+    try {
+      await Linking.openSettings();
+    } catch {
+      // noop
+    }
+  };
+
   return (
     <YStack gap="$2">
       <Paragraph color={textColor}>{message}</Paragraph>
-      {showRetry ? <Button size="$3" onPress={() => void onRetry()}>Retry</Button> : null}
+      {canRetry ? <Button size="$3" onPress={() => void onRetry()}>Retry</Button> : null}
+      {isDenied && !canRetry ? <Button size="$3" onPress={() => void openSettings()}>Open settings</Button> : null}
     </YStack>
   );
 }
 
 type ResultHandler = (value: unknown) => void | Promise<void>;
 
-async function bindResult(runtime: Store, component: AppComponent, value: unknown, onResult?: ResultHandler) {
-  await onResult?.(value);
+type NativePermissionResult = { granted: boolean; canAskAgain?: boolean };
+
+async function ensurePermissionGranted(
+  appId: string,
+  widget: string,
+  request: () => Promise<NativePermissionResult>,
+  fallback?: () => Promise<NativePermissionResult> | NativePermissionResult,
+) {
+  const capability = await resolveCapability(appId, widget);
+  if (!capability) {
+    await assertCapability(appId, widget);
+    return;
+  }
+
+  const existing = await readCapabilityDecision(appId, capability);
+  if (existing?.state === 'granted') {
+    const current = await fallback?.();
+    if (current?.granted === false) {
+      await recordConsent(appId, capability, 'denied');
+      throw new CapabilityStateError('denied', false, `Permission denied for ${capability}`);
+    }
+    return;
+  }
+  if (existing?.state === 'denied') throw new CapabilityStateError('denied', false, `Permission denied for ${capability}`);
+
+  const current = await fallback?.();
+  if (current?.granted) {
+    await recordConsent(appId, capability, 'granted');
+    return;
+  }
+
+  const status = await request();
+  const decision = status.granted ? 'granted' : 'denied';
+  await recordConsent(appId, capability, decision);
+  if (decision === 'denied') {
+    throw new CapabilityStateError('denied', false, `Permission denied for ${capability}`);
+  }
+}
+
+function resultType(value: unknown): NativeResultValueType {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (value === true || value === false) return 'boolean';
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'object') return 'object';
+  return 'unknown';
+}
+
+function bindableNativeResult(
+  appId: string,
+  component: AppComponent,
+  value: unknown,
+) {
+  const field = String(component.props?.resultField ?? 'result');
+  return {
+    schema: 'utopia.native.result.v1',
+    source: 'native',
+    appId,
+    capability: String(component.widget),
+    widget: String(component.widget),
+    resultField: field,
+    valueType: resultType(value),
+    timestamp: new Date().toISOString(),
+    value,
+  } satisfies NativeResultRecord;
+}
+
+async function bindResult(runtime: Store, appId: string, component: AppComponent, value: unknown, onResult?: ResultHandler) {
+  const record = bindableNativeResult(appId, component, value);
+  await onResult?.(record);
   const field = String(component.props?.resultField ?? 'result');
   const action = component.action;
   if (action && (action.kind === 'create' || action.kind === 'update')) {
-    await runtime.dispatch({ ...action, values: { ...action.values, [field]: value } });
+    await runtime.dispatch({ ...action, values: { ...action.values, [field]: record } });
   } else if (component.props?.collection) {
-    await runtime.dispatch({ kind: 'create', collection: String(component.props.collection), values: { [field]: value } });
+    await runtime.dispatch({ kind: 'create', collection: String(component.props.collection), values: { [field]: record } });
   }
 }
 
 const resultText = (value: unknown) => typeof value === 'string' ? value : JSON.stringify(value);
+
+const runByWidget = {
+  filePicker: (appId, component) => runFilePicker(component.props ?? {}),
+  fileExport: (appId, component) => runFileExport(appId, component),
+  locationMap: (appId, component) => runLocation(appId, component),
+  notificationScheduler: (appId, component) => runNotification(appId, component),
+  contactPicker: (appId, component) => runContactPicker(appId, component),
+  calendarEvent: (appId, component) => runCalendar(appId, component),
+  biometricGate: (appId, component) => runBiometrics(component),
+  speechTool: (appId, component) => runSpeech(component),
+  healthConnect: (appId) => runHealthConnect(),
+  healthKitStatus: (appId) => runHealthKit(),
+} satisfies Record<string, (appId: string, component: AppComponent) => Promise<unknown>>;
 
 function CapabilityAction({ appId, component, onResult }: { appId: string; component: AppComponent; onResult: ResultHandler }) {
   const [actionState, setActionState] = useState<CapabilityActionState>(states.idle);
@@ -231,25 +511,20 @@ function CapabilityAction({ appId, component, onResult }: { appId: string; compo
     setActionState(states.running);
     const result = await executeCapability(async () => {
       await assertCapability(appId, String(component.widget));
-      switch (component.widget) {
-        case 'filePicker': return runFilePicker(component.props ?? {});
-        case 'fileExport': return runFileExport(appId, component);
-        case 'locationMap': return runLocation(appId, component);
-        case 'notificationScheduler': return runNotification(appId, component);
-        case 'contactPicker': return runContactPicker(appId, component);
-        case 'calendarEvent': return runCalendar(appId, component);
-        case 'biometricGate': return runBiometrics(component);
-        case 'speechTool': return runSpeech(component);
-        case 'healthConnect': return runHealthConnect();
-        case 'healthKitStatus': return runHealthKit();
-        default: throw new CapabilityStateError('unavailable', false, `Unsupported native widget ${String(component.widget)}`);
-      }
+      const runner = runByWidget[component.widget as keyof typeof runByWidget];
+      if (!runner) throw new CapabilityStateError('unavailable', false, `Unsupported native widget ${String(component.widget)}`);
+      return runner(appId, component);
     });
     if (result.state === 'success') {
       setValue(result.value);
       await onResult(result.value);
     }
-    setActionState(stateFromResult(result.state, result.state === 'success' ? resultText(result.value) : result.message, capabilityMessage(result.state)));
+    setActionState(stateFromResult(
+      result.state,
+      result.state === 'success' ? resultText(result.value) : result.message,
+      capabilityMessage(result.state),
+      result.retryable,
+    ));
   };
 
   const cancelNotification = async () => {
@@ -291,14 +566,13 @@ function Scanner({ appId, component, onResult }: { appId: string; component: App
 
     setReadState(states.running);
     const outcome = await executeCapability(async () => {
-      await assertCapability(appId, 'cameraScanner');
-      const response = await requestPermission();
-      if (!response.granted) {
-        if (permission?.canAskAgain) {
-          throw new CapabilityStateError('denied', true, 'Permission denied');
-        }
-        throw new CapabilityStateError('unavailable', false, 'Camera permission permanently denied');
-      }
+      await ensurePermissionGranted(appId, 'cameraScanner', async () => {
+        const response = await requestPermission();
+        return { granted: response.granted, canAskAgain: response.canAskAgain };
+      }, () => {
+        if (!permission) return { granted: false, canAskAgain: true };
+        return { granted: permission.granted, canAskAgain: permission.canAskAgain };
+      });
       setAuthorized(true);
       return 'Permission granted';
     });
@@ -307,18 +581,39 @@ function Scanner({ appId, component, onResult }: { appId: string; component: App
 
   useEffect(() => {
     if (!permission) return;
-    if (permission.granted) {
-      void assertCapability(appId, 'cameraScanner').then(() => {
+    void (async () => {
+      try {
+        if (!permission.granted) {
+          const capability = await resolveCapability(appId, 'cameraScanner');
+          if (!capability) {
+            await assertCapability(appId, 'cameraScanner');
+            return;
+          }
+          const decision = await readCapabilityDecision(appId, capability);
+          if (decision?.state === 'denied') {
+            setAuthorized(false);
+            setReadState(stateFromResult('denied', `Permission denied for ${capability}`, undefined, false));
+            return;
+          }
+          setAuthorized(false);
+          setReadState(stateFromResult('idle', capabilityMessage('idle'), 'Ready'));
+          return;
+        }
+
+        const capability = await resolveCapability(appId, 'cameraScanner');
+        if (!capability) {
+          await assertCapability(appId, 'cameraScanner');
+          return;
+        }
+
+        await recordConsent(appId, capability, 'granted');
         setAuthorized(true);
         setReadState(stateFromResult('success', 'Camera ready', 'Camera ready'));
-      }).catch((cause) => setReadState(stateFromResult('denied', cause instanceof Error ? cause.message : 'Denied')));
-      return;
-    }
-    if (!permission.canAskAgain) {
-      setReadState(stateFromResult('unavailable', 'Camera permission disabled on this device', 'Unavailable'));
-      return;
-    }
-    setReadState(stateFromResult('idle', capabilityMessage('idle'), 'Ready'));
+      } catch (cause) {
+        setAuthorized(false);
+        setReadState(stateFromResult('denied', cause instanceof Error ? cause.message : 'Permission denied', 'Denied', false));
+      }
+    })();
   }, [appId, permission?.granted, permission?.canAskAgain]);
 
   if (!permission?.granted || !authorized) {
@@ -348,19 +643,27 @@ function Scanner({ appId, component, onResult }: { appId: string; component: App
         onBarcodeScanned={status ? undefined : ({ data }: BarcodeScanningResult) => {
           setStatus(data);
           setReadState(stateFromResult('success', `Scanned ${data}`));
-          void onResult({ type: 'barcode', value: data });
+          void onResult(bindableNativeResult(appId, component, { type: 'barcode', value: data }));
         }}
       />
       {captureMode === 'photo' ? <Button onPress={async () => {
         const picture = await camera.current?.takePictureAsync();
-        if (picture?.uri) { setStatus(picture.uri); await onResult({ type: 'photo', uri: picture.uri }); }
+        if (picture?.uri) {
+          const value = { type: 'photo', uri: picture.uri };
+          setStatus(picture.uri);
+          await onResult(bindableNativeResult(appId, component, value));
+        }
       }}>Take photo</Button> : null}
       {captureMode === 'video' ? <Button onPress={async () => {
         if (recording) { camera.current?.stopRecording(); setRecording(false); return; }
         setRecording(true);
         const video = await camera.current?.recordAsync();
         setRecording(false);
-        if (video?.uri) { setStatus(video.uri); await onResult({ type: 'video', uri: video.uri }); }
+        if (video?.uri) {
+          const value = { type: 'video', uri: video.uri };
+          setStatus(video.uri);
+          await onResult(bindableNativeResult(appId, component, value));
+        }
       }}>{recording ? 'Stop' : 'Record'}</Button> : null}
       <ActionResult state={readState} message={readState.message} onRetry={() => { setStatus(''); setReadState(states.idle); }} />
       {status ? (
@@ -388,7 +691,7 @@ function Sensor({ appId, component, onResult }: { appId: string; component: AppC
       subscription.current.remove();
       subscription.current = null;
       setState(stateFromResult('success', 'Stopped'));
-      await onResult(value);
+      await onResult(bindableNativeResult(appId, component, value));
       return;
     }
     setState(states.running);
@@ -419,7 +722,7 @@ function Sensor({ appId, component, onResult }: { appId: string; component: AppC
 
 export function NativeCapability({ appId, component, onResult }: { appId: string; component: AppComponent; onResult?: ResultHandler }) {
   const runtime = useAppStore();
-  const bind = (value: unknown) => bindResult(runtime, component, value, onResult);
+  const bind = (value: unknown) => bindResult(runtime, appId, component, value, onResult);
   if (component.widget === 'cameraScanner') return <Scanner appId={appId} component={component} onResult={bind} />;
   if (component.widget === 'sensorReadout') return <Sensor appId={appId} component={component} onResult={bind} />;
   if (actionWidgets.has(component.widget as NativeActionWidget)) {

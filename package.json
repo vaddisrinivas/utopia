@@ -109,6 +109,7 @@
     "typecheck": "tsc --noEmit",
     "preconfig:validate": "npm run catalog:generate",
     "test": "vitest run tests/kernel-v2",
+    "check:doc-links": "node scripts/quality/check-doc-links.mjs",
     "check:kernel-v2": "vitest run tests/kernel-v2 && node scripts/quality/check-kernel-v2-size.mjs",
     "config:validate": "npm run check:kernel-v2",
     "doctor": "expo-doctor",
@@ -116,7 +117,7 @@
     "export:android": "npm run catalog:generate && expo export --platform android --output-dir dist/android",
     "export:ios": "npm run catalog:generate && expo export --platform ios --output-dir dist/ios",
     "server:dev": "tsx server/index.ts",
-    "phase3:check:chat-send": "vitest run tests/kernel-v2/server.test.ts",
-    "phase3:check:chat-rollback-idempotency": "vitest run tests/kernel-v2/server.test.ts"
+    "phase3:check:chat-send": "vitest run tests/kernel-v2/chat-send.test.ts",
+    "phase3:check:chat-rollback-idempotency": "vitest run tests/kernel-v2/chat-rollback-idempotency.test.ts"
   }
 }

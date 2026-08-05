@@ -5,7 +5,7 @@ import { FlatList, useWindowDimensions } from 'react-native';
 import { Button, H1, Input, Paragraph, XStack, YStack } from 'tamagui';
 
 import { catalog } from '@/src/kernel/catalog';
-import { install, loadRegistry, trustPublisher, type RegistryEntry } from '@/src/kernel/registry';
+import { installWithInstallationId, loadRegistry, trustPublisher, type RegistryEntry } from '@/src/kernel/registry';
 
 export default function AppLauncher() {
   const router = useRouter();
@@ -44,8 +44,10 @@ export default function AppLauncher() {
       </YStack> : null}
       {remote.map((entry) => <Button key={entry.id} size="$5" icon={Download} onPress={async () => {
         setError('');
-        try { const pkg = await install(entry); router.push(`/apps/${pkg.id}`); }
-        catch (cause) { setError(cause instanceof Error ? cause.message : 'Install failed'); }
+        try {
+          const { installationId } = await installWithInstallationId(entry);
+          router.push(`/apps/${installationId}`);
+        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Install failed'); }
       }}>{entry.id}</Button>)}
     </YStack>;
   return <FlatList

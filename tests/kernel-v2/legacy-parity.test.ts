@@ -4,17 +4,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 
 vi.mock('expo-crypto', () => {
-  const { createHash } = require('node:crypto');
+  const { createHash, randomBytes, randomUUID } = require('node:crypto');
   return {
     __esModule: true,
     CryptoDigestAlgorithm: {
       SHA256: 'SHA-256',
       SHA512: 'SHA-512',
     },
-    digest: async (_algorithm: string, value: ArrayBuffer | Uint8Array | null) => {
+    digest: async (algorithm: string, value: ArrayBuffer | Uint8Array | null) => {
       const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : Uint8Array.from(value ?? []);
-      return new Uint8Array(createHash('sha512').update(Buffer.from(bytes)).digest());
+      return new Uint8Array(createHash(algorithm === 'SHA-512' ? 'sha512' : 'sha256').update(Buffer.from(bytes)).digest());
     },
+    getRandomBytesAsync: async (size: number) => new Uint8Array(randomBytes(size)),
+    randomUUID,
     digestStringAsync: async (_algorithm: string, value: string) => createHash('sha256').update(value).digest('hex'),
   };
 });
@@ -175,7 +177,7 @@ describe('legacy-parity consolidation on v3 API', () => {
     expect(routeScreen('/missing', screens)).toBeUndefined();
 
     const actionState = applyAction(emptyState, { kind: 'propose', operation: 'navigate', recordId: 'home', payload: { confirmed: true } });
-    expect(actionState.receipts?.at(-1)).toMatchObject({ operation: 'navigate', status: 'completed' });
+    expect(actionState.receipts?.at(-1)).toMatchObject({ operation: 'navigate', status: 'unavailable' });
   });
 
   it('supports propose/retry semantics and receipt capping for failure recovery', () => {
@@ -262,12 +264,15 @@ describe('legacy-parity consolidation on v3 API', () => {
       push: vi.fn(async () => ({ cursor: '2026-01-02T00:00:00.000Z' })),
     };
     vi.spyOn(dataHome, 'createDataHome').mockReturnValue(conflictProvider as never);
-    vi.stubGlobal('process', { env: { UTOPIA_DB: 'postgres://u:p@localhost/db', UTOPIA_TENANT_ID: 'tenant-a' } } as never);
+    const secrets = { UTOPIA_DB: 'postgres://u:p@localhost/db', UTOPIA_TENANT_ID: 'tenant-a' };
 
     const conflicted = await syncDataHome(
       pkg,
       { records: [row('item-1', '2026-01-01T00:00:00.000Z', 'local-branch')] },
       'https://provider.test',
+      undefined,
+      inMemoryStorage(),
+      secrets,
     );
     expect(conflicted.receipts?.some((receipt) => receipt.operation === 'conflict')).toBe(true);
     expect(conflicted.records.find((item) => item.id === 'item-1')?.values.title).toBe('local-branch');
@@ -285,6 +290,7 @@ describe('legacy-parity consolidation on v3 API', () => {
       'https://provider.test',
       undefined,
       offlineStorage,
+      secrets,
     );
 
     const duplicateArtifact = makeEvidence(pkg);

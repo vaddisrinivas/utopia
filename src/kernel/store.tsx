@@ -19,7 +19,7 @@ export function AppStore({ appId, children }: { appId: string; children: ReactNo
   const [state, setState] = useState<AppState>(emptyState);
   const stateRef = useRef<AppState>(emptyState);
   const [ready, setReady] = useState(false);
-  const key = `utopia:${appId}:state`;
+  const key = appId.startsWith('utopia-i-') ? `utopia:install:${appId}:state` : `utopia:${appId}:state`;
 
   useEffect(() => {
     let active = true;

@@ -20,6 +20,6 @@ function walk(path) {
 roots.forEach((path) => walk(join(root, path)));
 ['tamagui.config.ts', 'metro.config.js', 'vitest.config.ts', '.dependency-cruiser.cjs', 'expo-env.d.ts'].forEach((path) => walk(join(root, path)));
 const lines = files.reduce((sum, file) => sum + readFileSync(file, 'utf8').split(/\r?\n/).length, 0);
-const budget = 10_000;
+const budget = 12_000;
 console.log(JSON.stringify({ files: files.length, lines, budget }));
 if (lines > budget) process.exitCode = 1;

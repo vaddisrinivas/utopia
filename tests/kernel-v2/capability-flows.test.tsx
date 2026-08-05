@@ -39,5 +39,15 @@ describe('lane C capability state machine', () => {
     expect(result.state).toBe('unavailable');
     expect(result.message).toBe('health unavailable');
     expect(isCapabilityTerminal(result.state)).toBe(true);
+    expect(result.retryable).toBe(false);
+  });
+
+  it('preserves retryability from CapabilityStateError', async () => {
+    const result = await executeCapability(async () => {
+      throw new CapabilityStateError('denied', false, 'Permission denied by policy');
+    });
+
+    expect(result.state).toBe('denied');
+    expect(result.retryable).toBe(false);
   });
 });

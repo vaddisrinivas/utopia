@@ -39,6 +39,12 @@ const iconButtonProps = ({ testID, label, ...props }: { testID: string; label: s
   testID,
 });
 const iconButton = (key: string) => `record-${key}`;
+const parseJsonValue = (value: string) => {
+  const text = value.trim();
+  if (!text) return '';
+  if (text.startsWith('{') || text.startsWith('[')) return JSON.parse(text);
+  return text.split(/[\r\n,]+/).map((item) => item.trim()).filter(Boolean);
+};
 export const bulkRows = (value: string, field: string, defaults: Values = {}) => value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean).slice(0, 100).map((item) => ({ ...defaults, [field]: item }));
 export const matchesPreset = (record: JsonRecord, preset?: Values) => !preset || !toText(preset.field) || textLike(record.values[toText(preset.field)]).toLowerCase() === textLike(preset.value).toLowerCase();
 const asTextField = (value: unknown, fallback: string) => toText(value, fallback) || fallback;
@@ -75,11 +81,7 @@ function collectRows(record: JsonRecord, component: AppComponent, cap = 8) {
   const requested = asList(component.props?.fields)
     .map((entry) => typeof entry === 'string' ? entry : toText((entry as Values).id))
     .filter(Boolean);
-  const fields = requested.length
-      ? requested
-      : Object.entries(record.values)
-        .map(([key]) => key)
-        .filter((key) => !RESERVED_RECORD_FIELDS.has(key));
+  const fields = requested.length ? requested : Object.keys(record.values).filter((key) => !RESERVED_RECORD_FIELDS.has(key));
   return fields.slice(0, cap).map((field) => ({
     field,
     value: textLike(record.values[field]),
@@ -115,7 +117,7 @@ function fieldsFor(component: AppComponent, pkg: AppPackage, collection?: string
       type: asRecordFieldType(spec.type),
       required: Boolean(spec.required),
       defaultValue: undefined,
-    } satisfies RecordField));
+    }));
 }
 
 function Panel({ title, children }: { title?: string; children: ReactNode }) {
@@ -159,15 +161,22 @@ function QuickForm({
   }));
   const [error, setError] = useState('');
 
+  const normalizeField = (field: RecordField, value: string): unknown => {
+    if (field.type === 'number') return asNumber(value, Number.NaN);
+    if (field.type === 'boolean') return value === 'true';
+    if (field.type === 'json') {
+      try {
+        return parseJsonValue(value ?? '');
+      } catch {
+        setError(`Invalid JSON for ${field.label}`);
+        return value ?? '';
+      }
+    }
+    return value;
+  };
+
   const save = async () => {
-    const normalized = {
-      ...values,
-      ...Object.fromEntries(fields.map((field) => {
-        if (field.type === 'number') return [field.id, asNumber(values[field.id], Number.NaN)];
-        if (field.type === 'boolean') return [field.id, values[field.id] === 'true'];
-        return [field.id, values[field.id]];
-      })),
-    };
+    const normalized = Object.fromEntries(fields.map((field) => [field.id, normalizeField(field, values[field.id] ?? '')]));
     const missing = fields.find((field) => field.required && toText(values[field.id]) === '');
     if (missing) return setError(`${missing.label} required`);
     if (record) await dispatch({ kind: 'update', recordId: record.id, values: normalized });
@@ -182,10 +191,17 @@ function QuickForm({
       const key = `${component.id ?? collection}-${field.id}`;
       if (field.type === 'boolean') {
       return <XStack key={field.id} style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Label htmlFor={key}>{field.label}</Label>
-          <Switch checked={values[field.id] === 'true'} onCheckedChange={(value) => setValues((current) => ({ ...current, [field.id]: value.toString() }))}><Switch.Thumb /></Switch>
-        </XStack>;
+        <Label htmlFor={key}>{field.label}</Label>
+        <Switch checked={values[field.id] === 'true'} onCheckedChange={(value) => setValues((current) => ({ ...current, [field.id]: value.toString() }))}><Switch.Thumb /></Switch>
+      </XStack>;
       }
+      if (field.type === 'json') return <TextArea
+        key={field.id}
+        placeholder={field.label}
+        value={values[field.id]}
+        onChangeText={(next) => setValues((current) => ({ ...current, [field.id]: next }))}
+      />;
+
       return <Input
         key={field.id}
         placeholder={field.label}
@@ -488,6 +504,24 @@ function fallbackCollectionError(component: AppComponent) {
   return <Panel title={component.title}><Paragraph color="$red10">Collection unavailable</Paragraph></Panel>;
 }
 
+const recordSurfaces: Record<string, (props: { component: AppComponent; collection: string; records: JsonRecord[]; pkg: AppPackage; state: AppState; dispatch: Runtime['dispatch']; }) => ReactNode> = {
+  formCard: ({ component, collection, pkg, dispatch, state }) => <Panel title={component.title}><QuickForm component={component} pkg={pkg} collection={collection} dispatch={dispatch} state={state} /></Panel>,
+  smartCapture: ({ component, collection, pkg, dispatch, state }) => <Panel title={component.title}><QuickForm component={component} pkg={pkg} collection={collection} dispatch={dispatch} state={state} /></Panel>,
+  recordHeroSummary: ({ component, records }) => <HeroSurface component={component} records={records} />,
+  recordContentCard: ({ component, records }) => <DetailSurface component={component} records={records} />,
+  recordReviewCard: ({ component, records }) => <DetailSurface component={component} records={records} review />,
+  recordTimeline: ({ component, records, state, dispatch }) => <TimelineSurface component={component} records={records} state={state} dispatch={dispatch} />,
+  timelineBlock: ({ component, records, state, dispatch }) => <TimelineSurface component={component} records={records} state={state} dispatch={dispatch} />,
+  operationHistory: ({ component, state }) => <HistorySurface component={component} state={state} />,
+  kanbanBoard: ({ component, collection, records, dispatch, pkg }) => <BoardSurface component={component} collection={collection} records={records} dispatch={dispatch} pkg={pkg} />,
+  groupedRecordShelf: ({ component, records }) => <GroupedShelfSurface component={component} records={records} />,
+  horizontalRecordCarousel: ({ component, records }) => <CarouselSurface component={component} records={records} />,
+  quickAddList: ({ component, collection, records, dispatch }) => <QuickAddSurface component={component} collection={collection} dispatch={dispatch} records={records} />,
+  valueControl: ({ component, collection, records, dispatch }) => <ValueSurface component={component} collection={collection} dispatch={dispatch} records={records} />,
+  dataTable: ({ component, pkg, collection, records, dispatch, state }) => <ListSurface component={component} pkg={pkg} collection={collection} records={records} dispatch={dispatch} state={state} />,
+  calendarBlock: ({ component, collection, records, pkg }) => <CalendarSurface component={component} collection={collection} pkg={pkg} records={records} />,
+};
+
 export function RecordWidget({ component, pkg, runtime }: Props) {
   const store = useOptionalAppStore();
   const active = runtime ?? store;
@@ -510,22 +544,7 @@ export function RecordWidget({ component, pkg, runtime }: Props) {
     },
   ), [component.query?.collections, component.query?.match, component.query?.limit, collection, state, viewQuery, dispatch]);
 
-  if (component.widget === 'formCard' || component.widget === 'smartCapture') {
-    return <Panel title={component.title}><QuickForm component={component} pkg={pkg} collection={collection} dispatch={dispatch} state={state} /></Panel>;
-  }
-
-  if (component.widget === 'recordHeroSummary') return <HeroSurface component={component} records={raw} />;
-  if (component.widget === 'recordContentCard') return <DetailSurface component={component} records={raw} />;
-  if (component.widget === 'recordReviewCard') return <DetailSurface component={component} records={raw} review />;
-  if (component.widget === 'recordTimeline' || component.widget === 'timelineBlock') return <TimelineSurface component={component} records={raw} state={state} dispatch={dispatch} />;
-  if (component.widget === 'operationHistory') return <HistorySurface component={component} state={state} />;
-  if (component.widget === 'kanbanBoard') return <BoardSurface component={component} collection={collection} records={raw} dispatch={dispatch} pkg={pkg} />;
-  if (component.widget === 'groupedRecordShelf') return <GroupedShelfSurface component={component} records={raw} />;
-  if (component.widget === 'horizontalRecordCarousel') return <CarouselSurface component={component} records={raw} />;
-  if (component.widget === 'quickAddList') return <QuickAddSurface component={component} collection={collection} dispatch={dispatch} records={raw} />;
-  if (component.widget === 'valueControl') return <ValueSurface component={component} collection={collection} dispatch={dispatch} records={raw} />;
-  if (component.widget === 'dataTable') return <ListSurface component={component} pkg={pkg} collection={collection} records={raw} dispatch={dispatch} state={state} />;
-  if (component.widget === 'calendarBlock') return <CalendarSurface component={component} collection={collection} pkg={pkg} records={raw} />;
-
-  return <ListSurface component={component} pkg={pkg} collection={collection} records={raw} dispatch={dispatch} state={state} />;
+  const widget = component.widget ?? 'dataTable';
+  const render = recordSurfaces[widget] ?? recordSurfaces.dataTable;
+  return render({ component, collection, records: raw, pkg, state, dispatch });
 }

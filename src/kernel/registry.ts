@@ -28,6 +28,13 @@ const Trust = z.object({
 });
 type TrustPolicy = { expiresAt?: string; rollbackFloor?: string; capabilities?: string[] };
 
+const packageStorageKey = (id: string) => `utopia:package:${id}`;
+const installStorageKey = (id: string) => `utopia:install:${id}`;
+
+function installIdForPackage(pkg: AppPackage): string {
+  return `utopia-i-${pkg.id}-${Crypto.randomUUID()}`;
+}
+
 export async function checksum(value: unknown): Promise<string> {
   const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonicalize(value));
   return `sha256:${digest}`;
@@ -111,22 +118,37 @@ export async function reviewPackageForInstall(entry: RegistryEntry): Promise<App
   return pkg;
 }
 
-export async function install(entry: RegistryEntry): Promise<AppPackage> {
-  const pkg = await reviewPackageForInstall(entry);
-  const key = `utopia:package:${pkg.id}`;
+async function writePackage(entry: AppPackage) {
+  const key = packageStorageKey(entry.id);
   const previous = await storage.getItem(key);
   if (previous) await storage.setItem(`${key}:previous`, previous);
-  await storage.setItem(key, JSON.stringify(pkg));
-  return pkg;
+  await storage.setItem(key, JSON.stringify(entry));
+}
+
+export async function installWithInstallationId(entry: RegistryEntry): Promise<{ installationId: string; package: AppPackage }> {
+  const pkg = await reviewPackageForInstall(entry);
+  const installationId = installIdForPackage(pkg);
+  await writePackage(pkg);
+  await storage.setItem(installStorageKey(installationId), pkg.id);
+  return { installationId, package: pkg };
+}
+
+export async function install(entry: RegistryEntry): Promise<AppPackage> {
+  return (await installWithInstallationId(entry)).package;
 }
 
 export async function installedPackage(id: string): Promise<AppPackage | undefined> {
-  const value = await storage.getItem(`utopia:package:${id}`);
+  const installation = await storage.getItem(installStorageKey(id));
+  if (installation) {
+    const value = await storage.getItem(packageStorageKey(installation));
+    return value ? parsePackage(JSON.parse(value)) : undefined;
+  }
+  const value = await storage.getItem(packageStorageKey(id));
   return value ? parsePackage(JSON.parse(value)) : undefined;
 }
 
 export async function restorePackage(id: string): Promise<AppPackage | undefined> {
-  const key = `utopia:package:${id}`;
+  const key = packageStorageKey(id);
   const previous = await storage.getItem(`${key}:previous`);
   if (!previous) return undefined;
   const current = await storage.getItem(key);
@@ -136,6 +158,11 @@ export async function restorePackage(id: string): Promise<AppPackage | undefined
 }
 
 export async function uninstallPackage(id: string): Promise<void> {
-  await storage.removeItem(`utopia:package:${id}`);
-  await storage.removeItem(`utopia:package:${id}:previous`);
+  if (await storage.getItem(installStorageKey(id))) {
+    await storage.removeItem(installStorageKey(id));
+    await storage.removeItem(`${installStorageKey(id)}:state`);
+    return;
+  }
+  await storage.removeItem(packageStorageKey(id));
+  await storage.removeItem(`${packageStorageKey(id)}:previous`);
 }
