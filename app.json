@@ -1,0 +1,111 @@
+{
+  "expo": {
+    "name": "Utopia",
+    "slug": "manasa",
+    "description": "A local-first app runtime for personal tools, family workflows, small-group apps, and trusted package installs.",
+    "version": "1.0.0",
+    "platforms": [
+      "web",
+      "android",
+      "ios"
+    ],
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "utopia",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "app.utopia",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:utoia.thetechcruise.com"
+      ]
+    },
+    "android": {
+      "package": "app.utopia",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F4EC",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "utoia.thetechcruise.com",
+              "pathPrefix": "/install"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "predictiveBackGestureEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@kingstinct/react-native-healthkit",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Utopia to attach meal, receipt, pantry, and cooking photos to your kitchen notes.",
+          "cameraPermission": "Allow Utopia to capture meal, receipt, pantry, and cooking photos."
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F6F2"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain",
+              "text/uri-list",
+              "image/*"
+            ],
+            "multipleShareMimeTypes": [
+              "image/*"
+            ]
+          }
+        }
+      ],
+      "expo-audio",
+      "expo-asset",
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "01515db7-1b6c-446c-ba67-876165ecc438"
+      }
+    },
+    "owner": "manasaivaturis-team"
+  }
+}

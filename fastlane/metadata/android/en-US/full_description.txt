@@ -1,0 +1,9 @@
+Utopia is a local-first app runtime for personal tools, family workflows, small-group apps, and trusted app packages.
+
+Apps are described as portable packages: collections, screens, queries, computed fields, workflows, and declared capabilities. Utopia validates each package, shows a review screen, and asks before installing or updating anything.
+
+Bundled examples include Food, Audio Loop, Scientific Calculator, Expense Splitter, Split Rent, Workout Logger, Focus Intervals, Habit Grid, Recurring Bills, Spaced Repetition, and Capability Lab.
+
+Generated or shared packages remain review-gated. Native capabilities such as audio, camera, files, notifications, health, contacts, and location must be declared and approved before use.
+
+Telemetry, when enabled, is limited to product-level events such as package created, install previewed, install blocked, package installed, package opened, package uninstalled, capability blocked, and feedback submitted. Utopia does not collect user records, prompts, API keys, files, audio contents, health data, contacts, or location trails for telemetry.

@@ -1,0 +1,63 @@
+{
+  "name": "UtopiaMac",
+  "version": "0.0.1",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "lint": "eslint .",
+    "macos": "react-native run-macos",
+    "macos:build": "xcodebuild -workspace macos/UtopiaMac.xcworkspace -scheme UtopiaMac-macOS -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath build-v3 CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES EXCLUDED_ARCHS=x86_64 build",
+    "pods:macos": "pod install --project-directory=macos",
+    "start": "react-native start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@json-render/core": "^0.19.0",
+    "@json-render/react-native": "^0.19.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native/new-app-screen": "0.81.6",
+    "@tamagui/config": "^2.6.3",
+    "@tamagui/react-native-media-driver": "^2.6.3",
+    "@tamagui/web": "^2.6.3",
+    "expr-eval-fork": "3.0.3",
+    "lucide-react-native": "^1.28.0",
+    "react": "19.1.4",
+    "react-dom": "^19.1.4",
+    "react-native": "0.81.6",
+    "react-native-macos": "^0.81.9",
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-svg": "15.15.4",
+    "tamagui": "^2.6.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.0.0",
+    "@react-native-community/cli-platform-android": "20.0.0",
+    "@react-native-community/cli-platform-ios": "20.0.0",
+    "@react-native/babel-preset": "0.81.6",
+    "@react-native/eslint-config": "0.81.6",
+    "@react-native/metro-config": "0.81.6",
+    "@react-native/typescript-config": "0.81.6",
+    "@types/jest": "^29.5.13",
+    "@types/react": "^19.1.4",
+    "@types/react-test-renderer": "^19.1.0",
+    "eslint": "^8.19.0",
+    "jest": "^29.6.3",
+    "prettier": "2.8.8",
+    "react-test-renderer": "19.1.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.9",
+    "fast-xml-parser": "5.10.1",
+    "postcss": "8.5.25"
+  }
+}

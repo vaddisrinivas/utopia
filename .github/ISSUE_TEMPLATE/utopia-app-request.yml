@@ -1,0 +1,19 @@
+name: Utopia app request
+description: Describe a small local-first app for the GitHub App Factory.
+title: "App request: "
+labels: ["utopia-app-request"]
+body:
+  - type: textarea
+    id: app
+    attributes:
+      label: App idea
+      description: Describe the app in plain English. Include the people, records, fields, and first screen.
+      placeholder: "I want a family chore tracker with chores, owners, due dates, status, and notes. The first screen should show today's chores."
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries
+      description: Add anything the app should avoid.
+      placeholder: "No external providers. Keep it local-first. No native permissions."

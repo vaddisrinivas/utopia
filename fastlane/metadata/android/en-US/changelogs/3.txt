@@ -1,0 +1,1 @@
+Adds separate FOSS and Play flavors. The FOSS flavor removes Google Drive sign-in and Health Connect dependencies while keeping the local-first food workspace, screenshots, and demo metadata ready for open-source distribution.

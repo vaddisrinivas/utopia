@@ -1,0 +1,33 @@
+name: Golden Loop clean checkout
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-checkout-golden-loop:
+    name: Clean checkout proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Run clean-checkout Golden Loop proof
+        run: node scripts/quality/run-clean-checkout-proof.mjs
+
+      - name: Upload clean-checkout proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-clean-checkout-proof
+          path: app/build/evidence/golden-loop/clean-checkout
+          if-no-files-found: error

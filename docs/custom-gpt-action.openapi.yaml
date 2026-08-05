@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: Utopia Hosted Registry
+  version: 1.0.0
+servers:
+  - url: https://utoia.thetechcruise.com
+paths:
+  /v1/packages:
+    post:
+      operationId: publishUtopiaPackage
+      summary: Publish an unlisted Utopia app package and return install links.
+      security:
+        - publisherToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - package
+              properties:
+                package:
+                  type: object
+                  description: Utopia package JSON. Must not contain code, secrets, or user records.
+                source:
+                  type: string
+                  enum:
+                    - custom_gpt
+                    - github_factory
+                    - browser_builder
+                    - registry
+                  default: custom_gpt
+                visibility:
+                  type: string
+                  enum:
+                    - unlisted
+                    - public
+                  default: unlisted
+      responses:
+        "201":
+          description: Package stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - checksum
+                  - install_url
+                  - web_url
+                  - package_url
+                properties:
+                  id:
+                    type: string
+                  checksum:
+                    type: string
+                  visibility:
+                    type: string
+                  install_url:
+                    type: string
+                  web_url:
+                    type: string
+                  package_url:
+                    type: string
+        "400":
+          description: Invalid request.
+        "401":
+          description: Missing or invalid publisher token.
+        "422":
+          description: Package failed Utopia validation.
+components:
+  securitySchemes:
+    publisherToken:
+      type: http
+      scheme: bearer

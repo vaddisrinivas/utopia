@@ -1,0 +1,262 @@
+name: Golden Loop Android emulators
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_token:
+        description: Golden-loop debug token override
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  android-emulator-lane:
+    name: Android emulator lane ${{ matrix.lane }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: a
+            api-level: 34
+            emulator-port: 5554
+          - lane: b
+            api-level: 33
+            emulator-port: 5556
+
+    env:
+      GOLDEN_LOOP_PACKAGE_ID: app.utopia.goldenloop
+      GOLDEN_LOOP_SERIALS: emulator-${{ matrix.emulator-port }}
+      GOLDEN_LOOP_RUN_ID: golden-loop-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate workflow permissions
+        id: action-permissions
+        env:
+          QUALITY_GATE_ROOT: ${{ github.workspace }}
+          ACTION_PERMISSIONS_REPORT_PATH: app/build/evidence/action-permissions.json
+        run: node scripts/quality/security/check-action-permissions-gate.mjs
+
+      - name: Build distinct golden-loop APKs
+        id: build-apks
+        env:
+          EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG: '1'
+          EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN: ${{ inputs.debug_token || secrets.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p app/build/evidence/android-golden-loop
+
+          patch_gradle() {
+            local version_code="$1"
+            node -e 'const fs = require("node:fs"); const versionCode = Number(process.argv[1]); const path = "android/app/build.gradle"; const text = fs.readFileSync(path, "utf8").replace("applicationId '\''app.utopia'\''", "applicationId '\''app.utopia.goldenloop'\''").replace(/versionCode\s+\d+/, "versionCode " + versionCode); fs.writeFileSync(path, text + "\n", "utf8");' "$version_code"
+          }
+
+          resolve_apk() {
+            local apk
+            apk="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' | sort | tail -n 1 || true)"
+            if [ -z "$apk" ]; then
+              echo "No debug APK output found for Android build." >&2
+              exit 1
+            fi
+            echo "$apk"
+          }
+
+          patch_gradle 21001
+          (cd android && ./gradlew :app:assembleDebug)
+
+          v1_apk="app/build/evidence/android-golden-loop/${GOLDEN_LOOP_RUN_ID}-v1.apk"
+          apk_output="$(resolve_apk)"
+          cp "$apk_output" "$v1_apk"
+
+          patch_gradle 21002
+          (cd android && ./gradlew :app:assembleDebug)
+
+          v2_apk="app/build/evidence/android-golden-loop/${GOLDEN_LOOP_RUN_ID}-v2.apk"
+          apk_output="$(resolve_apk)"
+          cp "$apk_output" "$v2_apk"
+
+          echo "v1_apk=$v1_apk" >> "$GITHUB_OUTPUT"
+          echo "v2_apk=$v2_apk" >> "$GITHUB_OUTPUT"
+
+      - name: Run Golden Loop Android lane on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true
+        env:
+          UTOPIA_ANDROID_GOLDEN_LOOP: 1
+          UTOPIA_ANDROID_GOLDEN_LOOP_SERIALS: ${{ env.GOLDEN_LOOP_SERIALS }}
+          UTOPIA_ANDROID_PACKAGE_ID: ${{ env.GOLDEN_LOOP_PACKAGE_ID }}
+          APK_PATH_V1: ${{ steps.build-apks.outputs.v1_apk }}
+          APK_PATH_V2: ${{ steps.build-apks.outputs.v2_apk }}
+          UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN: ${{ inputs.debug_token || secrets.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN }}
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          profile: pixel_2
+          emulator-port: ${{ matrix.emulator-port }}
+          emulator-options: -no-window -no-snapshot -no-boot-anim -no-audio -gpu swiftshader_indirect
+          script: |
+            node scripts/quality/android/run-golden-loop-android-lane.mjs \
+              --run-id "$GOLDEN_LOOP_RUN_ID" \
+              --proof-path "app/build/evidence/android-golden-loop/${GOLDEN_LOOP_RUN_ID}/android-shell-proof" \
+              --serials "$GOLDEN_LOOP_SERIALS" \
+              --package-id "$GOLDEN_LOOP_PACKAGE_ID" \
+              --apk-v1 "$APK_PATH_V1" \
+              --apk-v2 "$APK_PATH_V2"
+
+      - name: Validate Android receipt truth gate
+        if: always()
+        env:
+          ANDROID_RECEIPT_ROOT: app/build/evidence/android-golden-loop/${{ env.GOLDEN_LOOP_RUN_ID }}
+        run: |
+          receipts=$(find "$ANDROID_RECEIPT_ROOT" -type f \( -name 'android-shell-proof-*.json' -o -name 'android-golden-loop-proof-blocked.json' \) 2>/dev/null | sort || true)
+          if [ -z "$receipts" ]; then
+            printf '%s\n' "${ANDROID_RECEIPT_ROOT}/android-golden-loop-proof-blocked.json" > /tmp/android-receipts.txt
+          else
+            printf '%s\n' "$receipts" > /tmp/android-receipts.txt
+          fi
+          mapfile -t receipt_paths < /tmp/android-receipts.txt
+          node scripts/quality/android/validate-android-proof-receipt.mjs \
+            --output "$ANDROID_RECEIPT_ROOT/android-android-receipt-validation.json" \
+            "${receipt_paths[@]}"
+
+      - name: Upload Android receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-android-${{ matrix.lane }}
+          path: app/build/evidence/android-golden-loop/${{ env.GOLDEN_LOOP_RUN_ID }}
+          if-no-files-found: ignore
+
+  aggregate-android-receipts:
+    name: Aggregate Android receipt evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: android-emulator-lane
+    if: always()
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Download Android lane artifacts
+        id: android-artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: golden-loop-android-*
+          path: artifacts
+
+      - name: Build release exports and scan debug bridge exclusion
+        id: release-scan
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          UTOPIA_RELEASE_BUNDLE=1 npm run export:web
+          UTOPIA_RELEASE_BUNDLE=1 npm run export:android
+          node scripts/quality/check-release-debug-bridge-exclusion.mjs
+
+      - name: Validate required receipts exist
+        id: receipt-collect
+        run: |
+          set -euo pipefail
+
+          mkdir -p app/build/evidence/golden-loop
+
+          missing=()
+          if [ "${{ steps.release-scan.outcome }}" != "success" ]; then
+            missing+=("blocked:release_debug_bridge_exclusion_scan")
+          fi
+          for lane in a b; do
+            if [ ! -d "artifacts/golden-loop-android-${lane}" ]; then
+              missing+=("missing:android_lane_artifact_${lane}")
+            fi
+          done
+
+          if [ -d artifacts/golden-loop-android-a ]; then
+            mapfile -t android_receipts_a < <(find artifacts/golden-loop-android-a -type f -name 'android-shell-proof-*.json' | sort)
+          else
+            android_receipts_a=()
+          fi
+
+          if [ -d artifacts/golden-loop-android-b ]; then
+            mapfile -t android_receipts_b < <(find artifacts/golden-loop-android-b -type f -name 'android-shell-proof-*.json' | sort)
+          else
+            android_receipts_b=()
+          fi
+
+          if [ ${#android_receipts_a[@]} -ne 1 ]; then
+            missing+=("missing:android_lane_a_receipts_${#android_receipts_a[@]}_expected_1")
+          fi
+          if [ ${#android_receipts_b[@]} -ne 1 ]; then
+            missing+=("missing:android_lane_b_receipts_${#android_receipts_b[@]}_expected_1")
+          fi
+
+          if [ -d artifacts/golden-loop-android-a ]; then
+            android_receipts=("${android_receipts_a[@]}" "${android_receipts_b[@]}")
+          else
+            android_receipts=()
+          fi
+
+          if [ ${#missing[@]} -ne 0 ]; then
+            BLOCKERS="$(printf '%s\n' "${missing[@]}")"
+            NODE_BLOCKERS="$BLOCKERS" node -e 'const fs = require("node:fs"); const blockers = process.env.NODE_BLOCKERS.split("\n").map((entry) => entry.trim()).filter(Boolean); const proof = { proof: "utopia_android_emulator_receipts", schema_version: "utopia.shell-proof-protocol.v1", status: "BLOCKED", checked_at: new Date().toISOString(), blockers, status_reason: "blocked:" + blockers.join("|") }; fs.writeFileSync("app/build/evidence/golden-loop/android-emulator-receipts.json", JSON.stringify(proof, null, 2) + "\n", "utf8");'
+            echo "Blocked due to missing required artifacts: ${missing[*]}"
+            exit 1
+          fi
+
+          serial_pairs=()
+          for receipt in "${android_receipts[@]}"; do
+            serial="$(basename "$receipt" | sed -E 's/^android-shell-proof-(emulator-[0-9]+)-.*\.json$/\1/')"
+            serial_pairs+=("${serial}=${receipt}")
+          done
+
+          IFS=','
+          echo "android_receipts=${serial_pairs[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Run strict multi-surface receipt validation
+        if: steps.receipt-collect.outcome == 'success'
+        env:
+          UTOPIA_MULTI_SURFACE_ANDROID_RECEIPTS: ${{ steps.receipt-collect.outputs.android_receipts }}
+          UTOPIA_GOLDEN_LOOP_RUN_ID: ${{ env.GOLDEN_LOOP_RUN_ID }}
+        run: |
+          test -n "${UTOPIA_MULTI_SURFACE_ANDROID_RECEIPTS}"
+          mapfile -t receipt_paths < <(printf '%s\n' "${UTOPIA_MULTI_SURFACE_ANDROID_RECEIPTS}" | tr ',' '\n' | cut -d= -f2)
+          node scripts/quality/android/validate-android-proof-receipt.mjs \
+            --output app/build/evidence/golden-loop/android-emulator-receipts.json \
+            "${receipt_paths[@]}"
+
+      - name: Upload aggregation proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-android-emulator-receipts
+          path: app/build/evidence/golden-loop/android-emulator-receipts.json
+          if-no-files-found: error

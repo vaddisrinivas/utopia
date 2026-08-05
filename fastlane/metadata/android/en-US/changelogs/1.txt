@@ -1,0 +1,1 @@
+Initial public build with local food workspace, kitchen inventory, meal timeline, shopping list, receipt proposal flow, command links, CSV import/export, optional AI providers, and encrypted backup foundations.

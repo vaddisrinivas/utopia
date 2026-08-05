@@ -1,0 +1,1 @@
+Adds AppFunctions automation, receipt put-away hardening, pantry-first planning, nutrition provider scaffolding, meal prep workflows, recipe import parsing, and release validation tooling.

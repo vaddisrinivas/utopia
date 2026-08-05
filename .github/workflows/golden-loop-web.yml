@@ -1,0 +1,54 @@
+name: Golden Loop web lane B
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-lane-b:
+    name: Web lane B proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GOLDEN_LOOP_RUN_ID: golden-loop-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate lane runner
+        run: node --check scripts/quality/golden-loop/run-web-lane-b.mjs
+
+      - name: Install pinned Playwright browser
+        env:
+          PLAYWRIGHT_VERSION: 1.55.0
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-audit --no-fund "playwright@$PLAYWRIGHT_VERSION"
+          ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Run web lane B proof
+        env:
+          UTOPIA_GOLDEN_LOOP_RUN_ID: ${{ env.GOLDEN_LOOP_RUN_ID }}
+          UTOPIA_WEB_LANE_B_RECEIPT_PATH: app/build/evidence/golden-loop/web-execution-receipt.json
+        run: node scripts/quality/golden-loop/run-web-lane-b.mjs
+
+      - name: Upload web lane B evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-web-lane-b
+          path: app/build/evidence/golden-loop
+          if-no-files-found: error

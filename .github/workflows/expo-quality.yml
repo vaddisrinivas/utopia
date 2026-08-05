@@ -1,0 +1,98 @@
+name: Expo quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expo-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Web and Android quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install pinned supply-chain scanners
+        env:
+          OSV_SCANNER_VERSION: v1.9.1
+          SYFT_VERSION: v1.14.2
+          SYFT_LINUX_AMD64_SHA256: 8fea5191eb749805dc891e4cc7942341ebc95e40b32a4d74647fa7bf6b00cd26
+          GITLEAKS_VERSION: v8.28.0
+        run: |
+          set -euo pipefail
+          export GOBIN="${RUNNER_TEMP}/utopia-scan-tools/bin"
+          mkdir -p "$GOBIN"
+          export PATH="$GOBIN:$PATH"
+          echo "$GOBIN" >> "$GITHUB_PATH"
+          go install github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}
+          syft_archive="${RUNNER_TEMP}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz" \
+            --output "$syft_archive"
+          printf '%s  %s\n' "$SYFT_LINUX_AMD64_SHA256" "$syft_archive" | sha256sum --check -
+          tar --extract --gzip --file "$syft_archive" --directory "$GOBIN" syft
+          go install github.com/zricethezav/gitleaks/v8@${GITLEAKS_VERSION}
+          go version
+          osv-scanner --version
+          syft version
+          gitleaks version
+
+      - name: Run OSV gate
+        run: osv-scanner scan --recursive .
+
+      - name: Run SBOM gate
+        run: mkdir -p app/build/evidence && syft . -o cyclonedx-json=app/build/evidence/sbom.json
+
+      - name: Run Gitleaks gate
+        run: gitleaks detect --source . --no-banner --redact --report-format json --report-path app/build/evidence/gitleaks-report.json
+
+      - name: Validate domain package
+        run: npm run config:validate
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Validate Expo dependencies
+        run: npm run doctor
+
+      - name: Export static web app
+        run: npm run export:web
+
+      - name: Export Android bundle
+        run: npm run export:android
+
+      - name: Upload export evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: expo-exports
+          path: |
+            dist/web
+            dist/android
+            app/build/evidence/sbom.json
+            app/build/evidence/gitleaks-report.json
+          if-no-files-found: error

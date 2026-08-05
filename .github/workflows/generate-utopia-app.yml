@@ -1,0 +1,130 @@
+name: Generate Utopia App
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_path:
+        description: Plain-English app request file
+        required: false
+        default: requests/app-idea.md
+      model:
+        description: OpenAI model
+        required: false
+        default: gpt-5.4-mini
+      publish_to_registry:
+        description: Send generated package JSON to hosted Utopia registry
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      registry_url:
+        description: Hosted registry URL
+        required: false
+        default: https://utoia.thetechcruise.com
+  push:
+    paths:
+      - 'requests/**/*.md'
+      - 'scripts/factory/**'
+      - 'packages/app-compiler/**'
+      - '.github/workflows/generate-utopia-app.yml'
+  issues:
+    types: [opened, edited, labeled, reopened]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: generate-utopia-app-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REQUEST_PATH: ${{ github.event_name == 'workflow_dispatch' && inputs.request_path || 'requests/app-idea.md' }}
+  UTOPIA_APP_FACTORY_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'gpt-5.4-mini' }}
+  UTOPIA_REGISTRY_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_registry || 'false' }}
+  UTOPIA_REGISTRY_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.registry_url || 'https://utoia.thetechcruise.com' }}
+
+jobs:
+  build:
+    name: Generate reviewable app artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'utopia-app-request')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Prepare issue request
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY_JSON: ${{ toJson(github.event.issue.body) }}
+        run: |
+          mkdir -p .github/tmp
+          node -e "const fs=require('fs'); fs.writeFileSync('.github/tmp/app-idea-from-issue.md', JSON.parse(process.env.ISSUE_BODY_JSON || '\"\"'));"
+          echo "REQUEST_PATH=.github/tmp/app-idea-from-issue.md" >> "$GITHUB_ENV"
+
+      - name: Detect OpenAI key
+        id: openai-key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### App factory skipped"
+              echo ""
+              echo "Missing repository secret: OPENAI_API_KEY."
+              echo "Add it under Settings > Secrets and variables > Actions to generate app artifacts."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate app package
+        if: steps.openai-key.outputs.has_key == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/factory/run-generate-app-from-prompt.mjs --prompt "$REQUEST_PATH" --output-dir dist/github-app-factory/app --force
+
+      - name: Upload artifact
+        if: steps.openai-key.outputs.has_key == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: utopia-app-factory-${{ github.run_id }}
+          path: dist/github-app-factory
+          if-no-files-found: error
+
+      - name: Optional hosted registry publish
+        if: steps.openai-key.outputs.has_key == 'true' && env.UTOPIA_REGISTRY_PUBLISH == 'true'
+        uses: ./.github/actions/publish-utopia-package
+        with:
+          enabled: ${{ env.UTOPIA_REGISTRY_PUBLISH }}
+          registry_url: ${{ env.UTOPIA_REGISTRY_URL }}
+          package_path: dist/github-app-factory/app/package.json
+          visibility: unlisted
+          token: ${{ secrets.UTOPIA_REGISTRY_PUBLISHER_TOKEN }}
+
+      - name: Registry publish intentionally skipped
+        if: steps.openai-key.outputs.has_key == 'true' && env.UTOPIA_REGISTRY_PUBLISH != 'true'
+        run: |
+          {
+            echo "### Utopia hosted registry"
+            echo ""
+            echo "Registry publishing is skipped in this run."
+            echo "This flow is opt-in and defaulted-off (publish_to_registry=false)."
+            echo "To opt in, re-run workflow_dispatch with publish_to_registry=true."
+            echo "No package JSON is posted to the registry when publish is false."
+          } >> "$GITHUB_STEP_SUMMARY"

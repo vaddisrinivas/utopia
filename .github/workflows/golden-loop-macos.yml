@@ -1,0 +1,59 @@
+name: Golden Loop macOS lane C
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-lane-c:
+    name: macOS lane C
+    runs-on: macos-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate lane scripts
+        run: |
+          node --check scripts/quality/macos/build-macos-app.mjs
+          node --check scripts/quality/macos/check-shared-household-runtime.mjs
+          node --check scripts/quality/macos/run-golden-loop-debug-bridge.mjs
+          node --check scripts/quality/macos/run-golden-loop-macos-lane.mjs
+
+      - name: Run macOS lane C
+        env:
+          UTOPIA_GOLDEN_LOOP_RUN_ID: golden-loop-${{ github.run_id }}-${{ github.run_attempt }}
+          UTOPIA_MACOS_BUILD_RECEIPT_PATH: app/build/evidence/golden-loop/macos-build-receipt.json
+          UTOPIA_MACOS_LANE_C_RECEIPT_PATH: app/build/evidence/golden-loop/macos-lane-c-receipt.json
+          UTOPIA_MACOS_RUNTIME_BRIDGE_RECEIPT_PATH: app/build/evidence/golden-loop/macos-debug-bridge-receipt.json
+          UTOPIA_MACOS_RUNTIME_BRIDGE_RAW_OBSERVATION_PATH: app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl
+          UTOPIA_MACOS_RUNTIME_BRIDGE_DISPATCH_OBSERVATION_PATH: app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl.dispatch.jsonl
+          UTOPIA_MACOS_SCHEME: UtopiaMac-macOS
+          UTOPIA_MACOS_CONFIGURATION: Debug
+        run: node scripts/quality/macos/run-golden-loop-macos-lane.mjs
+
+      - name: Upload lane receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-macos-lane-c
+          path: |
+            app/build/evidence/golden-loop/macos-lane-c-receipt.json
+            app/build/evidence/golden-loop/macos-debug-bridge-receipt.json
+            app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl
+            app/build/evidence/golden-loop/macos-debug-bridge-observations.jsonl.dispatch.jsonl
+            app/build/evidence/golden-loop/macos-build-receipt.json
+          if-no-files-found: ignore

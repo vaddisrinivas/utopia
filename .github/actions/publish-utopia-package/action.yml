@@ -1,0 +1,52 @@
+name: Publish Utopia Package
+description: Optionally publish a generated Utopia package to the hosted registry.
+inputs:
+  enabled:
+    description: Set to true to send package JSON to the hosted registry.
+    required: false
+    default: "false"
+  package_path:
+    description: Path to generated Utopia package JSON.
+    required: false
+    default: dist/github-app-factory/app/package.json
+  registry_url:
+    description: Hosted registry origin.
+    required: false
+    default: https://utoia.thetechcruise.com
+  visibility:
+    description: Registry visibility.
+    required: false
+    default: unlisted
+  token:
+    description: Long publisher token.
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Registry publish notice
+      shell: bash
+      run: |
+        {
+          echo "### Utopia hosted registry"
+          echo ""
+          if [ "${{ inputs.enabled }}" = "true" ]; then
+            echo "This run will send the generated Utopia package JSON to ${{ inputs.registry_url }}."
+            echo "Visibility: ${{ inputs.visibility }}."
+            echo "The registry validates schema, size, checksum, capability metadata, and secret-shaped fields."
+            echo "The Utopia app still shows a review screen before install."
+          else
+            echo "Hosted registry upload is skipped."
+            echo "To opt in later, run workflow_dispatch with publish_to_registry=true and configure UTOPIA_REGISTRY_PUBLISHER_TOKEN."
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Publish package
+      shell: bash
+      env:
+        UTOPIA_REGISTRY_PUBLISHER_TOKEN: ${{ inputs.token }}
+      run: |
+        node scripts/registry/publish-package.mjs \
+          --enabled "${{ inputs.enabled }}" \
+          --packagePath "${{ inputs.package_path }}" \
+          --endpoint "${{ inputs.registry_url }}" \
+          --visibility "${{ inputs.visibility }}" \
+          --source github_factory

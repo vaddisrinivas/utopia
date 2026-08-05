@@ -1,0 +1,392 @@
+name: Golden Loop all surfaces
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_token:
+        description: Golden-loop debug token override
+        required: false
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  GOLDEN_LOOP_RUN_ID: golden-loop-${{ github.run_id }}-${{ github.run_attempt }}
+  GOLDEN_LOOP_EVIDENCE_ROOT: app/build/evidence/golden-loop/${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  web:
+    name: Web lane proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate web lane runner
+        run: node --check scripts/quality/golden-loop/run-web-lane-b.mjs
+
+      - name: Install pinned Playwright browser
+        env:
+          PLAYWRIGHT_VERSION: 1.55.0
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-audit --no-fund "playwright@$PLAYWRIGHT_VERSION"
+          ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Run web proof
+        env:
+          UTOPIA_GOLDEN_LOOP_RUN_ID: ${{ env.GOLDEN_LOOP_RUN_ID }}
+          UTOPIA_WEB_LANE_B_RECEIPT_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/web-execution-receipt.json
+        run: node scripts/quality/golden-loop/run-web-lane-b.mjs
+
+      - name: Upload web proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-web-${{ env.GOLDEN_LOOP_RUN_ID }}
+          path: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/web-execution-receipt.json
+          if-no-files-found: error
+
+  macos:
+    name: macOS lane proof
+    runs-on: macos-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate macOS lane scripts
+        run: |
+          node --check scripts/quality/macos/build-macos-app.mjs
+          node --check scripts/quality/macos/check-shared-household-runtime.mjs
+          node --check scripts/quality/macos/run-golden-loop-debug-bridge.mjs
+          node --check scripts/quality/macos/run-golden-loop-macos-lane.mjs
+
+      - name: Run macOS proof
+        env:
+          UTOPIA_GOLDEN_LOOP_RUN_ID: ${{ env.GOLDEN_LOOP_RUN_ID }}
+          UTOPIA_MACOS_BUILD_RECEIPT_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-build-receipt.json
+          UTOPIA_MACOS_LANE_C_RECEIPT_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-lane-c-receipt.json
+          UTOPIA_MACOS_RUNTIME_BRIDGE_RECEIPT_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-receipt.json
+          UTOPIA_MACOS_RUNTIME_BRIDGE_RAW_OBSERVATION_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl
+          UTOPIA_MACOS_RUNTIME_BRIDGE_DISPATCH_OBSERVATION_PATH: ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl.dispatch.jsonl
+          UTOPIA_MACOS_GOLDEN_LOOP_DEBUG_TOKEN: ${{ inputs.debug_token || secrets.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN }}
+          UTOPIA_MACOS_SCHEME: UtopiaMac-macOS
+          UTOPIA_MACOS_CONFIGURATION: Debug
+        run: node scripts/quality/macos/run-golden-loop-macos-lane.mjs
+
+      - name: Upload macOS proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-macos-${{ env.GOLDEN_LOOP_RUN_ID }}
+          path: |
+            ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-lane-c-receipt.json
+            ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-receipt.json
+            ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl
+            ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-debug-bridge-observations.jsonl.dispatch.jsonl
+            ${{ env.GOLDEN_LOOP_EVIDENCE_ROOT }}/macos-build-receipt.json
+          if-no-files-found: error
+
+  android:
+    name: Android x2 emulator proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      GOLDEN_LOOP_PACKAGE_ID: app.utopia.goldenloop
+      GOLDEN_LOOP_SERIALS: emulator-5554,emulator-5556
+      UTOPIA_EMULATOR_SYNC_AVD_IDS: emulator-5554,emulator-5556
+      GOLDEN_LOOP_DEBUG_TOKEN: ${{ inputs.debug_token || secrets.UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate action permissions gate
+        env:
+          QUALITY_GATE_ROOT: ${{ github.workspace }}
+          ACTION_PERMISSIONS_REPORT_PATH: app/build/evidence/action-permissions.json
+        run: node scripts/quality/security/check-action-permissions-gate.mjs
+
+      - name: Set up Android SDK tooling
+        uses: android-actions/setup-android@v3
+
+      - name: Provision emulator toolchain
+        run: |
+          set -euo pipefail
+
+          export ANDROID_SDK_ROOT="${ANDROID_HOME}"
+          export PATH="${ANDROID_SDK_ROOT}/platform-tools:${ANDROID_SDK_ROOT}/emulator:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+
+          yes | sdkmanager --licenses >/tmp/android-sdk-licenses.log
+          sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64"
+
+          create_avd() {
+            local avd_name="$1"
+            if ! printf 'no\n' | avdmanager create avd \
+              --name "$avd_name" \
+              --package "system-images;android-34;google_apis;x86_64" \
+              --tag google_apis \
+              --abi x86_64 \
+              --force; then
+              echo "Falling back to auto-selected AVD profile for $avd_name" >&2
+              printf 'no\n' | avdmanager create avd \
+                --name "$avd_name" \
+                --package "system-images;android-34;google_apis;x86_64" \
+                --force
+            fi
+          }
+
+          launch_emulator() {
+            local avd_name="$1"
+            local serial="$2"
+            emulator -avd "$avd_name" -no-snapshot -no-boot-anim -no-window -no-audio -gpu swiftshader_indirect -port "${serial#emulator-}" >"/tmp/$avd_name.log" 2>&1 &
+          }
+
+          wait_for_boot() {
+            local serial="$1"
+            if ! timeout 180s bash -c "until adb -s $serial get-state 2>/dev/null | grep -q device; do sleep 2; done"; then
+              echo "Timed out waiting for adb device: $serial" >&2
+              return 1
+            fi
+
+            for _ in {1..120}; do
+              boot_state="$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$boot_state" = "1" ]; then
+                return 0
+              fi
+              sleep 2
+            done
+
+            echo "Emulator did not finish boot: $serial" >&2
+            return 1
+          }
+
+          create_avd "golden-loop-web-a"
+          create_avd "golden-loop-web-b"
+
+          launch_emulator "golden-loop-web-a" emulator-5554
+          launch_emulator "golden-loop-web-b" emulator-5556
+
+          wait_for_boot emulator-5554
+          wait_for_boot emulator-5556
+
+      - name: Build distinct golden-loop APKs
+        id: build-apks
+        env:
+          EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_DEBUG: '1'
+          EXPO_PUBLIC_UTOPIA_GOLDEN_LOOP_TOKEN: ${{ env.GOLDEN_LOOP_DEBUG_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p app/build/evidence/android-golden-loop
+
+          patch_gradle() {
+            local version_code="$1"
+            node -e 'const fs = require("node:fs"); const versionCode = Number(process.argv[1]); const path = "android/app/build.gradle"; const text = fs.readFileSync(path, "utf8").replace("applicationId '\''app.utopia'\''", "applicationId '\''app.utopia.goldenloop'\''").replace(/versionCode\s+\d+/, "versionCode " + versionCode); fs.writeFileSync(path, text + "\n", "utf8");' "$version_code"
+          }
+
+          resolve_apk() {
+            local apk
+            apk="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' | sort | tail -n 1 || true)"
+            if [ -z "$apk" ]; then
+              echo "No debug APK output found for Android build." >&2
+              exit 1
+            fi
+            echo "$apk"
+          }
+
+          patch_gradle 21001
+          (cd android && ./gradlew :app:assembleDebug)
+          v1_apk="app/build/evidence/android-golden-loop/v1-${{ env.GOLDEN_LOOP_RUN_ID }}.apk"
+          apk_output="$(resolve_apk)"
+          cp "$apk_output" "$v1_apk"
+
+          patch_gradle 21002
+          (cd android && ./gradlew :app:assembleDebug)
+          v2_apk="app/build/evidence/android-golden-loop/v2-${{ env.GOLDEN_LOOP_RUN_ID }}.apk"
+          apk_output="$(resolve_apk)"
+          cp "$apk_output" "$v2_apk"
+
+          echo "v1_apk=$v1_apk" >> "$GITHUB_OUTPUT"
+          echo "v2_apk=$v2_apk" >> "$GITHUB_OUTPUT"
+
+      - name: Run Android proof
+        env:
+          UTOPIA_ANDROID_GOLDEN_LOOP: 1
+          UTOPIA_ANDROID_GOLDEN_LOOP_SERIALS: ${{ env.GOLDEN_LOOP_SERIALS }}
+          UTOPIA_ANDROID_PACKAGE_ID: ${{ env.GOLDEN_LOOP_PACKAGE_ID }}
+          APK_PATH_V1: ${{ steps.build-apks.outputs.v1_apk }}
+          APK_PATH_V2: ${{ steps.build-apks.outputs.v2_apk }}
+          UTOPIA_GOLDEN_LOOP_DEBUG_TOKEN: ${{ env.GOLDEN_LOOP_DEBUG_TOKEN }}
+          UTOPIA_ANDROID_GOLDEN_LOOP_RECEIPT_PATH: app/build/evidence/android-golden-loop/${{ env.GOLDEN_LOOP_RUN_ID }}
+        run: |
+          node scripts/quality/android/run-golden-loop-android-lane.mjs \
+            --run-id "$GOLDEN_LOOP_RUN_ID" \
+            --proof-path "app/build/evidence/android-golden-loop/${GOLDEN_LOOP_RUN_ID}" \
+            --serials "$GOLDEN_LOOP_SERIALS" \
+            --package-id "$GOLDEN_LOOP_PACKAGE_ID" \
+            --apk-v1 "$APK_PATH_V1" \
+            --apk-v2 "$APK_PATH_V2"
+
+      - name: Upload Android proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-android-${{ env.GOLDEN_LOOP_RUN_ID }}
+          path: app/build/evidence/android-golden-loop/${{ env.GOLDEN_LOOP_RUN_ID }}
+          if-no-files-found: error
+
+  aggregate:
+    name: Aggregate multi-surface receipts
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs:
+      - web
+      - macos
+      - android
+    if: always()
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Download all surface artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: golden-loop-*
+
+      - name: Collect multi-surface evidence
+        id: collect
+        run: |
+          set -euo pipefail
+
+          mkdir -p app/build/evidence/golden-loop
+
+          run_id="${GOLDEN_LOOP_RUN_ID}"
+          evidence_run_id="${run_id#golden-loop-}"
+          web_dir="artifacts/golden-loop-web-${run_id}/app/build/evidence/golden-loop/${evidence_run_id}"
+          macos_dir="artifacts/golden-loop-macos-${run_id}/app/build/evidence/golden-loop/${evidence_run_id}"
+          android_dir="artifacts/golden-loop-android-${run_id}/app/build/evidence/android-golden-loop/${run_id}"
+
+          if [ ! -d "$web_dir" ]; then
+            echo "Missing web evidence directory: $web_dir"
+            exit 1
+          fi
+          if [ ! -d "$macos_dir" ]; then
+            echo "Missing macOS evidence directory: $macos_dir"
+            exit 1
+          fi
+          if [ ! -d "$android_dir" ]; then
+            echo "Missing Android evidence directory: $android_dir"
+            exit 1
+          fi
+
+          mapfile -t web_files < <(find "$web_dir" -type f \( -name 'web-execution-receipt.json' -o -name 'web-lane-b-receipt.json' \) | sort)
+          if [ ${#web_files[@]} -ne 1 ]; then
+            echo "Missing or non-unique web receipt: ${#web_files[@]}"
+            exit 1
+          fi
+
+          mapfile -t macos_files < <(find "$macos_dir" -type f \( -name 'macos-lane-c-receipt.json' -o -name 'macos-execution-receipt.json' \) | sort)
+          if [ ${#macos_files[@]} -ne 1 ]; then
+            echo "Missing or non-unique macOS receipt: ${#macos_files[@]}"
+            exit 1
+          fi
+
+          mapfile -t android_files < <(find "$android_dir" -type f -name 'android-shell-proof-*.json' | sort)
+          if [ ${#android_files[@]} -ne 2 ]; then
+            echo "Invalid android receipt count: ${#android_files[@]}"
+            exit 1
+          fi
+
+          android_entries=()
+          for receipt in "${android_files[@]}"; do
+            avd_id="$(basename "$receipt" | sed -E 's/^.*android-shell-proof-(emulator-[0-9]+)-[^/]+\.json$/\1/' )"
+            if [ -z "$avd_id" ]; then
+              avd_id="$(basename "$receipt" | sed -E 's/^.*android-shell-proof-(emulator-[0-9]+)\.json$/\1/' )"
+            fi
+            if [ -z "$avd_id" ]; then
+              echo "Invalid android receipt filename: $receipt"
+              exit 1
+            fi
+            android_entries+=("$avd_id=$receipt")
+          done
+
+          if [ ${#web_files[@]} -ge 1 ]; then
+            echo "web_receipt=${web_files[0]}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ ${#macos_files[@]} -ge 1 ]; then
+            echo "macos_receipt=${macos_files[0]}" >> "$GITHUB_OUTPUT"
+          fi
+
+          IFS=","; echo "android_receipts=${android_entries[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate all-surface receipts
+        env:
+          UTOPIA_GOLDEN_LOOP_RUN_ID: ${{ env.GOLDEN_LOOP_RUN_ID }}
+          UTOPIA_MULTI_SURFACE_ANDROID_RECEIPTS: ${{ steps.collect.outputs.android_receipts }}
+          UTOPIA_MULTI_SURFACE_WEB_RECEIPT_PATH: ${{ steps.collect.outputs.web_receipt }}
+          UTOPIA_MULTI_SURFACE_MACOS_RECEIPT_PATH: ${{ steps.collect.outputs.macos_receipt }}
+          UTOPIA_MULTI_SURFACE_RECEIPTS_OUT_PATH: app/build/evidence/golden-loop/multi-surface-receipts.json
+        run: node scripts/quality/golden-loop/check-multi-surface-receipts.mjs
+
+      - name: Upload aggregate receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-loop-multi-surface
+          path: app/build/evidence/golden-loop/multi-surface-receipts.json
+          if-no-files-found: error
