@@ -70,11 +70,20 @@ jobs:
       - name: Validate domain package
         run: npm run config:validate
 
+      - name: Check markdown links
+        run: npm run check:doc-links
+
       - name: Type-check
         run: npm run typecheck
 
       - name: Run unit tests
         run: npm test
+
+      - name: Run Phase 3 chat send gate
+        run: npm run phase3:check:chat-send
+
+      - name: Run Phase 3 chat rollback/idempotency gate
+        run: npm run phase3:check:chat-rollback-idempotency
 
       - name: Validate Expo dependencies
         run: npm run doctor

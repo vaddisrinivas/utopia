@@ -71,9 +71,11 @@ describe('sync providers', () => {
       pull: vi.fn().mockResolvedValue({ records: [remote], cursor: undefined, hasMore: false }),
       push: vi.fn().mockResolvedValue({ cursor: remote.updatedAt }),
     });
-    process.env.UTOPIA_NOTION = 'token';
-    process.env.UTOPIA_TENANT_ID = 'tenant-a';
-    const result = await syncDataHome(configured, { records: [record('local', '2026-01-01')] }, 'https://sync.example');
+    const secrets = {
+      UTOPIA_TENANT_ID: 'tenant-a',
+      UTOPIA_NOTION: 'token',
+    };
+    const result = await syncDataHome(configured, { records: [record('local', '2026-01-01')] }, 'https://sync.example', undefined, undefined, secrets);
     expect(result.records.map((item) => item.id).sort()).toEqual(['local', 'remote']);
   });
 });

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import * as ed from '@noble/ed25519';
 import { canonicalize } from 'json-canonicalize';
@@ -8,6 +8,7 @@ import {
   checksum,
   contractChecksum,
   install,
+  installWithInstallationId,
   installedPackage,
   restorePackage,
   reviewPackageForInstall,
@@ -30,12 +31,15 @@ vi.mock('expo-sqlite/kv-store', () => ({
 }));
 
 vi.mock('expo-crypto', () => ({
+  __esModule: true,
   CryptoDigestAlgorithm: { SHA256: 'SHA-256', SHA512: 'SHA-512' },
   digestStringAsync: async (_algorithm: string, value: string) => createHash('sha256').update(value).digest('hex'),
   digest: async (_algorithm: string, value: Uint8Array) => {
     const digest = createHash('sha512').update(value).digest();
     return digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength);
   },
+  randomUUID,
+  getRandomBytesAsync: async (size: number) => new Uint8Array(randomBytes(size)),
 }));
 
 ed.hashes.sha512Async = async (message) => new Uint8Array(createHash('sha512').update(message).digest());
@@ -124,6 +128,20 @@ describe('signed remote registry trust', () => {
     expect((await restorePackage(value.id))?.version).toBe(value.version);
     await uninstallPackage(value.id);
     expect(await installedPackage(value.id)).toBeUndefined();
+  });
+
+  it('isolates remote installs with unique installation ids', async () => {
+    const entry = await signedEntry(value);
+    await trust(value, entry.publicKey as string);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(value), { status: 200 })));
+
+    const first = await installWithInstallationId(entry);
+    const second = await installWithInstallationId(entry);
+
+    expect(first.installationId).not.toBe(second.installationId);
+    expect(first.installationId.startsWith('utopia-i-')).toBe(true);
+    expect((await installedPackage(first.installationId))?.id).toBe(value.id);
+    expect((await installedPackage(second.installationId))?.id).toBe(value.id);
   });
 
   it('rejects tampered locks, rollback, and unapproved capability escalation', async () => {

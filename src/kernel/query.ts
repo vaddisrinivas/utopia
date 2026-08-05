@@ -3,8 +3,13 @@ export type QueryWhere = { op?: string; field?: string; value?: unknown; args?: 
 export type QueryOptions = {
   where?: unknown;
   orderBy?: Array<{ field: string; direction: 'asc' | 'desc' }>;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
   offset?: number;
   limit?: number;
+  query?: string;
   savedFilters?: Record<string, unknown>;
 };
 
@@ -67,6 +72,18 @@ function deepEqual(left: unknown, right: unknown): boolean {
   return false;
 }
 
+function asFiniteInteger(value: unknown, fallback: number, allowNegative = false): number {
+  const next = Number(value);
+  if (!Number.isFinite(next)) return fallback;
+  const normalized = Math.trunc(next);
+  if (!allowNegative && normalized < 0) return fallback;
+  return normalized;
+}
+
+function asSortDirection(value: unknown, fallback: 'asc' | 'desc'): 'asc' | 'desc' {
+  return String(value ?? '').toLowerCase() === 'desc' ? 'desc' : fallback;
+}
+
 function compareValues(left: unknown, right: unknown): number {
   if (left === right) return 0;
   if (left == null) return -1;
@@ -121,6 +138,16 @@ export function matchesWhere(where: unknown, values: Record<string, unknown>, sa
   return matchPrimitive(filter, resolvePath(values, filter.field ?? ''));
 }
 
+function withQueryValues<T extends { id?: unknown; values?: Record<string, unknown>; collection?: unknown; createdAt?: unknown; updatedAt?: unknown }>(record: T): Record<string, unknown> {
+  return {
+    ...record.values,
+    id: record.id,
+    collection: record.collection,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
 export function sortByFields(records: Record<string, unknown>[], orderBy: QueryOptions['orderBy'] = []): Record<string, unknown>[] {
   return [...records].sort((left, right) => {
     for (const order of orderBy) {
@@ -131,19 +158,63 @@ export function sortByFields(records: Record<string, unknown>[], orderBy: QueryO
   });
 }
 
+export function normalizeQueryOptions(options: QueryOptions = {}): Required<QueryOptions> {
+  const direction = asSortDirection(options.sortDirection, 'asc');
+  const resolvedSortField = toText(options.sortField, '');
+  const orderBy = options.orderBy?.length
+    ? options.orderBy.map((entry) => ({ ...entry, direction: asSortDirection(entry.direction, direction) }))
+    : (resolvedSortField ? [{ field: resolvedSortField, direction }] : []);
+  const normalizedOffset = Number.isFinite(options.offset ?? NaN) ? Math.max(0, Math.floor(Number(options.offset ?? 0))) : 0;
+  const page = Number.isFinite(options.page ?? NaN) ? Math.max(1, Math.floor(Number(options.page ?? 1))) : 1;
+  const pageSize = asFiniteInteger(options.pageSize, 0, true);
+
+  const normalizedLimit = Number.isFinite(options.limit ?? NaN)
+    ? Math.floor(Number(options.limit))
+    : Number.MAX_SAFE_INTEGER;
+
+  const effectiveOffset = options.offset == null
+    ? (pageSize > 0 ? (page - 1) * pageSize : normalizedOffset)
+    : normalizedOffset;
+
+  return {
+    where: options.where,
+    orderBy: orderBy,
+    sortField: resolvedSortField || '',
+    sortDirection: direction,
+    page,
+    pageSize,
+    offset: effectiveOffset,
+    limit: normalizedLimit,
+    query: options.query ?? '',
+    savedFilters: options.savedFilters ?? {},
+  };
+}
+
 export function applyQueryPagination<T>(rows: T[], options: QueryOptions): T[] {
   const normalizedOffset = Number.isFinite(options.offset ?? NaN) ? Math.max(0, Math.floor(Number(options.offset ?? 0))) : 0;
   if (options.limit == null) return rows.slice(normalizedOffset);
-  const normalizedLimit = Number.isFinite(options.limit) ? Math.max(0, Math.floor(Number(options.limit))) : rows.length;
+  const normalizedLimit = Number.isFinite(options.limit) ? Math.floor(Number(options.limit)) : rows.length;
+  if (normalizedLimit < 0) return rows.slice(normalizedOffset);
+  if (normalizedLimit === 0) return [];
   return rows.slice(normalizedOffset, normalizedOffset + normalizedLimit);
 }
 
-export function normalizeQueryOptions(options: QueryOptions = {}): Required<QueryOptions> {
-  return {
-    where: options.where,
-    orderBy: options.orderBy ?? [],
-    offset: options.offset ?? 0,
-    limit: options.limit ?? 50,
-    savedFilters: options.savedFilters ?? {},
-  };
+function toText(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+export function queryRecordsForClient<T extends { values?: Record<string, unknown>; id?: unknown; collection?: unknown; createdAt?: unknown; updatedAt?: unknown }>(rows: T[], options: QueryOptions = {}): T[] {
+  const normalized = normalizeQueryOptions(options);
+  const query = toText(normalized.query).toLowerCase();
+
+  const filtered = rows
+    .filter((record) => !query || JSON.stringify(withQueryValues(record)).toLowerCase().includes(query))
+    .filter((record) => matchesWhere(normalized.where, withQueryValues(record), normalized.savedFilters));
+
+  const sorted = sortByFields(
+    filtered.map((record) => ({ ...(record as Record<string, unknown>), ...withQueryValues(record) })),
+    normalized.orderBy,
+  );
+  const sliced = applyQueryPagination(sorted, normalized);
+  return sliced.map((record) => record as unknown as T);
 }

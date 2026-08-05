@@ -5,11 +5,13 @@ export type CapabilityResult<T = unknown> = {
   state: CapabilityTerminalState;
   message: string;
   value?: T;
+  retryable?: boolean;
 };
 
 export type CapabilityActionState = {
   state: CapabilityExecutionState;
   message: string;
+  retryable?: boolean;
 };
 
 export type CapabilityStateConfig = {
@@ -86,9 +88,10 @@ export function classifyCapabilityError(cause: unknown): CapabilityTerminalState
 export async function executeCapability<T>(operation: () => Promise<T>): Promise<CapabilityResult<T>> {
   try {
     const value = await operation();
-    return { state: 'success', message: capabilityMessage('success'), value };
+    return { state: 'success', message: capabilityMessage('success'), retryable: false, value };
   } catch (cause) {
     const state = classifyCapabilityError(cause);
-    return { state, message: toStringError(cause), value: undefined };
+    const retryable = cause instanceof CapabilityStateError ? cause.retryable : true;
+    return { state, message: toStringError(cause), retryable, value: undefined };
   }
 }

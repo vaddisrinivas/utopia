@@ -100,6 +100,7 @@ describe('proposal action receipts', () => {
     const retried = applyAction(restored, {
       kind: 'propose',
       operation: 'retry' as unknown as AppAction['operation'],
+      recordId,
       payload: { confirmed: true, retryReason: 'user' },
     });
     expect(retried.receipts?.at(-1)).toMatchObject({ operation: 'retry', status: 'completed' });
@@ -120,6 +121,55 @@ describe('proposal action receipts', () => {
     });
     expect(deleted.receipts?.at(-1)).toMatchObject({ operation: 'delete', status: 'completed', recordId });
     expect(deleted.records).toHaveLength(0);
+  });
+
+  it('prevents speculative navigation and export/ retry without bindings', () => {
+    const base = applyAction(emptyState, {
+      kind: 'create',
+      collection: 'task',
+      values: { status: 'open', title: 'bound' },
+      payload: { confirmed: true },
+    });
+    const targetId = base.records[0].id;
+
+    expect(applyAction(base, {
+      kind: 'propose',
+      operation: 'retry' as unknown as AppAction['operation'],
+      payload: { confirmed: true },
+    }).receipts?.at(-1)).toMatchObject({ operation: 'retry', status: 'unavailable' });
+
+    expect(applyAction(base, {
+      kind: 'propose',
+      operation: 'retry' as unknown as AppAction['operation'],
+      recordId: targetId,
+      payload: { confirmed: true },
+    }).receipts?.at(-1)).toMatchObject({ operation: 'retry', status: 'completed', recordId: targetId });
+
+    expect(applyAction(base, {
+      kind: 'propose',
+      operation: 'export' as unknown as AppAction['operation'],
+      payload: { confirmed: true },
+    }).receipts?.at(-1)).toMatchObject({ operation: 'export', status: 'completed' });
+
+    expect(applyAction(base, {
+      kind: 'propose',
+      operation: 'export' as unknown as AppAction['operation'],
+      recordId: 'missing',
+      payload: { confirmed: true },
+    }).receipts?.at(-1)).toMatchObject({ operation: 'export', status: 'unavailable', recordId: 'missing' });
+
+    expect(applyAction(base, {
+      kind: 'propose',
+      operation: 'navigate' as unknown as AppAction['operation'],
+      payload: { confirmed: true },
+    }).receipts?.at(-1)).toMatchObject({ operation: 'navigate', status: 'unavailable' });
+
+    expect(applyAction(base, {
+      kind: 'propose',
+      operation: 'navigate' as unknown as AppAction['operation'],
+      target: '/history',
+      payload: { confirmed: true },
+    }).receipts?.at(-1)).toMatchObject({ operation: 'navigate', status: 'completed' });
   });
 
   it('marks unavailable receipt when proposal target is missing', () => {

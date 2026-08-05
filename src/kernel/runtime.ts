@@ -161,6 +161,8 @@ function mutate(state: AppState, action: AppAction): AppState {
     const operation = String(action.operation);
     const collection = action.collection ?? String(action.payload.collection ?? '');
     const recordId = action.recordId ?? String(action.payload.recordId ?? '');
+    const hasRecord = (id: string) => state.records.some((entry) => entry.id === id);
+    const bindOrFail = (id?: string) => id ? (hasRecord(id) ? id : undefined) : undefined;
 
     if (operation === 'create') {
       if (!collection) return addReceipt(state, operation, 'unavailable');
@@ -195,7 +197,7 @@ function mutate(state: AppState, action: AppAction): AppState {
     }
 
     if (operation === 'retry') {
-      return addReceipt(state, operation, 'completed', recordId || undefined);
+      return addReceipt(state, operation, bindOrFail(recordId) ? 'completed' : 'unavailable', recordId || undefined);
     }
 
     if (operation === 'undo') {
@@ -203,8 +205,16 @@ function mutate(state: AppState, action: AppAction): AppState {
       return addReceipt(next, operation, next === state ? 'unavailable' : 'completed');
     }
 
-    if (operation === 'export') return addReceipt(state, operation, 'completed', recordId || undefined);
-    if (operation === 'navigate') return addReceipt(state, operation, 'completed', recordId || undefined);
+    if (operation === 'export') {
+      if (!state.records.length && !recordId) return addReceipt(state, operation, 'unavailable', undefined);
+      if (recordId && !hasRecord(recordId)) return addReceipt(state, operation, 'unavailable', recordId);
+      return addReceipt(state, operation, 'completed', recordId || undefined);
+    }
+
+    if (operation === 'navigate') {
+      const target = String(action.target ?? action.payload?.route ?? '').trim();
+      return addReceipt(state, operation, target ? 'completed' : 'unavailable', recordId || undefined);
+    }
     return addReceipt(state, operation, 'unavailable', recordId || undefined);
   }
 

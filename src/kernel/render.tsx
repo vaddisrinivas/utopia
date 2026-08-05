@@ -1,8 +1,9 @@
-import { AppWindow, ArrowLeft } from 'lucide-react-native';
+import { AppWindow, ArrowLeft, House, LayoutGrid, Search, Settings, UserRound } from 'lucide-react-native';
 import * as Lucide from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, H1, H2, Paragraph, ScrollView, Separator, Spinner, XStack, YStack } from 'tamagui';
 
 import { routeScreen } from './runtime';
@@ -18,7 +19,16 @@ import { recordBindableWidgets, recordWidgets } from './widget-support';
 
 const icon = (name?: string) => {
   const key = (name ?? '').split(/[-_\s]+/).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('');
-  return (Lucide as unknown as Record<string, typeof AppWindow>)[key] ?? AppWindow;
+  const explicit = (Lucide as unknown as Record<string, typeof AppWindow>)[key];
+  if (explicit) return explicit;
+
+  const lower = (name ?? '').toLowerCase();
+  if (lower.includes('home') || lower.includes('dashboard')) return House;
+  if (lower.includes('settings') || lower.includes('gear')) return Settings;
+  if (lower.includes('user') || lower.includes('profile')) return UserRound;
+  if (lower.includes('search')) return Search;
+  if (lower.includes('list') || lower.includes('menu') || lower.includes('grid')) return LayoutGrid;
+  return AppWindow;
 };
 
 function Component({ appId, component, navigate, pkg }: { appId: string; component: AppComponent; navigate(target: string): boolean; pkg: AppPackage }) {
@@ -57,7 +67,7 @@ function Component({ appId, component, navigate, pkg }: { appId: string; compone
   return <YStack style={layout(component.layout, width, height, Platform.OS)}>{content}</YStack>;
 }
 
-export function PackageApp({ pkg, initialScreen }: { pkg: AppPackage; initialScreen?: string }) {
+export function PackageApp({ appId, pkg, initialScreen }: { appId: string; pkg: AppPackage; initialScreen?: string }) {
   pkg = localize(pkg, pkg.presentation.ui.localization);
   const { width, height } = useWindowDimensions();
   const router = useRouter();
@@ -74,6 +84,11 @@ export function PackageApp({ pkg, initialScreen }: { pkg: AppPackage; initialScr
   const emoji = typeof identity?.emoji === 'string' ? identity.emoji : '◆';
   const ink = palette.ink;
   const wide = width >= 900;
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, 12);
+  const bottomInset = Math.max(insets.bottom, 8);
+  const leftInset = Math.max(insets.left, 12);
+  const rightInset = Math.max(insets.right, 12);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const document = (globalThis as { document?: { title: string } }).document;
@@ -95,30 +110,49 @@ export function PackageApp({ pkg, initialScreen }: { pkg: AppPackage; initialScr
   };
   useEffect(() => { if (requested && requested !== active) setActive(requested); }, [active, requested]);
   if (!ready) return <YStack style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Spinner /></YStack>;
-  const nav = navigation.length > 1 ? <XStack gap="$1" style={{ width: '100%', maxWidth: 1080, alignSelf: 'center', padding: 8 }}>
+  const showTopTabs = wide && navigation.length > 1;
+  const showBottomTabs = !wide && navigation.length > 1;
+  const navItems = navigation.length > 1 ? <XStack gap="$1" style={{ width: '100%', maxWidth: 1080, alignSelf: 'center', paddingLeft: leftInset, paddingRight: rightInset, paddingVertical: 6, alignItems: 'center' }}>
     {navigation.map((item) => {
       const Icon = icon(item.icon);
-      return <Button key={item.screen} flex={wide ? undefined : 1} size="$3" chromeless icon={<Icon color={item.screen === active ? accent : ink} />} style={{ backgroundColor: item.screen === active ? `${accent}22` : 'transparent', color: item.screen === active ? accent : ink }} onPress={() => navigate(item.screen)} accessibilityLabel={item.label} accessibilityState={{ selected: item.screen === active }} aria-label={item.label}>{wide ? item.label : null}</Button>;
+      const isActive = item.screen === active;
+      const selectedColor = isActive ? accent : ink;
+      return (
+        <Button
+          key={item.screen}
+          flex={showBottomTabs ? 1 : undefined}
+          size="$3"
+          chromeless
+          icon={<Icon size={18} strokeWidth={2} color={selectedColor} />}
+          style={{ backgroundColor: isActive ? `${accent}1E` : 'transparent', borderRadius: 10 }}
+          onPress={() => navigate(item.screen)}
+          accessibilityLabel={item.label}
+          accessibilityState={{ selected: isActive }}
+          aria-label={item.label}
+        >{showTopTabs || navigation.length <= 4 ? item.label : null}</Button>
+      );
     })}
   </XStack> : null;
   return <PackageTheme identity={identity}><YStack accessibilityRole={Platform.OS === 'web' ? 'main' as never : undefined} style={{ flex: 1, backgroundColor: palette.canvas, ...layout(pkg.presentation.ui.layout, width, height, Platform.OS) }}>
     <XStack style={{ backgroundColor: `${accent}12` }}>
-      <XStack gap="$3" style={{ width: '100%', maxWidth: 1120, alignSelf: 'center', alignItems: 'center', padding: 12, paddingTop: 20 }}>
-        <Button circular chromeless icon={<ArrowLeft color={ink} />} onPress={() => router.canGoBack() ? router.back() : router.replace('/')} aria-label="Apps" />
-        <YStack style={{ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: accent }}><Paragraph fontSize="$6">{emoji}</Paragraph></YStack>
-        <H1 size="$8" flex={1} style={{ color: ink }}>{pkg.presentation.label}</H1>
+      <XStack gap="$3" style={{ width: '100%', maxWidth: 1120, alignSelf: 'center', alignItems: 'center', paddingLeft: leftInset, paddingRight: rightInset, paddingTop: topInset, paddingBottom: 10 }}>
+        <Button accessibilityRole="button" circular chromeless icon={<ArrowLeft size={20} strokeWidth={2} color={ink} />} onPress={() => router.canGoBack() ? router.back() : router.replace('/')} accessibilityLabel="Back to apps" />
+        <YStack style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: accent }}><Paragraph fontSize="$6">{emoji}</Paragraph></YStack>
+        <H1 size="$7" flex={1} style={{ color: ink }} numberOfLines={1}>{pkg.presentation.label}</H1>
       </XStack>
     </XStack>
     <Separator />
-    {wide && nav ? <YStack style={{ borderBottomWidth: 1, borderColor: '#E3E6E3' }}>{nav}</YStack> : null}
-    <ScrollView contentContainerStyle={{ padding: 12 } as never}>
+    {showTopTabs ? <YStack style={{ borderBottomWidth: 1, borderColor: '#E3E6E3' }}>{navItems}</YStack> : null}
+    <ScrollView contentContainerStyle={{ padding: 12, paddingTop: 10, paddingBottom: showBottomTabs ? bottomInset : 12 } as never}>
       <YStack gap="$3" style={{ width: '100%', maxWidth: 1080, alignSelf: 'center' }}>
         {screen?.title ? <H2 size="$8" style={{ color: ink }}>{screen.title}</H2> : null}
         <YStack gap="$3" style={{ width: '100%', ...layout(screen?.layout, width, height, Platform.OS) }}>
-          {screen?.components.map((component, index) => <Component appId={pkg.id} key={component.id ?? `${component.kind}-${index}`} component={component} navigate={navigate} pkg={pkg} />)}
+          {screen?.components.map((component, index) => <Component appId={appId} key={component.id ?? `${component.kind}-${index}`} component={component} navigate={navigate} pkg={pkg} />)}
         </YStack>
       </YStack>
     </ScrollView>
-    {!wide && nav ? <YStack style={{ borderTopWidth: 1, borderColor: '#E3E6E3', paddingBottom: 6 }}>{nav}</YStack> : null}
+    {showBottomTabs ? <YStack style={{ borderTopWidth: 1, borderColor: '#E3E6E3', paddingTop: 6, paddingBottom: bottomInset }}>
+      {navItems}
+    </YStack> : null}
   </YStack></PackageTheme>;
 }

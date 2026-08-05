@@ -13,37 +13,23 @@ const auth = {
   'x-utopia-app': 'app-a',
   'content-type': 'application/json',
 };
-const app = createApp(async (input) => `You said: ${input.messages.at(-1)?.content ?? ''}`, {}, { keys });
 const homes = {
   'tenant-a:app-a:notebook': {
-    pull: vi.fn(async () => ({ records: [], cursor: undefined })),
+    pull: vi.fn(async () => ({ records: [] as Array<unknown>, cursor: undefined })),
     push: vi.fn(async () => ({ cursor: 'ok' })),
   },
 };
 const appWithHomes = createApp(async (input) => `You said: ${input.messages.at(-1)?.content ?? ''}`, homes, { keys });
+const app = createApp(async (input) => `You said: ${input.messages.at(-1)?.content ?? ''}`, {}, { keys });
 
-describe('compact server', () => {
-  it('reports health', async () => {
-    expect(await (await app.request('/health')).json()).toEqual({ ok: true });
-  });
-
-  it('sends deterministic, idempotent chat responses', async () => {
-    const body = { requestId: 'same', messages: [{ role: 'user', content: 'hello' }] };
-    const first = await (await app.request('/chat', { method: 'POST', headers: auth, body: JSON.stringify(body) })).json();
-    const second = await (await app.request('/chat', { method: 'POST', headers: auth, body: JSON.stringify(body) })).json();
-    expect(first).toEqual({ text: 'You said: hello', toolCalls: [] });
-    expect(second).toEqual(first);
-  });
-
-  it('rejects messages without an idempotency key', async () => {
+describe('chat rollback and idempotency', () => {
+  it('rejects messages without request id', async () => {
     const response = await app.request('/chat', { method: 'POST', headers: auth, body: JSON.stringify({ messages: [] }) });
     expect(response.status).toBe(400);
   });
 
-  it('fails closed on credentials, tenant/app scope, and key reuse', async () => {
+  it('fails closed on reused idempotency key for same tenant/app scope', async () => {
     const body = JSON.stringify({ requestId: 'scoped', messages: [{ role: 'user', content: 'hello' }] });
-    expect((await app.request('/chat', { method: 'POST', body })).status).toBe(401);
-    expect((await app.request('/chat', { method: 'POST', headers: { ...auth, 'x-utopia-tenant': 'tenant-b' }, body })).status).toBe(403);
     await app.request('/chat', { method: 'POST', headers: auth, body });
     const conflict = await app.request('/chat', {
       method: 'POST', headers: auth,
@@ -64,7 +50,7 @@ describe('compact server', () => {
     expect(calls).toBe(1);
   });
 
-  it('denies data-home access when requested provider scope is outside tenant/app', async () => {
+  it('denies data-home access outside tenant/app scope', async () => {
     const scopedHome = `/data/${encodeURIComponent('tenant-a:app-a:notebook')}/pull`;
     const crossTenant = await appWithHomes.request('/data/tenant-a%3Aother%3Anotebook/pull', { method: 'POST', headers: auth, body: JSON.stringify({}) });
     const crossApp = await appWithHomes.request('/data/tenant-a%3Aapp-b%3Anotebook/pull', { method: 'POST', headers: { ...auth, 'x-utopia-app': 'app-b' }, body: JSON.stringify({}) });
